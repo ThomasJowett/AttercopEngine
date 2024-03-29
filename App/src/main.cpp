@@ -4,7 +4,7 @@
 
 int main(int, char**)
 {
-    atcp::Logger::Init("App");
-    LOG_INFO("Hello World!");
-    return EXIT_SUCCESS;
+	atcp::Logger::Init("App");
+	LOG_INFO("Hello World!");
+	return EXIT_SUCCESS;
 }

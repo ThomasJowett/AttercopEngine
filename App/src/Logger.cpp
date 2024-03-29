@@ -1,7 +1,10 @@
 #include "Logger.hpp"
+#include <filesystem>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/msvc_sink.h>
+
+#include "InternalConsoleSink.hpp"
 
 namespace atcp {
 std::shared_ptr<spdlog::logger> Logger::s_Logger;
@@ -16,10 +19,9 @@ void Logger::Init(const std::string& name)
 	//log file
 	logSinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilename, true));
 	logSinks.back()->set_pattern("[%d/%m/%Y] [%T] [%l] %n: %v");
-
 	// Internal Console
-	//logSinks.emplace_back(std::make_shared<InternalConsoleSink_mt>());
-	//logSinks.back()->set_pattern("%^[%T] [%l] %n: %v%$");
+	logSinks.emplace_back(std::make_shared<InternalConsoleSink_mt>());
+	logSinks.back()->set_pattern("%^[%T] [%l] %n: %v%$");
 #ifdef _MSC_VER
 	// msvc output
 	logSinks.emplace_back(std::make_shared<spdlog::sinks::msvc_sink_mt>());
