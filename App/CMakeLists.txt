@@ -1,4 +1,12 @@
-add_executable(App src/main.cpp)
+file(GLOB APP_SOURCES
+    src/*.cpp
+)
+
+file(GLOB APP_HEADERS
+    ${CMAKE_SOURCE_DIR}/include/*.hpp
+)
+
+add_executable(App ${APP_SOURCES} ${APP_HEADERS})
 
 set_target_properties(App PROPERTIES
     CXX_STANDARD 17
@@ -17,3 +25,10 @@ if(XCODE)
         XCODE_GENERATE_SCHEME ON
         XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal")
 endif()
+
+target_link_libraries(spdlog)
+
+target_include_directories(App PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/external/spdlog/include
+)
