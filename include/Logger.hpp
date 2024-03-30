@@ -5,6 +5,8 @@
 #include <string>
 #include <spdlog/spdlog.h>
 
+#include "Debug.hpp"
+
 namespace atcp {
 
 class Logger
