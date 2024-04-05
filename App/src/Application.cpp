@@ -2,8 +2,10 @@
 #include "Logger.hpp"
 
 #define SDL_MAIN_HANDLED
-//#include <sdl2webgpu.h>
+#include <sdl2webgpu.h>
 #include <SDL2/SDL.h>
+
+#include <webgpu/webgpu.h>
 
 namespace atcp {
 
@@ -18,11 +20,23 @@ Application::~Application()
 
 int Application::Init(int, char**)
 {
+	WGPUInstanceDescriptor desc = {};
+	desc.nextInChain = nullptr;
+
+	WGPUInstance instance = wgpuCreateInstance(&desc);
+
+	if (!instance) {
+		LOG_CRITICAL("Could not initialize WebGPU!");
+		return 1;
+	}
+
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		LOG_ERROR("Could not initialize SDL! Error: {0}", SDL_GetError());
 		return 1;
 	}
+
+	std::cout << "WGPU instance: " << instance << std::endl;
 
 	SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 
