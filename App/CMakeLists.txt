@@ -29,9 +29,12 @@ endif()
 target_link_libraries(App PRIVATE
     spdlog
     SDL2::SDL2
-    # sdl2webgpu
+    webgpu
+    sdl2webgpu
 )
 
 target_include_directories(App PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
+
+target_copy_webgpu_binaries(App)
