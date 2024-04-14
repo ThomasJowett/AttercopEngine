@@ -51,5 +51,31 @@ private:
 #define LOG_TRACE(...)
 #endif // DEBUG
 
+#ifdef DEBUG
+#if defined(_MSC_VER)
+#define DEBUGBREAK() __debugbreak()
+#elif defined(__linux__)
+#include <signal.h>
+#if defined(SIGTRAP)
+#define DEBUGBREAK() raise(SIGTRAP)
+#else
+#define DEBUGBREAK() raise(SIGABRT)
+#endif
+#elif defined(__APPLE__)
+#define DEBUGBREAK() __builtin_trap()
+#else
+#define DEBUGBREAK()
+#endif
+#else
+#define DEBUGBREAK()
+#endif // DEBUG
+
+#ifdef ENABLE_ASSERTS
+#define ASSERT(x, ...) {if(!(x)){LOG_ERROR("Assertion failed: {0}", __VA_ARGS__);DEBUGBREAK();}}
+#else
+#define ASSERT(x, ...)
+#define CORE_ASSERT(z, ...)
+#endif // ENABLE_ASSERTS
+
 
 #endif // LOGGER_HPP
