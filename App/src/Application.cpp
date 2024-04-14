@@ -5,7 +5,7 @@
 #include <sdl2webgpu.h>
 #include <SDL2/SDL.h>
 
-#include <webgpu/webgpu.h>
+#include <vector>
 
 namespace atcp {
 
@@ -36,15 +36,37 @@ int Application::Init(int, char**)
 		return 1;
 	}
 
-	std::cout << "WGPU instance: " << instance << std::endl;
+	LOG_INFO("WGPU instance: {}", fmt::ptr(instance));
 
 	SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 
 	int windowFlags = 0;
-	SDL_CreateWindow("Atterop", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, windowFlags);
-	//SDL_Window* window = SDL_CreateWindow("Atterop", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, windowFlags);
+	SDL_Window* window = SDL_CreateWindow("Atterop", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, windowFlags);
 
-	//Surface surface = SDL_GetWGPUSurface(instance, window);
+	WGPUSurface surface = SDL_GetWGPUSurface(instance, window);
+
+	LOG_TRACE("Requesting adapter...");
+	WGPURequestAdapterOptions adapterOpts = {};
+	adapterOpts.nextInChain = nullptr;
+	adapterOpts.compatibleSurface = surface;
+
+	WGPUAdapter adapter = RequestAdapter(instance, &adapterOpts);
+
+	std::vector<WGPUFeatureName> features;
+
+	size_t featureCount = wgpuAdapterEnumerateFeatures(adapter, nullptr);
+
+	features.resize(featureCount);
+
+	wgpuAdapterEnumerateFeatures(adapter, features.data());
+
+	LOG_DEBUG("Adapter features: ");
+	for (auto f : features) {
+		LOG_DEBUG(" - {0}", (int)f);
+	}
+
+	wgpuSurfaceRelease(surface);
+	wgpuAdapterRelease(adapter);
 	return 0;
 }
 
@@ -69,5 +91,35 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 	}
+}
+WGPUAdapter Application::RequestAdapter(WGPUInstance instance, WGPURequestAdapterOptions const* options)
+{
+	struct UserData {
+		WGPUAdapter adapter = nullptr;
+		bool requestEnded = false;
+	};
+	UserData userData;
+
+	auto onAdapterRequestEnded = [](WGPURequestAdapterStatus status, WGPUAdapter adapter, char const* message, void* pUserData) {
+		UserData& userData = *reinterpret_cast<UserData*>(pUserData);
+		if (status == WGPURequestAdapterStatus_Success) {
+			userData.adapter = adapter;
+		}
+		else {
+			LOG_ERROR("Could not get WebGPU adapter: {0}", message);
+		}
+
+		userData.requestEnded = true;
+	};
+
+	wgpuInstanceRequestAdapter(
+		instance,
+		options,
+		onAdapterRequestEnded,
+		(void*)&userData
+	);
+
+	ASSERT(userData.requestEnded, "");
+	return userData.adapter;
 }
 }

@@ -1,6 +1,8 @@
 #ifndef APPLICATION_HPP
 #define APPLICATION_HPP
 
+#include <webgpu/webgpu.h>
+
 int main(int argc, char* argv[]);
 
 namespace atcp {
@@ -14,6 +16,8 @@ public:
 
 private:
 	void Run();
+
+	WGPUAdapter RequestAdapter(WGPUInstance instance, WGPURequestAdapterOptions const* options);
 
 private:
 	bool m_Running = false;
