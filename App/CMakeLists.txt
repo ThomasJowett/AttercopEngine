@@ -6,6 +6,8 @@ file(GLOB APP_HEADERS
     ${CMAKE_SOURCE_DIR}/include/*.hpp
 )
 
+add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
+
 add_executable(App ${APP_SOURCES} ${APP_HEADERS})
 
 set_target_properties(App PROPERTIES
