@@ -18,6 +18,7 @@ private:
 	void Run();
 
 	WGPUAdapter RequestAdapter(WGPUInstance instance, WGPURequestAdapterOptions const* options);
+	WGPUDevice RequestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const* descriptor);
 
 private:
 	bool m_Running = false;

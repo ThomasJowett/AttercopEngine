@@ -66,6 +66,28 @@ int Application::Init(int, char**)
 		LOG_DEBUG(" - {0}", WGPUFeatureNamesToStr(f));
 	}
 
+	LOG_TRACE("Requesting device...");
+	WGPUDeviceDescriptor deviceDesc = {};
+	deviceDesc.nextInChain = nullptr;
+	deviceDesc.label = "Main Device";
+	deviceDesc.requiredFeaturesCount = 0;
+	deviceDesc.requiredLimits = nullptr;
+	deviceDesc.defaultQueue.nextInChain = nullptr;
+	deviceDesc.defaultQueue.label = "The default queue";
+	WGPUDevice device = RequestDevice(adapter, &deviceDesc);
+
+	LOG_DEBUG("Got device");
+
+	auto onDeviceError = [](WGPUErrorType type, char const *message, void * /*pUserData*/)
+	{
+		LOG_ERROR("Uncaptured device error: type {0}", (int)type);
+		if (message)
+			LOG_ERROR(message);
+	};
+
+	wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr);
+
+	wgpuDeviceRelease(device);
 	wgpuSurfaceRelease(surface);
 	wgpuAdapterRelease(adapter);
 	return 0;
@@ -122,5 +144,38 @@ WGPUAdapter Application::RequestAdapter(WGPUInstance instance, WGPURequestAdapte
 
 	ASSERT(userData.requestEnded, "");
 	return userData.adapter;
+}
+WGPUDevice Application::RequestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const *descriptor)
+{
+	struct UserData
+	{
+		WGPUDevice device = nullptr;
+		bool requestEnded = false;
+	};
+
+	UserData userData;
+
+	auto onDeviceRequestEnded = [](WGPURequestDeviceStatus status, WGPUDevice device, char const *message, void *pUserData)
+	{
+		UserData &userData = *reinterpret_cast<UserData *>(pUserData);
+		if (status == WGPURequestDeviceStatus_Success)
+		{
+			userData.device = device;
+		}
+		else
+		{
+			LOG_ERROR("Could not get WebGPU device: {0}", message);
+		}
+		userData.requestEnded = true;
+	};
+
+	wgpuAdapterRequestDevice(
+		adapter,
+		descriptor,
+		onDeviceRequestEnded,
+		(void *)&userData);
+
+	ASSERT(userData.requestEnded, "");
+	return userData.device;
 }
 }
