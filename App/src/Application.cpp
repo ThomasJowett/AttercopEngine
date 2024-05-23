@@ -1,5 +1,6 @@
 #include "Application.hpp"
 #include "Logger.hpp"
+#include "WGPUNameHelpers.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -62,7 +63,7 @@ int Application::Init(int, char**)
 
 	LOG_DEBUG("Adapter features: ");
 	for (auto f : features) {
-		LOG_DEBUG(" - {0}", (int)f);
+		LOG_DEBUG(" - {0}", WGPUFeatureNamesToStr(f));
 	}
 
 	wgpuSurfaceRelease(surface);
