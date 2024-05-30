@@ -32,8 +32,6 @@ namespace atcp
 			return "RG11B10UfloatRenderable";
 		case WGPUFeatureName_BGRA8UnormStorage:
 			return "BGRA8UnormStorage";
-		case WGPUFeatureName_Force32:
-			return "Force32";
 		default:
 			return "Unknown WGPUFeatureName value: " + std::to_string(feature);
 		}
@@ -51,8 +49,6 @@ namespace atcp
 			return "Unkown";
 		case WGPUQueueWorkDoneStatus_DeviceLost:
 			return "Device Lost";
-		case WGPUQueueWorkDoneStatus_Force32:
-			return "Force32";
 		default:
 			return "Unknown WGPUQueueWorkDoneStatus" + std::to_string(status);
 		}
