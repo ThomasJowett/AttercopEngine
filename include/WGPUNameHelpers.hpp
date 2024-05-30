@@ -38,4 +38,23 @@ namespace atcp
 			return "Unknown WGPUFeatureName value: " + std::to_string(feature);
 		}
 	}
+
+	static std::string WGPUQueueWorkDoneStatusToStr(WGPUQueueWorkDoneStatus status)
+	{
+		switch (status)
+		{
+		case WGPUQueueWorkDoneStatus_Success:
+			return "Success";
+		case WGPUQueueWorkDoneStatus_Error:
+			return "Error";
+		case WGPUQueueWorkDoneStatus_Unknown:
+			return "Unkown";
+		case WGPUQueueWorkDoneStatus_DeviceLost:
+			return "Device Lost";
+		case WGPUQueueWorkDoneStatus_Force32:
+			return "Force32";
+		default:
+			return "Unknown WGPUQueueWorkDoneStatus" + std::to_string(status);
+		}
+	}
 }
