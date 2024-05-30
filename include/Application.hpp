@@ -24,6 +24,13 @@ private:
 	bool m_Running = false;
 	float m_FixedUpdateInterval = 0.01f;
 
+	WGPUInstance m_Instance = nullptr;
+	WGPUAdapter m_Adapter = nullptr;
+	WGPUSurface m_Surface = nullptr;
+	WGPUDevice m_Device = nullptr;
+	WGPUSwapChain m_SwapChain = nullptr;
+	WGPUQueue m_Queue = nullptr;
+
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
 };
