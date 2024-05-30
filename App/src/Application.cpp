@@ -84,9 +84,38 @@ int Application::Init(int, char**)
 		if (message)
 			LOG_ERROR(message);
 	};
-
 	wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr);
 
+	WGPUQueue queue = wgpuDeviceGetQueue(device);
+
+	auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void * /* pUserData */)
+	{
+		LOG_INFO("Queued work finished with status: {0}", WGPUQueueWorkDoneStatusToStr(status));
+	};
+	wgpuQueueOnSubmittedWorkDone(queue, onQueueWorkDone, nullptr /* pUserData */);
+
+	WGPUCommandEncoderDescriptor encoderDesc = {};
+	encoderDesc.nextInChain = nullptr;
+	encoderDesc.label = "My command encoder";
+	WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(device, &encoderDesc);
+
+	// Encode some mock commands
+	wgpuCommandEncoderInsertDebugMarker(encoder, "Do one thing");
+	wgpuCommandEncoderInsertDebugMarker(encoder, "Do another thing");
+
+	// Encode commands into a command buffer
+	WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
+	cmdBufferDescriptor.nextInChain = nullptr;
+	cmdBufferDescriptor.label = "Command buffer";
+	WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
+	wgpuCommandEncoderRelease(encoder);
+
+	LOG_TRACE("Submitting command...");
+	wgpuQueueSubmit(queue, 1, &command);
+
+	wgpuCommandEncoderRelease(encoder);
+	wgpuCommandBufferRelease(command);
+	wgpuQueueRelease(queue);
 	wgpuDeviceRelease(device);
 	wgpuSurfaceRelease(surface);
 	wgpuAdapterRelease(adapter);
