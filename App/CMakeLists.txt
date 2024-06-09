@@ -40,3 +40,11 @@ target_include_directories(App PUBLIC
 )
 
 target_copy_webgpu_binaries(App)
+
+if (EMSCRIPTEN)
+    target_link_options(App PRIVATE
+        -sUSE_WEBGPU
+        -sASYNCIFY
+    )
+    set_target_properties(App PROPERTIES SUFFIX ".html")
+endif()
