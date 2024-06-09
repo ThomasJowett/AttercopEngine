@@ -16,7 +16,6 @@ Application::Application()
 
 Application::~Application()
 {
-	m_SwapChain.release();
 	m_Adapter.release();
 	m_Surface.release();
 	m_Device.release();
@@ -73,7 +72,7 @@ int Application::Init(int, char**)
 	LOG_TRACE("Requesting device...");
 	wgpu::DeviceDescriptor deviceDesc = {};
 	deviceDesc.label = "Main Device";
-	deviceDesc.requiredFeaturesCount = 0;
+	deviceDesc.requiredFeatureCount = 0;
 	deviceDesc.nextInChain = nullptr;
 	deviceDesc.defaultQueue.label = "The default queue";
 	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /*pUserData*/) {
@@ -91,25 +90,23 @@ int Application::Init(int, char**)
 	};
 
 	m_Device.setUncapturedErrorCallback(onDeviceError);
-
-	wgpu::SwapChainDescriptor swapChainDesc = {};
-	swapChainDesc.width = windowWidth;
-	swapChainDesc.height = windowHeight;
-
-	wgpu::TextureFormat swapChainFormat = m_Surface.getPreferredFormat(m_Adapter);
-	swapChainDesc.format = swapChainFormat;
-	swapChainDesc.usage = wgpu::TextureUsage::RenderAttachment;
-	swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
-
-	LOG_TRACE("Creating swap chain...");
-	m_SwapChain = m_Device.createSwapChain(m_Surface, swapChainDesc);
 	m_Queue = m_Device.getQueue();
 
-	auto onQueueWorkDone = [](wgpu::QueueWorkDoneStatus status)
-	{
-		LOG_INFO("Queued work finished with status: {0}", WGPUQueueWorkDoneStatusToStr(status));
-	};
-	m_Queue.onSubmittedWorkDone(onQueueWorkDone);
+	wgpu::SurfaceConfiguration surfaceConfig = {};
+
+	surfaceConfig.width = windowWidth;
+	surfaceConfig.height = windowHeight;
+	surfaceConfig.usage = wgpu::TextureUsage::RenderAttachment;
+	wgpu::TextureFormat surfaceFormat = m_Surface.getPreferredFormat(m_Adapter);
+	surfaceConfig.format = surfaceFormat;
+
+	surfaceConfig.viewFormatCount = 0;
+	surfaceConfig.viewFormats = nullptr;
+	surfaceConfig.device = m_Device;
+	surfaceConfig.presentMode = wgpu::PresentMode::Fifo;
+	surfaceConfig.alphaMode = wgpu::CompositeAlphaMode::Auto;
+
+	m_Surface.configure(surfaceConfig);
 
 	return 0;
 }
@@ -135,10 +132,9 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 
-		wgpu::TextureView nextTexture = m_SwapChain.getCurrentTextureView();
-		if (!nextTexture)
+		wgpu::TextureView targetView = GetNextSurfaceTextureView();
+		if (!targetView)
 		{
-			LOG_ERROR("Cannot acquire next swap chain texture!");
 			continue;
 		}
 
@@ -149,7 +145,7 @@ void Application::Run()
 		wgpu::RenderPassDescriptor renderPassDesc = {};
 
 		wgpu::RenderPassColorAttachment renderPassColorAttachment = {};
-		renderPassColorAttachment.view = nextTexture;
+		renderPassColorAttachment.view = targetView;
 		renderPassColorAttachment.resolveTarget = nullptr;
 		renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
 		renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
@@ -158,7 +154,6 @@ void Application::Run()
 		renderPassDesc.colorAttachmentCount = 1;
 		renderPassDesc.colorAttachments = &renderPassColorAttachment;
 		renderPassDesc.depthStencilAttachment = nullptr;
-		renderPassDesc.timestampWriteCount = 0;
 		renderPassDesc.timestampWrites = nullptr;
 		renderPassDesc.nextInChain = nullptr;
 
@@ -174,8 +169,38 @@ void Application::Run()
 
 		m_Queue.submit(command);
 		command.release();
-		nextTexture.release();
-		m_SwapChain.present();
+		targetView.release();
+		m_Surface.present();
+
+#if defined(WEBGPU_BACKEND_DAWN)
+		m_Device.tick();
+#elif defined(WEBGPU_BACKEND_WGPU)
+		m_Device.poll(false);
+#endif
 	}
+}
+wgpu::TextureView Application::GetNextSurfaceTextureView()
+{
+	wgpu::SurfaceTexture surfaceTexture;
+	m_Surface.getCurrentTexture(&surfaceTexture);
+	if (surfaceTexture.status != wgpu::SurfaceGetCurrentTextureStatus::Success) {
+		LOG_ERROR("Could not get surface texture");
+		return nullptr;
+	}
+
+	wgpu::Texture texture = surfaceTexture.texture;
+
+	wgpu::TextureViewDescriptor viewDescriptor;
+	viewDescriptor.label = "Surface texture view";
+	viewDescriptor.format = texture.getFormat();
+	viewDescriptor.dimension = wgpu::TextureViewDimension::_2D;
+	viewDescriptor.baseMipLevel = 0;
+	viewDescriptor.mipLevelCount = 1;
+	viewDescriptor.baseArrayLayer = 0;
+	viewDescriptor.arrayLayerCount = 1;
+	viewDescriptor.aspect = wgpu::TextureAspect::All;
+	wgpu::TextureView targetView = texture.createView(viewDescriptor);
+
+	return targetView;
 }
 }

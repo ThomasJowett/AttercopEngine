@@ -16,8 +16,6 @@ static std::string WGPUFeatureNamesToStr(wgpu::FeatureName feature)
 		return "Depth32FloatStencil8";
 	case wgpu::FeatureName::TimestampQuery:
 		return "TimestampQuery";
-	case wgpu::FeatureName::PipelineStatisticsQuery:
-		return "PipelineStatisticsQuery";
 	case wgpu::FeatureName::TextureCompressionBC:
 		return "TextureCompressionBC";
 	case wgpu::FeatureName::TextureCompressionETC2:
@@ -32,25 +30,10 @@ static std::string WGPUFeatureNamesToStr(wgpu::FeatureName feature)
 		return "RG11B10UfloatRenderable";
 	case wgpu::FeatureName::BGRA8UnormStorage:
 		return "BGRA8UnormStorage";
+	case wgpu::FeatureName::Float32Filterable:
+		return "Float32Filterable";
 	default:
 		return "Unknown WGPUFeatureName value: " + std::to_string(feature);
-	}
-}
-
-static std::string WGPUQueueWorkDoneStatusToStr(wgpu::QueueWorkDoneStatus status)
-{
-	switch (status)
-	{
-	case wgpu::QueueWorkDoneStatus::Success:
-		return "Success";
-	case wgpu::QueueWorkDoneStatus::Error:
-		return "Error";
-	case wgpu::QueueWorkDoneStatus::Unknown:
-		return "Unkown";
-	case wgpu::QueueWorkDoneStatus::DeviceLost:
-		return "Device Lost";
-	default:
-		return "Unknown WGPUQueueWorkDoneStatus" + std::to_string(status);
 	}
 }
 }
