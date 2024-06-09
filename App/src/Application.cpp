@@ -1,6 +1,5 @@
 #include "Application.hpp"
 #include "Logger.hpp"
-#include "WGPUNameHelpers.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -56,18 +55,6 @@ int Application::Init(int, char**)
 	adapterOpts.compatibleSurface = m_Surface;
 
 	m_Adapter = m_Instance.requestAdapter(adapterOpts);
-
-	size_t featureCount = m_Adapter.enumerateFeatures(nullptr);
-
-	std::vector<WGPUFeatureName> features;
-	features.resize(featureCount);
-
-	wgpuAdapterEnumerateFeatures(m_Adapter, features.data());
-
-	LOG_DEBUG("Adapter features: ");
-	for (auto f : features) {
-		LOG_DEBUG(" - {0}", WGPUFeatureNamesToStr(f));
-	}
 
 	LOG_TRACE("Requesting device...");
 	wgpu::DeviceDescriptor deviceDesc = {};
