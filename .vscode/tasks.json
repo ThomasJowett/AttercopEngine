@@ -22,7 +22,11 @@
           "message": 5
         }
       },
-      "detail": "Build current CMake configuration into 'build' folder"
+      "detail": "Build current CMake configuration into 'build' folder",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ]
 }

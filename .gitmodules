@@ -1,3 +1,9 @@
 [submodule "external/spdlog"]
 	path = external/spdlog
 	url = git@github.com:gabime/spdlog.git
+[submodule "external/SDL"]
+	path = external/SDL
+	url = git@github.com:libsdl-org/SDL.git
+[submodule "external/sdl2webgpu"]
+	path = external/sdl2webgpu
+	url = git@github.com:eliemichel/sdl2webgpu.git

@@ -6,6 +6,8 @@ file(GLOB APP_HEADERS
     ${CMAKE_SOURCE_DIR}/include/*.hpp
 )
 
+add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
+
 add_executable(App ${APP_SOURCES} ${APP_HEADERS})
 
 set_target_properties(App PROPERTIES
@@ -26,9 +28,15 @@ if(XCODE)
         XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal")
 endif()
 
-target_link_libraries(spdlog)
+target_link_libraries(App PRIVATE
+    spdlog
+    SDL2::SDL2
+    webgpu
+    sdl2webgpu
+)
 
 target_include_directories(App PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/external/spdlog/include
 )
+
+target_copy_webgpu_binaries(App)

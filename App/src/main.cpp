@@ -1,10 +1,19 @@
 #include <iostream>
 
-#include "Logger.hpp"
+#define WEBGPU_CPP_IMPLEMENTATION
+#include <webgpu/webgpu.hpp>
 
-int main(int, char**)
+#include "Logger.hpp"
+#include "Application.hpp"
+
+int main(int argc, char* argv[])
 {
 	atcp::Logger::Init("App");
-	LOG_INFO("Hello World!");
+	atcp::Application app;
+	if (app.Init(argc, argv) != 0)
+		EXIT_FAILURE;
+
+	app.Run();
+
 	return EXIT_SUCCESS;
 }
