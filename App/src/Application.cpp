@@ -16,11 +16,12 @@ Application::Application()
 
 Application::~Application()
 {
-	wgpuSwapChainRelease(m_SwapChain);
-	wgpuAdapterRelease(m_Adapter);
-	wgpuSurfaceRelease(m_Surface);
-	wgpuDeviceRelease(m_Device);
-	wgpuQueueRelease(m_Queue);
+	m_SwapChain.release();
+	m_Adapter.release();
+	m_Surface.release();
+	m_Device.release();
+	m_Queue.release();
+	m_Instance.release();
 	SDL_Quit();
 }
 
@@ -54,16 +55,12 @@ int Application::Init(int, char**)
 	LOG_TRACE("Requesting adapter...");
 	wgpu::RequestAdapterOptions adapterOpts{};
 	adapterOpts.compatibleSurface = m_Surface;
-	// WGPURequestAdapterOptions adapterOpts = {};
-	// adapterOpts.nextInChain = nullptr;
-	// adapterOpts.compatibleSurface = m_Surface;
 
-	m_Adapter = RequestAdapter(m_Instance, &adapterOpts);
+	m_Adapter = m_Instance.requestAdapter(adapterOpts);
+
+	size_t featureCount = m_Adapter.enumerateFeatures(nullptr);
 
 	std::vector<WGPUFeatureName> features;
-
-	size_t featureCount = wgpuAdapterEnumerateFeatures(m_Adapter, nullptr);
-
 	features.resize(featureCount);
 
 	wgpuAdapterEnumerateFeatures(m_Adapter, features.data());
@@ -74,45 +71,45 @@ int Application::Init(int, char**)
 	}
 
 	LOG_TRACE("Requesting device...");
-	WGPUDeviceDescriptor deviceDesc = {};
-	deviceDesc.nextInChain = nullptr;
+	wgpu::DeviceDescriptor deviceDesc = {};
 	deviceDesc.label = "Main Device";
 	deviceDesc.requiredFeaturesCount = 0;
-	deviceDesc.requiredLimits = nullptr;
-	deviceDesc.defaultQueue.nextInChain = nullptr;
+	deviceDesc.nextInChain = nullptr;
 	deviceDesc.defaultQueue.label = "The default queue";
-	m_Device = RequestDevice(m_Adapter, &deviceDesc);
+	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /*pUserData*/) {
+		LOG_ERROR("Device lost: Reason: {0} Message: {1}", (int)reason, message);
+	};
+	m_Device = m_Adapter.requestDevice(deviceDesc);
 
 	LOG_DEBUG("Got device");
 
-	auto onDeviceError = [](WGPUErrorType type, char const* message, void* /*pUserData*/)
-		{
-			LOG_ERROR("Uncaptured device error: type {0}", (int)type);
-			if (message)
-				LOG_ERROR(message);
-		};
-	wgpuDeviceSetUncapturedErrorCallback(m_Device, onDeviceError, nullptr);
+	auto onDeviceError = [](wgpu::ErrorType type, char const* message)
+	{
+		LOG_ERROR("Uncaptured device error: type {0}", (int)type);
+		if (message)
+			LOG_ERROR(message);
+	};
 
-	WGPUSwapChainDescriptor swapChainDesc = {};
-	swapChainDesc.nextInChain = nullptr;
+	m_Device.setUncapturedErrorCallback(onDeviceError);
+
+	wgpu::SwapChainDescriptor swapChainDesc = {};
 	swapChainDesc.width = windowWidth;
 	swapChainDesc.height = windowHeight;
 
-	WGPUTextureFormat swapChainFormat = wgpuSurfaceGetPreferredFormat(m_Surface, m_Adapter);
+	wgpu::TextureFormat swapChainFormat = m_Surface.getPreferredFormat(m_Adapter);
 	swapChainDesc.format = swapChainFormat;
-	swapChainDesc.usage = WGPUTextureUsage_RenderAttachment;
-	swapChainDesc.presentMode = WGPUPresentMode_Fifo;
+	swapChainDesc.usage = wgpu::TextureUsage::RenderAttachment;
+	swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
 
 	LOG_TRACE("Creating swap chain...");
-	m_SwapChain = wgpuDeviceCreateSwapChain(m_Device, m_Surface, &swapChainDesc);
+	m_SwapChain = m_Device.createSwapChain(m_Surface, swapChainDesc);
+	m_Queue = m_Device.getQueue();
 
-	m_Queue = wgpuDeviceGetQueue(m_Device);
-
-	auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void* /* pUserData */)
-		{
-			LOG_INFO("Queued work finished with status: {0}", WGPUQueueWorkDoneStatusToStr(status));
-		};
-	wgpuQueueOnSubmittedWorkDone(m_Queue, onQueueWorkDone, nullptr /* pUserData */);
+	auto onQueueWorkDone = [](wgpu::QueueWorkDoneStatus status)
+	{
+		LOG_INFO("Queued work finished with status: {0}", WGPUQueueWorkDoneStatusToStr(status));
+	};
+	m_Queue.onSubmittedWorkDone(onQueueWorkDone);
 
 	return 0;
 }
@@ -138,26 +135,25 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 
-		WGPUTextureView nextTexture = wgpuSwapChainGetCurrentTextureView(m_SwapChain);
+		wgpu::TextureView nextTexture = m_SwapChain.getCurrentTextureView();
 		if (!nextTexture)
 		{
 			LOG_ERROR("Cannot acquire next swap chain texture!");
 			continue;
 		}
 
-		WGPUCommandEncoderDescriptor encoderDesc = {};
-		encoderDesc.nextInChain = nullptr;
+		wgpu::CommandEncoderDescriptor encoderDesc = {};
 		encoderDesc.label = "Command encoder";
-		WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_Device, &encoderDesc);
+		wgpu::CommandEncoder encoder = m_Device.createCommandEncoder(encoderDesc);
 
-		WGPURenderPassDescriptor renderPassDesc = {};
+		wgpu::RenderPassDescriptor renderPassDesc = {};
 
-		WGPURenderPassColorAttachment renderPassColorAttachment = {};
+		wgpu::RenderPassColorAttachment renderPassColorAttachment = {};
 		renderPassColorAttachment.view = nextTexture;
 		renderPassColorAttachment.resolveTarget = nullptr;
-		renderPassColorAttachment.loadOp = WGPULoadOp_Clear;
-		renderPassColorAttachment.storeOp = WGPUStoreOp_Store;
-		renderPassColorAttachment.clearValue = WGPUColor{ 0.1, 0.4, 0.1, 1.0 };
+		renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
+		renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
+		renderPassColorAttachment.clearValue = wgpu::Color{ 0.1, 0.4, 0.1, 1.0 };
 
 		renderPassDesc.colorAttachmentCount = 1;
 		renderPassDesc.colorAttachments = &renderPassColorAttachment;
@@ -166,88 +162,20 @@ void Application::Run()
 		renderPassDesc.timestampWrites = nullptr;
 		renderPassDesc.nextInChain = nullptr;
 
-		WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDesc);
-		wgpuRenderPassEncoderEnd(renderPass);
-		wgpuRenderPassEncoderRelease(renderPass);
+		wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
+		renderPass.end();
+		renderPass.release();
 
 		// Encode commands into a command buffer
-		WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
-		cmdBufferDescriptor.nextInChain = nullptr;
+		wgpu::CommandBufferDescriptor cmdBufferDescriptor = {};
 		cmdBufferDescriptor.label = "Command buffer";
-		WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
-		wgpuCommandEncoderRelease(encoder);
+		wgpu::CommandBuffer command = encoder.finish(cmdBufferDescriptor);
+		encoder.release();
 
-		wgpuCommandEncoderRelease(encoder);
-		LOG_TRACE("Submitting command...");
-		wgpuQueueSubmit(m_Queue, 1, &command);
-		wgpuCommandBufferRelease(command);
-
-		wgpuTextureViewRelease(nextTexture);
-
-		wgpuSwapChainPresent(m_SwapChain);
+		m_Queue.submit(command);
+		command.release();
+		nextTexture.release();
+		m_SwapChain.present();
 	}
-}
-wgpu::Adapter Application::RequestAdapter(wgpu::Instance instance, wgpu::RequestAdapterOptions const* options)
-{
-	struct UserData {
-		wgpu::Adapter adapter = nullptr;
-		bool requestEnded = false;
-	};
-	UserData userData;
-
-	auto onAdapterRequestEnded = [](WGPURequestAdapterStatus status, WGPUAdapter adapter, char const* message, void* pUserData) {
-		UserData& userData = *reinterpret_cast<UserData*>(pUserData);
-		if (status == WGPURequestAdapterStatus_Success) {
-			userData.adapter = adapter;
-		}
-		else {
-			LOG_ERROR("Could not get WebGPU adapter: {0}", message);
-		}
-
-		userData.requestEnded = true;
-		};
-
-	wgpuInstanceRequestAdapter(
-		instance,
-		options,
-		onAdapterRequestEnded,
-		(void*)&userData
-	);
-
-	ASSERT(userData.requestEnded, "");
-	return userData.adapter;
-}
-WGPUDevice Application::RequestDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const* descriptor)
-{
-	struct UserData
-	{
-		WGPUDevice device = nullptr;
-		bool requestEnded = false;
-	};
-
-	UserData userData;
-
-	auto onDeviceRequestEnded = [](WGPURequestDeviceStatus status, WGPUDevice device, char const* message, void* pUserData)
-		{
-			UserData& userData = *reinterpret_cast<UserData*>(pUserData);
-			if (status == WGPURequestDeviceStatus_Success)
-			{
-				userData.device = device;
-			}
-			else
-			{
-				LOG_ERROR("Could not get WebGPU device: {0}", message);
-			}
-			userData.requestEnded = true;
-		};
-
-	wgpuAdapterRequestDevice(
-		adapter,
-		descriptor,
-		onDeviceRequestEnded,
-		(void*)&userData);
-
-	ASSERT(userData.requestEnded, "");
-	return userData.device;
 }
 }

@@ -25,18 +25,11 @@ private:
 	float m_FixedUpdateInterval = 0.01f;
 
 	wgpu::Instance m_Instance = nullptr;
-	// wgpu::Adapter m_Adapter;
-	// wgpu::Surface m_Surface;
-	// wgpu::Device m_Device;
-	// wgpu::SwapChain m_SwapChain;
-	// wgpu::Queue m_Queue;
-
-	// WGPUInstance m_Instance = nullptr;
-	WGPUAdapter m_Adapter = nullptr;
-	WGPUSurface m_Surface = nullptr;
-	WGPUDevice m_Device = nullptr;
-	WGPUSwapChain m_SwapChain = nullptr;
-	WGPUQueue m_Queue = nullptr;
+	wgpu::Adapter m_Adapter = nullptr;
+	wgpu::Surface m_Surface = nullptr;
+	wgpu::Device m_Device = nullptr;
+	wgpu::SwapChain m_SwapChain = nullptr;
+	wgpu::Queue m_Queue = nullptr;
 
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
