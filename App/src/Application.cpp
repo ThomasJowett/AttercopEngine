@@ -26,10 +26,7 @@ Application::~Application()
 
 int Application::Init(int, char**)
 {
-	WGPUInstanceDescriptor desc = {};
-	desc.nextInChain = nullptr;
-
-	m_Instance = wgpuCreateInstance(&desc);
+	m_Instance = wgpu::createInstance(wgpu::InstanceDescriptor{});
 
 	if (!m_Instance)
 	{
@@ -43,7 +40,7 @@ int Application::Init(int, char**)
 		return 1;
 	}
 
-	LOG_INFO("WGPU instance: {}", fmt::ptr(m_Instance));
+	LOG_TRACE("WGPU instance created");
 
 	SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 
@@ -55,9 +52,11 @@ int Application::Init(int, char**)
 	m_Surface = SDL_GetWGPUSurface(m_Instance, window);
 
 	LOG_TRACE("Requesting adapter...");
-	WGPURequestAdapterOptions adapterOpts = {};
-	adapterOpts.nextInChain = nullptr;
+	wgpu::RequestAdapterOptions adapterOpts{};
 	adapterOpts.compatibleSurface = m_Surface;
+	// WGPURequestAdapterOptions adapterOpts = {};
+	// adapterOpts.nextInChain = nullptr;
+	// adapterOpts.compatibleSurface = m_Surface;
 
 	m_Adapter = RequestAdapter(m_Instance, &adapterOpts);
 
@@ -188,10 +187,10 @@ void Application::Run()
 		wgpuSwapChainPresent(m_SwapChain);
 	}
 }
-WGPUAdapter Application::RequestAdapter(WGPUInstance instance, WGPURequestAdapterOptions const* options)
+wgpu::Adapter Application::RequestAdapter(wgpu::Instance instance, wgpu::RequestAdapterOptions const* options)
 {
 	struct UserData {
-		WGPUAdapter adapter = nullptr;
+		wgpu::Adapter adapter = nullptr;
 		bool requestEnded = false;
 	};
 	UserData userData;

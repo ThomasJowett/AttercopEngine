@@ -1,56 +1,56 @@
-#include <webgpu/webgpu.h>
+#include <webgpu/webgpu.hpp>
 
 #include <string>
 
 namespace atcp
 {
-	static std::string WGPUFeatureNamesToStr(WGPUFeatureName feature)
+static std::string WGPUFeatureNamesToStr(wgpu::FeatureName feature)
+{
+	switch (feature)
 	{
-		switch (feature)
-		{
-		case WGPUFeatureName_Undefined:
-			return "Undefined";
-		case WGPUFeatureName_DepthClipControl:
-			return "DepthClipControl";
-		case WGPUFeatureName_Depth32FloatStencil8:
-			return "Depth32FloatStencil8";
-		case WGPUFeatureName_TimestampQuery:
-			return "TimestampQuery";
-		case WGPUFeatureName_PipelineStatisticsQuery:
-			return "PipelineStatisticsQuery";
-		case WGPUFeatureName_TextureCompressionBC:
-			return "TextureCompressionBC";
-		case WGPUFeatureName_TextureCompressionETC2:
-			return "TextureCompressionETC2";
-		case WGPUFeatureName_TextureCompressionASTC:
-			return "TextureCompressionASTC";
-		case WGPUFeatureName_IndirectFirstInstance:
-			return "IndirectFirstInstance";
-		case WGPUFeatureName_ShaderF16:
-			return "ShaderF16";
-		case WGPUFeatureName_RG11B10UfloatRenderable:
-			return "RG11B10UfloatRenderable";
-		case WGPUFeatureName_BGRA8UnormStorage:
-			return "BGRA8UnormStorage";
-		default:
-			return "Unknown WGPUFeatureName value: " + std::to_string(feature);
-		}
+	case wgpu::FeatureName::Undefined:
+		return "Undefined";
+	case wgpu::FeatureName::DepthClipControl:
+		return "DepthClipControl";
+	case wgpu::FeatureName::Depth32FloatStencil8:
+		return "Depth32FloatStencil8";
+	case wgpu::FeatureName::TimestampQuery:
+		return "TimestampQuery";
+	case wgpu::FeatureName::PipelineStatisticsQuery:
+		return "PipelineStatisticsQuery";
+	case wgpu::FeatureName::TextureCompressionBC:
+		return "TextureCompressionBC";
+	case wgpu::FeatureName::TextureCompressionETC2:
+		return "TextureCompressionETC2";
+	case wgpu::FeatureName::TextureCompressionASTC:
+		return "TextureCompressionASTC";
+	case wgpu::FeatureName::IndirectFirstInstance:
+		return "IndirectFirstInstance";
+	case wgpu::FeatureName::ShaderF16:
+		return "ShaderF16";
+	case wgpu::FeatureName::RG11B10UfloatRenderable:
+		return "RG11B10UfloatRenderable";
+	case wgpu::FeatureName::BGRA8UnormStorage:
+		return "BGRA8UnormStorage";
+	default:
+		return "Unknown WGPUFeatureName value: " + std::to_string(feature);
 	}
+}
 
-	static std::string WGPUQueueWorkDoneStatusToStr(WGPUQueueWorkDoneStatus status)
+static std::string WGPUQueueWorkDoneStatusToStr(wgpu::QueueWorkDoneStatus status)
+{
+	switch (status)
 	{
-		switch (status)
-		{
-		case WGPUQueueWorkDoneStatus_Success:
-			return "Success";
-		case WGPUQueueWorkDoneStatus_Error:
-			return "Error";
-		case WGPUQueueWorkDoneStatus_Unknown:
-			return "Unkown";
-		case WGPUQueueWorkDoneStatus_DeviceLost:
-			return "Device Lost";
-		default:
-			return "Unknown WGPUQueueWorkDoneStatus" + std::to_string(status);
-		}
+	case wgpu::QueueWorkDoneStatus::Success:
+		return "Success";
+	case wgpu::QueueWorkDoneStatus::Error:
+		return "Error";
+	case wgpu::QueueWorkDoneStatus::Unknown:
+		return "Unkown";
+	case wgpu::QueueWorkDoneStatus::DeviceLost:
+		return "Device Lost";
+	default:
+		return "Unknown WGPUQueueWorkDoneStatus" + std::to_string(status);
 	}
+}
 }
