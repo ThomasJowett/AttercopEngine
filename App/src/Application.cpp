@@ -7,6 +7,26 @@
 
 #include <vector>
 
+const char* shaderSource = R"(
+@vertex
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
+	var p = vec2f(0.0, 0.0);
+	if (in_vertex_index == 0u) {
+		p = vec2f(-0.5, -0.5);
+	} else if (in_vertex_index == 1u) {
+		p = vec2f(0.5, -0.5);
+	} else {
+		p = vec2f(0.0, 0.5);
+	}
+	return vec4f(p, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+	return vec4f(0.0, 0.4, 1.0, 1.0);
+}
+)";
+
 namespace atcp {
 
 Application::Application()
@@ -15,6 +35,7 @@ Application::Application()
 
 Application::~Application()
 {
+	m_Pipeline.release();
 	m_Adapter.release();
 	m_Surface.release();
 	m_Device.release();
@@ -95,6 +116,66 @@ int Application::Init(int, char**)
 
 	m_Surface.configure(surfaceConfig);
 
+	wgpu::ShaderModuleDescriptor shaderDesc;
+
+#ifdef WEBGPU_BACKEND_WGPU
+	shaderDesc.hintCount = 0;
+	shaderDesc.hints = nullptr;
+#endif
+
+	wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc;
+	shaderCodeDesc.chain.next = nullptr;
+	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
+	shaderDesc.nextInChain = &shaderCodeDesc.chain;
+
+	shaderCodeDesc.code = shaderSource;
+
+	wgpu::ShaderModule shaderModule = m_Device.createShaderModule(shaderDesc);
+
+	wgpu::RenderPipelineDescriptor pipelineDesc;
+	pipelineDesc.vertex.bufferCount = 0;
+	pipelineDesc.vertex.buffers = nullptr;
+	pipelineDesc.vertex.module = shaderModule;
+	pipelineDesc.vertex.entryPoint = "vs_main";
+	pipelineDesc.vertex.constantCount = 0;
+	pipelineDesc.vertex.constants = nullptr;
+
+	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
+	pipelineDesc.primitive.cullMode = wgpu::CullMode::None;
+
+	wgpu::FragmentState fragmentState;
+	fragmentState.module = shaderModule;
+	fragmentState.entryPoint = "fs_main";
+	fragmentState.constantCount = 0;
+	fragmentState.constants = nullptr;
+
+	pipelineDesc.fragment = &fragmentState;
+
+	pipelineDesc.depthStencil = nullptr;
+
+	wgpu::BlendState blendState;
+	blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+	blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+	blendState.color.operation = wgpu::BlendOperation::Add;
+
+	wgpu::ColorTargetState colorTarget;
+	colorTarget.format = surfaceFormat;
+	colorTarget.blend = &blendState;
+	colorTarget.writeMask = wgpu::ColorWriteMask::All;
+
+	fragmentState.targetCount = 1;
+	fragmentState.targets = &colorTarget;
+
+	pipelineDesc.multisample.count = 1;
+	pipelineDesc.multisample.mask = ~0u;
+	pipelineDesc.multisample.alphaToCoverageEnabled = false;
+
+	pipelineDesc.layout = nullptr;
+
+	m_Pipeline = m_Device.createRenderPipeline(pipelineDesc);
+
 	return 0;
 }
 
@@ -145,6 +226,8 @@ void Application::Run()
 		renderPassDesc.nextInChain = nullptr;
 
 		wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
+		renderPass.setPipeline(m_Pipeline);
+		renderPass.draw(3,1,0,0);
 		renderPass.end();
 		renderPass.release();
 

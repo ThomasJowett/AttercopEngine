@@ -27,6 +27,7 @@ private:
 	wgpu::Surface m_Surface = nullptr;
 	wgpu::Device m_Device = nullptr;
 	wgpu::Queue m_Queue = nullptr;
+	wgpu::RenderPipeline m_Pipeline = nullptr;
 
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
