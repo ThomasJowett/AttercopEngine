@@ -34,6 +34,12 @@ void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool 
 	device.tick();
 #elif defined(WEBGPU_BACKEND_WGPU)
 	device.poll(false);
+#elif defined(WEBGPU_BACKEND_EMSCRIPTEN)
+	if (yeildToWebBrowser)
+	{
+		emscripten_sleep(100);
+	}
+#endif
 }
 
 Application::Application()
@@ -208,10 +214,40 @@ int Application::Init(int, char**)
 	m_Queue.submit(1, &command);
 	command.release();
 
-	auto onBuffer2Mapped = [](WGPUBufferMapAsyncStatus status, void* /* pUserData */) {
-		LOG_DEBUG("Buffer 2 mapped with status {0}", status);
+	struct Context
+	{
+		bool ready;
+		wgpu::Buffer buffer;
 	};
-	wgpuBufferMapAsync(buffer2, wgpu::MapMode::Read, 0, 16, onBuffer2Mapped, nullptr);
+
+	auto onBuffer2Mapped = [](WGPUBufferMapAsyncStatus status, void *pUserData)
+	{
+		Context *context = reinterpret_cast<Context *>(pUserData);
+		context->ready = true;
+		LOG_DEBUG("Buffer 2 mapped with status {0}", (int)status);
+		if (status != wgpu::BufferMapAsyncStatus::Success)
+			return;
+
+		uint8_t *bufferData = (uint8_t *)context->buffer.getConstMappedRange(0, 16);
+
+		std::cout << "bufferData = [";
+		for (int i = 0; i < 16; ++i)
+		{
+			if (i > 0)
+				std::cout << ", ";
+			std::cout << (int)bufferData[i];
+		}
+		std::cout << "]" << std::endl;
+
+		context->buffer.unmap();
+	};
+	Context context = {false, buffer2};
+	wgpuBufferMapAsync(buffer2, wgpu::MapMode::Read, 0, 16, onBuffer2Mapped, (void *)&context);
+
+	while (!context.ready)
+	{
+		wgpuPollEvents(m_Device, true);
+	}
 
 	buffer1.release();
 	buffer2.release();
