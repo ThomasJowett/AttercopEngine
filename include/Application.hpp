@@ -18,6 +18,7 @@ private:
 	void Run();
 	wgpu::TextureView GetNextSurfaceTextureView();
 	wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter);
+	void InitializeBuffers();
 
 private:
 	bool m_Running = false;
@@ -32,6 +33,9 @@ private:
 
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
+
+	wgpu::Buffer m_VertexBuffer;
+	uint32_t m_VertexCount;
 };
 }
 

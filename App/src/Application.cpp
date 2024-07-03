@@ -7,18 +7,10 @@
 
 #include <vector>
 
-const char* shaderSource = R"(
+const char *shaderSource = R"(
 @vertex
-fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-	var p = vec2f(0.0, 0.0);
-	if (in_vertex_index == 0u) {
-		p = vec2f(-0.5, -0.5);
-	} else if (in_vertex_index == 1u) {
-		p = vec2f(0.5, -0.5);
-	} else {
-		p = vec2f(0.0, 0.5);
-	}
-	return vec4f(p, 0.0, 1.0);
+fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
+	return vec4f(in_vertex_position, 0.0, 1.0);
 }
 
 @fragment
@@ -54,6 +46,7 @@ Application::~Application()
 	m_Device.release();
 	m_Queue.release();
 	m_Instance.release();
+	m_VertexBuffer.release();
 	SDL_Quit();
 }
 
@@ -151,8 +144,20 @@ int Application::Init(int, char**)
 	wgpu::ShaderModule shaderModule = m_Device.createShaderModule(shaderDesc);
 
 	wgpu::RenderPipelineDescriptor pipelineDesc;
-	pipelineDesc.vertex.bufferCount = 0;
-	pipelineDesc.vertex.buffers = nullptr;
+
+	wgpu::VertexBufferLayout vertexBufferLayout;
+	wgpu::VertexAttribute positionAttrib;
+	positionAttrib.shaderLocation = 0;
+	positionAttrib.format = wgpu::VertexFormat::Float32x2;
+	positionAttrib.offset = 0;
+
+	vertexBufferLayout.attributeCount = 1;
+	vertexBufferLayout.attributes = &positionAttrib;
+	vertexBufferLayout.arrayStride = 2 * sizeof(float);
+	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
+
+	pipelineDesc.vertex.bufferCount = 1;
+	pipelineDesc.vertex.buffers = &vertexBufferLayout;
 	pipelineDesc.vertex.module = shaderModule;
 	pipelineDesc.vertex.entryPoint = "vs_main";
 	pipelineDesc.vertex.constantCount = 0;
@@ -219,6 +224,8 @@ int Application::Init(int, char**)
 	m_Queue.submit(1, &command);
 	command.release();
 
+	InitializeBuffers();
+
 	return 0;
 }
 
@@ -270,7 +277,8 @@ void Application::Run()
 
 		wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
 		renderPass.setPipeline(m_Pipeline);
-		renderPass.draw(3, 1, 0, 0);
+		renderPass.setVertexBuffer(0, m_VertexBuffer, 0, m_VertexBuffer.getSize());
+		renderPass.draw(m_VertexCount, 1, 0, 0);
 		renderPass.end();
 		renderPass.release();
 
@@ -331,5 +339,20 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 
 	return requiredLimits;
+}
+void Application::InitializeBuffers()
+{
+	std::vector<float> vertexData = {
+		-0.5, -0.5,
+		+0.5, -0.5,
+		+0.0, +0.5};
+
+	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+
+	wgpu::BufferDescriptor bufferDesc;
+	bufferDesc.size = vertexData.size() * sizeof(float);
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+	bufferDesc.mappedAtCreation = false;
+	m_VertexBuffer = m_Device.createBuffer(bufferDesc);
 }
 }
