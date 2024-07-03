@@ -29,6 +29,13 @@ fn fs_main() -> @location(0) vec4f {
 
 namespace atcp {
 
+void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool yieldToWebBrowser) {
+#if defined(WEBGPU_BACKEND_DAWN)
+	device.tick();
+#elif defined(WEBGPU_BACKEND_WGPU)
+	device.poll(false);
+}
+
 Application::Application()
 {
 }
@@ -175,6 +182,39 @@ int Application::Init(int, char**)
 	pipelineDesc.layout = nullptr;
 
 	m_Pipeline = m_Device.createRenderPipeline(pipelineDesc);
+
+	wgpu::BufferDescriptor bufferDesc;
+	bufferDesc.label = "Some GPU-side data buffer";
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
+	bufferDesc.size = 16;
+	bufferDesc.mappedAtCreation = false;
+	wgpu::Buffer buffer1 = m_Device.createBuffer(bufferDesc);
+
+	bufferDesc.label = "Output buffer";
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+	wgpu::Buffer buffer2 = m_Device.createBuffer(bufferDesc);
+
+	std::vector<uint8_t> numbers(16);
+	for (uint8_t i = 0; i < 16; ++i) numbers[i] = i;
+
+	m_Queue.writeBuffer(buffer1, 0, numbers.data(), numbers.size());
+
+	wgpu::CommandEncoder encoder = m_Device.createCommandEncoder(wgpu::Default);
+
+	encoder.copyBufferToBuffer(buffer1, 0, buffer2, 0, 16);
+
+	wgpu::CommandBuffer command = encoder.finish(wgpu::Default);
+	encoder.release();
+	m_Queue.submit(1, &command);
+	command.release();
+
+	auto onBuffer2Mapped = [](WGPUBufferMapAsyncStatus status, void* /* pUserData */) {
+		LOG_DEBUG("Buffer 2 mapped with status {0}", status);
+	};
+	wgpuBufferMapAsync(buffer2, wgpu::MapMode::Read, 0, 16, onBuffer2Mapped, nullptr);
+
+	buffer1.release();
+	buffer2.release();
 
 	return 0;
 }
