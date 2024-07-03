@@ -96,14 +96,19 @@ int Application::Init(int, char**)
 	deviceDesc.requiredFeatureCount = 0;
 	deviceDesc.nextInChain = nullptr;
 	deviceDesc.defaultQueue.label = "The default queue";
-	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /*pUserData*/) {
+	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const *message, void * /*pUserData*/)
+	{
 		LOG_ERROR("Device lost: Reason: {0} Message: {1}", (int)reason, message);
 	};
+
+	wgpu::RequiredLimits requiredLimits = GetRequiredLimits(m_Adapter);
+	deviceDesc.requiredLimits = &requiredLimits;
+
 	m_Device = m_Adapter.requestDevice(deviceDesc);
 
 	LOG_DEBUG("Got device");
 
-	auto onDeviceError = [](wgpu::ErrorType type, char const* message)
+	auto onDeviceError = [](wgpu::ErrorType type, char const *message)
 	{
 		LOG_ERROR("Uncaptured device error: type {0}", (int)type);
 		if (message)
@@ -214,44 +219,6 @@ int Application::Init(int, char**)
 	m_Queue.submit(1, &command);
 	command.release();
 
-	struct Context
-	{
-		bool ready;
-		wgpu::Buffer buffer;
-	};
-
-	auto onBuffer2Mapped = [](WGPUBufferMapAsyncStatus status, void *pUserData)
-	{
-		Context *context = reinterpret_cast<Context *>(pUserData);
-		context->ready = true;
-		LOG_DEBUG("Buffer 2 mapped with status {0}", (int)status);
-		if (status != wgpu::BufferMapAsyncStatus::Success)
-			return;
-
-		uint8_t *bufferData = (uint8_t *)context->buffer.getConstMappedRange(0, 16);
-
-		std::cout << "bufferData = [";
-		for (int i = 0; i < 16; ++i)
-		{
-			if (i > 0)
-				std::cout << ", ";
-			std::cout << (int)bufferData[i];
-		}
-		std::cout << "]" << std::endl;
-
-		context->buffer.unmap();
-	};
-	Context context = {false, buffer2};
-	wgpuBufferMapAsync(buffer2, wgpu::MapMode::Read, 0, 16, onBuffer2Mapped, (void *)&context);
-
-	while (!context.ready)
-	{
-		wgpuPollEvents(m_Device, true);
-	}
-
-	buffer1.release();
-	buffer2.release();
-
 	return 0;
 }
 
@@ -303,7 +270,7 @@ void Application::Run()
 
 		wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
 		renderPass.setPipeline(m_Pipeline);
-		renderPass.draw(3,1,0,0);
+		renderPass.draw(3, 1, 0, 0);
 		renderPass.end();
 		renderPass.release();
 
@@ -348,5 +315,21 @@ wgpu::TextureView Application::GetNextSurfaceTextureView()
 	wgpu::TextureView targetView = texture.createView(viewDescriptor);
 
 	return targetView;
+}
+
+wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
+{
+	wgpu::SupportedLimits supportedLimits;
+	adapter.getLimits(&supportedLimits);
+
+	wgpu::RequiredLimits requiredLimits = wgpu::Default;
+
+	requiredLimits.limits.maxVertexAttributes = 1;
+	requiredLimits.limits.maxVertexBuffers = 1;
+	requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
+	requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+
+	return requiredLimits;
 }
 }

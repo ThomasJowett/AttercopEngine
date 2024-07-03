@@ -17,6 +17,7 @@ public:
 private:
 	void Run();
 	wgpu::TextureView GetNextSurfaceTextureView();
+	wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter);
 
 private:
 	bool m_Running = false;
