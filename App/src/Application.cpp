@@ -7,15 +7,28 @@
 
 #include <vector>
 
-const char *shaderSource = R"(
+const char* shaderSource = R"(
+struct VertexInput {
+	@location(0) position: vec2f,
+	@location(1) color: vec3f,
+}
+
+struct VertexOutput {
+	@builtin(position) position: vec4f,
+	@location(0) color: vec3f,
+}
+
 @vertex
-fn vs_main(@location(0) in_vertex_position: vec2f) -> @builtin(position) vec4f {
-	return vec4f(in_vertex_position, 0.0, 1.0);
+fn vs_main(in: VertexInput) -> VertexOutput {
+	var out: VertexOutput;
+	out.position = vec4f(in.position, 0.0, 1.0);
+	out.color = in.color;
+	return out;
 }
 
 @fragment
-fn fs_main() -> @location(0) vec4f {
-	return vec4f(0.0, 0.4, 1.0, 1.0);
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+	return vec4f(in.color, 1.0);
 }
 )";
 
@@ -89,10 +102,10 @@ int Application::Init(int, char**)
 	deviceDesc.requiredFeatureCount = 0;
 	deviceDesc.nextInChain = nullptr;
 	deviceDesc.defaultQueue.label = "The default queue";
-	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const *message, void * /*pUserData*/)
-	{
-		LOG_ERROR("Device lost: Reason: {0} Message: {1}", (int)reason, message);
-	};
+	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /*pUserData*/)
+		{
+			LOG_ERROR("Device lost: Reason: {0} Message: {1}", (int)reason, message);
+		};
 
 	wgpu::RequiredLimits requiredLimits = GetRequiredLimits(m_Adapter);
 	deviceDesc.requiredLimits = &requiredLimits;
@@ -101,12 +114,12 @@ int Application::Init(int, char**)
 
 	LOG_DEBUG("Got device");
 
-	auto onDeviceError = [](wgpu::ErrorType type, char const *message)
-	{
-		LOG_ERROR("Uncaptured device error: type {0}", (int)type);
-		if (message)
-			LOG_ERROR(message);
-	};
+	auto onDeviceError = [](wgpu::ErrorType type, char const* message)
+		{
+			LOG_ERROR("Uncaptured device error: type {0}", (int)type);
+			if (message)
+				LOG_ERROR(message);
+		};
 
 	m_Device.setUncapturedErrorCallback(onDeviceError);
 	m_Queue = m_Device.getQueue();
@@ -146,14 +159,20 @@ int Application::Init(int, char**)
 	wgpu::RenderPipelineDescriptor pipelineDesc;
 
 	wgpu::VertexBufferLayout vertexBufferLayout;
-	wgpu::VertexAttribute positionAttrib;
+	std::vector<wgpu::VertexAttribute> vertexAttribs(2);
+	wgpu::VertexAttribute& positionAttrib = vertexAttribs[0];
 	positionAttrib.shaderLocation = 0;
 	positionAttrib.format = wgpu::VertexFormat::Float32x2;
 	positionAttrib.offset = 0;
 
-	vertexBufferLayout.attributeCount = 1;
-	vertexBufferLayout.attributes = &positionAttrib;
-	vertexBufferLayout.arrayStride = 2 * sizeof(float);
+	wgpu::VertexAttribute& colorAttrib = vertexAttribs[1];
+	colorAttrib.shaderLocation = 1;
+	colorAttrib.format = wgpu::VertexFormat::Float32x3;
+	colorAttrib.offset = 2 * sizeof(float);
+
+	vertexBufferLayout.attributeCount = static_cast<uint32_t>(vertexAttribs.size());
+	vertexBufferLayout.attributes = vertexAttribs.data();
+	vertexBufferLayout.arrayStride = 5 * sizeof(float);
 	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
 
 	pipelineDesc.vertex.bufferCount = 1;
@@ -332,27 +351,32 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 
 	wgpu::RequiredLimits requiredLimits = wgpu::Default;
 
-	requiredLimits.limits.maxVertexAttributes = 1;
+	requiredLimits.limits.maxVertexAttributes = 2;
 	requiredLimits.limits.maxVertexBuffers = 1;
-	requiredLimits.limits.maxBufferSize = 6 * 2 * sizeof(float);
-	requiredLimits.limits.maxVertexBufferArrayStride = 2 * sizeof(float);
+	requiredLimits.limits.maxBufferSize = 6 * 5 * sizeof(float);
+	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float);
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+	requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
+	requiredLimits.limits.maxInterStageShaderComponents = 3;
 
 	return requiredLimits;
 }
 void Application::InitializeBuffers()
 {
 	std::vector<float> vertexData = {
-		-0.5, -0.5,
-		+0.5, -0.5,
-		+0.0, +0.5};
+		-0.5, -0.5, 1.0, 0.0, 0.0,
+		+0.5, -0.5, 0.0, 1.0, 0.0,
+		+0.0, +0.5, 0.0, 0.0, 1.0 };
 
-	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 2);
+	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 5);
 
 	wgpu::BufferDescriptor bufferDesc;
 	bufferDesc.size = vertexData.size() * sizeof(float);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
 	m_VertexBuffer = m_Device.createBuffer(bufferDesc);
+
+	m_Queue.writeBuffer(m_VertexBuffer, 0, vertexData.data(), bufferDesc.size);
 }
 }
