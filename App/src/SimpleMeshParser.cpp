@@ -55,6 +55,6 @@ bool SimpleMeshParser::LoadGeometry(const std::filesystem::path &path, std::vect
 		}
 	}
 	
-	return false;
+	return true;
 }
 } // namespace atcp

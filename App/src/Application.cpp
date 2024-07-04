@@ -1,5 +1,6 @@
 #include "Application.hpp"
 #include "Logger.hpp"
+#include "SimpleMeshParser.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -63,8 +64,10 @@ Application::~Application()
 	SDL_Quit();
 }
 
-int Application::Init(int, char**)
+int Application::Init(int, char* argv[])
 {
+	m_WorkingDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path();
+	std::filesystem::current_path(m_WorkingDirectory);
 	m_Instance = wgpu::createInstance(wgpu::InstanceDescriptor{});
 
 	if (!m_Instance)
@@ -354,7 +357,7 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 
 	requiredLimits.limits.maxVertexAttributes = 2;
 	requiredLimits.limits.maxVertexBuffers = 1;
-	requiredLimits.limits.maxBufferSize = 6 * 5 * sizeof(float);
+	requiredLimits.limits.maxBufferSize = 15 * 5 * sizeof(float);
 	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float);
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
@@ -365,15 +368,19 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 }
 void Application::InitializeBuffers()
 {
-	std::vector<float> vertexData = {
-		-0.5, -0.5, 1.0, 0.0, 0.0,
-		+0.5, -0.5, 0.0, 1.0, 0.0,
-		+0.5, +0.5, 0.0, 0.0, 1.0,
-		-0.5, +0.5, 1.0, 1.0, 0.0};
+	std::vector<float> vertexData;
 
-	std::vector<uint16_t> indexData = {
-		0, 1, 2,
-		0, 2, 3};
+	std::vector<uint16_t> indexData;
+
+	bool success = SimpleMeshParser::LoadGeometry(m_WorkingDirectory / "resources" / "simple_mesh.txt", vertexData, indexData);
+	if (!success) {
+		LOG_ERROR("Could not load geometry!");
+		return;
+	}
+
+	for (auto value : vertexData)
+		std::cout << value << " ";
+	std::cout << std::endl;
 
 	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 5);
 	m_IndexCount = static_cast<uint32_t>(indexData.size());

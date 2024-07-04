@@ -2,6 +2,7 @@
 #define APPLICATION_HPP
 
 #include <webgpu/webgpu.hpp>
+#include <filesystem>
 
 int main(int argc, char* argv[]);
 
@@ -38,6 +39,8 @@ private:
 	uint32_t m_VertexCount;
 	wgpu::Buffer m_IndexBuffer;
 	uint32_t m_IndexCount;
+
+	std::filesystem::path m_WorkingDirectory;
 };
 }
 
