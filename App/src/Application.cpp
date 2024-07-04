@@ -297,7 +297,8 @@ void Application::Run()
 		wgpu::RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
 		renderPass.setPipeline(m_Pipeline);
 		renderPass.setVertexBuffer(0, m_VertexBuffer, 0, m_VertexBuffer.getSize());
-		renderPass.draw(m_VertexCount, 1, 0, 0);
+		renderPass.setIndexBuffer(m_IndexBuffer, wgpu::IndexFormat::Uint16, 0, m_IndexCount * sizeof(uint16_t));
+		renderPass.drawIndexed(m_IndexCount, 1, 0, 0, 0);
 		renderPass.end();
 		renderPass.release();
 
@@ -367,9 +368,15 @@ void Application::InitializeBuffers()
 	std::vector<float> vertexData = {
 		-0.5, -0.5, 1.0, 0.0, 0.0,
 		+0.5, -0.5, 0.0, 1.0, 0.0,
-		+0.0, +0.5, 0.0, 0.0, 1.0 };
+		+0.5, +0.5, 0.0, 0.0, 1.0,
+		-0.5, +0.5, 1.0, 1.0, 0.0};
+
+	std::vector<uint16_t> indexData = {
+		0, 1, 2,
+		0, 2, 3};
 
 	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 5);
+	m_IndexCount = static_cast<uint32_t>(indexData.size());
 
 	wgpu::BufferDescriptor bufferDesc;
 	bufferDesc.size = vertexData.size() * sizeof(float);
@@ -378,5 +385,11 @@ void Application::InitializeBuffers()
 	m_VertexBuffer = m_Device.createBuffer(bufferDesc);
 
 	m_Queue.writeBuffer(m_VertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+	bufferDesc.size = indexData.size() * sizeof(uint16_t);
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+	m_IndexBuffer = m_Device.createBuffer(bufferDesc);
+
+	m_Queue.writeBuffer(m_IndexBuffer, 0, indexData.data(), bufferDesc.size);
 }
 }
