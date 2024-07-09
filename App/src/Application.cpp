@@ -8,31 +8,6 @@
 
 #include <vector>
 
-const char* shaderSource = R"(
-struct VertexInput {
-	@location(0) position: vec2f,
-	@location(1) color: vec3f,
-}
-
-struct VertexOutput {
-	@builtin(position) position: vec4f,
-	@location(0) color: vec3f,
-}
-
-@vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
-	var out: VertexOutput;
-	out.position = vec4f(in.position, 0.0, 1.0);
-	out.color = in.color;
-	return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-	return vec4f(in.color, 1.0);
-}
-)";
-
 namespace atcp {
 
 void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool yieldToWebBrowser) {
@@ -155,9 +130,7 @@ int Application::Init(int, char* argv[])
 	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
 	shaderDesc.nextInChain = &shaderCodeDesc.chain;
 
-	shaderCodeDesc.code = shaderSource;
-
-	wgpu::ShaderModule shaderModule = m_Device.createShaderModule(shaderDesc);
+	wgpu::ShaderModule shaderModule = LoadShaderModule(m_WorkingDirectory / "resources" / "shader.wgsl");
 
 	wgpu::RenderPipelineDescriptor pipelineDesc;
 
@@ -398,5 +371,28 @@ void Application::InitializeBuffers()
 	m_IndexBuffer = m_Device.createBuffer(bufferDesc);
 
 	m_Queue.writeBuffer(m_IndexBuffer, 0, indexData.data(), bufferDesc.size);
+}
+wgpu::ShaderModule Application::LoadShaderModule(const std::filesystem::path& path)
+{
+	std::ifstream file(path);
+	if (!file.is_open()) {
+		LOG_CRITICAL("Could not load shader from {0}", path.string());
+		return nullptr;
+	}
+	file.seekg(0, std::ios::end);
+	size_t size = file.tellg();
+	std::string shaderSource(size, ' ');
+	file.seekg(0);
+	file.read(shaderSource.data(), size);
+
+	wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc{};
+	shaderCodeDesc.chain.next = nullptr;
+	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
+	shaderCodeDesc.code = shaderSource.c_str();
+	wgpu::ShaderModuleDescriptor shaderDesc{};
+	shaderDesc.hintCount = 0;
+	shaderDesc.hints = nullptr;
+	shaderDesc.nextInChain = &shaderCodeDesc.chain;
+	return m_Device.createShaderModule(shaderDesc);
 }
 }

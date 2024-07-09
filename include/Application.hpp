@@ -20,6 +20,7 @@ private:
 	wgpu::TextureView GetNextSurfaceTextureView();
 	wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter);
 	void InitializeBuffers();
+	wgpu::ShaderModule LoadShaderModule(const std::filesystem::path& path);
 
 private:
 	bool m_Running = false;
