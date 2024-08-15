@@ -190,29 +190,49 @@ int Application::Init(int, char* argv[])
 	pipelineDesc.multisample.mask = ~0u;
 	pipelineDesc.multisample.alphaToCoverageEnabled = false;
 
-	pipelineDesc.layout = nullptr;
+	wgpu::BindGroupLayoutEntry bindingLayout = wgpu::Default;
+	bindingLayout.binding = 0;
+	bindingLayout.visibility = wgpu::ShaderStage::Vertex;
+	bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
+	bindingLayout.buffer.minBindingSize = sizeof(float);
+
+	wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+	bindGroupLayoutDesc.entryCount = 1;
+	bindGroupLayoutDesc.entries = &bindingLayout;
+	wgpu::BindGroupLayout bindGroupLayout = m_Device.createBindGroupLayout(bindGroupLayoutDesc);
+
+	wgpu::PipelineLayoutDescriptor layoutDesc{};
+	layoutDesc.bindGroupLayoutCount = 1;
+	layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&bindGroupLayout;
+	wgpu::PipelineLayout layout = m_Device.createPipelineLayout(layoutDesc);
+
+	pipelineDesc.layout = layout;
 
 	m_Pipeline = m_Device.createRenderPipeline(pipelineDesc);
 
 	wgpu::BufferDescriptor bufferDesc;
-	bufferDesc.label = "Some GPU-side data buffer";
-	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
-	bufferDesc.size = 16;
+	bufferDesc.label = "Uniform Buffer";
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+	bufferDesc.size = sizeof(float);
 	bufferDesc.mappedAtCreation = false;
-	wgpu::Buffer buffer1 = m_Device.createBuffer(bufferDesc);
+	m_UniformBuffer = m_Device.createBuffer(bufferDesc);
 
-	bufferDesc.label = "Output buffer";
-	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-	wgpu::Buffer buffer2 = m_Device.createBuffer(bufferDesc);
+	float currentTime = 1.0f;
+	m_Queue.writeBuffer(m_UniformBuffer, 0, &currentTime, sizeof(float));
 
-	std::vector<uint8_t> numbers(16);
-	for (uint8_t i = 0; i < 16; ++i) numbers[i] = i;
+	wgpu::BindGroupEntry binding{};
+	binding.binding = 0;
+	binding.buffer = m_UniformBuffer;
+	binding.offset = 0;
+	binding.size = sizeof(float);
 
-	m_Queue.writeBuffer(buffer1, 0, numbers.data(), numbers.size());
+	wgpu::BindGroupDescriptor bindGroupDesc{};
+	bindGroupDesc.layout = bindGroupLayout;
+	bindGroupDesc.entryCount = bindGroupLayoutDesc.entryCount;
+	bindGroupDesc.entries = &binding;
+	m_BindGroup = m_Device.createBindGroup(bindGroupDesc);
 
 	wgpu::CommandEncoder encoder = m_Device.createCommandEncoder(wgpu::Default);
-
-	encoder.copyBufferToBuffer(buffer1, 0, buffer2, 0, 16);
 
 	wgpu::CommandBuffer command = encoder.finish(wgpu::Default);
 	encoder.release();
@@ -245,6 +265,9 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 
+		float t = static_cast<float>(GetTime());
+		m_Queue.writeBuffer(m_UniformBuffer, 0, &t, sizeof(float));
+
 		wgpu::TextureView targetView = GetNextSurfaceTextureView();
 		if (!targetView)
 		{
@@ -274,6 +297,7 @@ void Application::Run()
 		renderPass.setPipeline(m_Pipeline);
 		renderPass.setVertexBuffer(0, m_VertexBuffer, 0, m_VertexBuffer.getSize());
 		renderPass.setIndexBuffer(m_IndexBuffer, wgpu::IndexFormat::Uint16, 0, m_IndexCount * sizeof(uint16_t));
+		renderPass.setBindGroup(0, m_BindGroup, 0, nullptr);
 		renderPass.drawIndexed(m_IndexCount, 1, 0, 0, 0);
 		renderPass.end();
 		renderPass.release();
@@ -336,6 +360,9 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
 	requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
 	requiredLimits.limits.maxInterStageShaderComponents = 3;
+	requiredLimits.limits.maxBindGroups = 1;
+	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
+	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4;
 
 	return requiredLimits;
 }
@@ -350,10 +377,6 @@ void Application::InitializeBuffers()
 		LOG_ERROR("Could not load geometry!");
 		return;
 	}
-
-	for (auto value : vertexData)
-		std::cout << value << " ";
-	std::cout << std::endl;
 
 	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 5);
 	m_IndexCount = static_cast<uint32_t>(indexData.size());
@@ -394,5 +417,11 @@ wgpu::ShaderModule Application::LoadShaderModule(const std::filesystem::path& pa
 	shaderDesc.hints = nullptr;
 	shaderDesc.nextInChain = &shaderCodeDesc.chain;
 	return m_Device.createShaderModule(shaderDesc);
+}
+double Application::GetTime()
+{
+	static Uint64 startCounter = SDL_GetPerformanceCounter();
+	Uint64 currentCounter = SDL_GetPerformanceCounter();
+	return (currentCounter - startCounter) / (double)SDL_GetPerformanceFrequency();
 }
 }

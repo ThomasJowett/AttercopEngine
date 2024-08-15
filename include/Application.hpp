@@ -22,6 +22,8 @@ private:
 	void InitializeBuffers();
 	wgpu::ShaderModule LoadShaderModule(const std::filesystem::path& path);
 
+	double GetTime();
+
 private:
 	bool m_Running = false;
 	float m_FixedUpdateInterval = 0.01f;
@@ -40,6 +42,9 @@ private:
 	uint32_t m_VertexCount;
 	wgpu::Buffer m_IndexBuffer;
 	uint32_t m_IndexCount;
+
+	wgpu::Buffer m_UniformBuffer;
+	wgpu::BindGroup m_BindGroup;
 
 	std::filesystem::path m_WorkingDirectory;
 };
