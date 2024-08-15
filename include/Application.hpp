@@ -47,6 +47,8 @@ private:
 	wgpu::BindGroup m_BindGroup;
 
 	std::filesystem::path m_WorkingDirectory;
+
+	std::unique_ptr<wgpu::ErrorCallback> m_ErrorCallbackHandle;
 };
 }
 

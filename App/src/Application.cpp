@@ -74,6 +74,11 @@ int Application::Init(int, char* argv[])
 
 	m_Adapter = m_Instance.requestAdapter(adapterOpts);
 
+	wgpu::AdapterProperties properties = {};
+	m_Adapter.getProperties(&properties);
+
+	LOG_DEBUG("Using GPU: {0}", properties.name);
+
 	LOG_TRACE("Requesting device...");
 	wgpu::DeviceDescriptor deviceDesc = {};
 	deviceDesc.label = "Main Device";
@@ -99,7 +104,7 @@ int Application::Init(int, char* argv[])
 				LOG_ERROR(message);
 		};
 
-	m_Device.setUncapturedErrorCallback(onDeviceError);
+	m_ErrorCallbackHandle = m_Device.setUncapturedErrorCallback(std::move(onDeviceError));
 	m_Queue = m_Device.getQueue();
 
 	wgpu::SurfaceConfiguration surfaceConfig = {};
