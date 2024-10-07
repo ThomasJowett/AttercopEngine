@@ -16,7 +16,7 @@ void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool 
 #elif defined(WEBGPU_BACKEND_WGPU)
 	device.poll(false);
 #elif defined(WEBGPU_BACKEND_EMSCRIPTEN)
-	if (yeildToWebBrowser)
+	if (yieldToWebBrowser)
 	{
 		emscripten_sleep(100);
 	}
