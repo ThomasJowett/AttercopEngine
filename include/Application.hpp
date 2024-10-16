@@ -2,6 +2,7 @@
 #define APPLICATION_HPP
 
 #include <webgpu/webgpu.hpp>
+#include <filesystem>
 
 int main(int argc, char* argv[]);
 
@@ -17,6 +18,11 @@ public:
 private:
 	void Run();
 	wgpu::TextureView GetNextSurfaceTextureView();
+	wgpu::RequiredLimits GetRequiredLimits(wgpu::Adapter adapter);
+	void InitializeBuffers();
+	wgpu::ShaderModule LoadShaderModule(const std::filesystem::path& path);
+
+	double GetTime();
 
 private:
 	bool m_Running = false;
@@ -27,9 +33,22 @@ private:
 	wgpu::Surface m_Surface = nullptr;
 	wgpu::Device m_Device = nullptr;
 	wgpu::Queue m_Queue = nullptr;
+	wgpu::RenderPipeline m_Pipeline = nullptr;
 
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
+
+	wgpu::Buffer m_VertexBuffer;
+	uint32_t m_VertexCount;
+	wgpu::Buffer m_IndexBuffer;
+	uint32_t m_IndexCount;
+
+	wgpu::Buffer m_UniformBuffer;
+	wgpu::BindGroup m_BindGroup;
+
+	std::filesystem::path m_WorkingDirectory;
+
+	std::unique_ptr<wgpu::ErrorCallback> m_ErrorCallbackHandle;
 };
 }
 
