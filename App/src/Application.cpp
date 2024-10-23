@@ -1,6 +1,7 @@
 #include "Application.hpp"
 #include "Logger.hpp"
 #include "SimpleMeshParser.hpp"
+#include "Uniforms.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -197,9 +198,9 @@ int Application::Init(int, char* argv[])
 
 	wgpu::BindGroupLayoutEntry bindingLayout = wgpu::Default;
 	bindingLayout.binding = 0;
-	bindingLayout.visibility = wgpu::ShaderStage::Vertex;
+	bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
 	bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
-	bindingLayout.buffer.minBindingSize = sizeof(float);
+	bindingLayout.buffer.minBindingSize = sizeof(MyUniform);
 
 	wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
 	bindGroupLayoutDesc.entryCount = 1;
@@ -218,18 +219,21 @@ int Application::Init(int, char* argv[])
 	wgpu::BufferDescriptor bufferDesc;
 	bufferDesc.label = "Uniform Buffer";
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-	bufferDesc.size = sizeof(float);
+	bufferDesc.size = sizeof(MyUniform);
 	bufferDesc.mappedAtCreation = false;
 	m_UniformBuffer = m_Device.createBuffer(bufferDesc);
 
-	float currentTime = 1.0f;
-	m_Queue.writeBuffer(m_UniformBuffer, 0, &currentTime, sizeof(float));
+	MyUniform uniforms;
+	uniforms.time = 1.0f;
+	uniforms.colour = { 0.0f, 0.0f, 0.0f, 1.0f };
+	// uniforms.colour = { 0.0f, 1.0f, 0.4f, 1.0f };
+	m_Queue.writeBuffer(m_UniformBuffer, 0, &uniforms, sizeof(MyUniform));
 
 	wgpu::BindGroupEntry binding{};
 	binding.binding = 0;
 	binding.buffer = m_UniformBuffer;
 	binding.offset = 0;
-	binding.size = sizeof(float);
+	binding.size = sizeof(MyUniform);
 
 	wgpu::BindGroupDescriptor bindGroupDesc{};
 	bindGroupDesc.layout = bindGroupLayout;
@@ -270,8 +274,9 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 
-		float t = static_cast<float>(GetTime());
-		m_Queue.writeBuffer(m_UniformBuffer, 0, &t, sizeof(float));
+		MyUniform uniforms;
+		uniforms.time = static_cast<float>(GetTime());
+		m_Queue.writeBuffer(m_UniformBuffer, offsetof(MyUniform, time), &uniforms.time, sizeof(float));
 
 		wgpu::TextureView targetView = GetNextSurfaceTextureView();
 		if (!targetView)
