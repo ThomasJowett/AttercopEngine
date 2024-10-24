@@ -40,3 +40,11 @@ target_include_directories(App PUBLIC
 )
 
 target_copy_webgpu_binaries(App)
+
+add_custom_command(
+    TARGET App POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/resources
+    "$<TARGET_FILE_DIR:App>/resources"
+    COMMENT "Copying the resources folder to $<TARGET_FILE_DIR:App>/resources"
+)
