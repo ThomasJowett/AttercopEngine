@@ -2,6 +2,9 @@
 ## 🌐 WebGPU Graphics Engine 🚀
 
 [![CMake CI](https://github.com/ThomasJowett/AttercopEngine/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/ThomasJowett/AttercopEngine/actions/workflows/cmake-multi-platform.yml)
+![GitHub License](https://img.shields.io/github/license/ThomasJowett/AttercopEngine)
+![Stars](https://img.shields.io/github/stars/ThomasJowett/AttercopEngine?style=social)
+
 
 A cutting-edge **C++ graphics engine** built on **WebGPU** that brings high-performance, modern rendering capabilities to your applications. A work in progress, this engine aims to leverage the **power and flexibility of WebGPU** with seamless CMake integration for easy project setup and extension.
 
@@ -23,7 +26,7 @@ Ensure you have these installed:
 
 ### Quick Start
 
-⚠️ **Warning**: This repository uses Git submodules. When cloning, make sure to use the `--recursive` flag:
+> ⚠️ **Warning**: This repository uses Git submodules. When cloning, make sure to use the `--recursive` flag:
 
 
 1. Clone the repository:
