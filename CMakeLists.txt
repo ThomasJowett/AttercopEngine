@@ -27,8 +27,6 @@ if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
 
-set(SDL_SHARED OFF)
-
 add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
 add_subdirectory(external/sdl2webgpu)
