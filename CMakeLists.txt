@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
-cmake_policy(VERSION 3.8)
+cmake_policy(VERSION 3.10)
 cmake_policy(SET CMP0077 NEW)
 
 project(
@@ -26,6 +26,8 @@ if (MSVC)
     set(DEFAULT_STARTUP_TARGET App)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
+
+set(SDL_SHARED OFF)
 
 add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
