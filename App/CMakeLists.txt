@@ -46,5 +46,15 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/resources
     "$<TARGET_FILE_DIR:App>/resources"
-    COMMENT "Copying the resources folder to $<TARGET_FILE_DIR:App>/resources"
+    COMMENT "Copying the resources folder to '$<TARGET_FILE_DIR:App>/resources'..."
 )
+
+if(SDL_SHARED)
+    add_custom_command(
+        TARGET App POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:SDL2>"
+        "$<TARGET_FILE_DIR:App>"
+        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '$<TARGET_FILE_DIR:App>'..."
+    )
+endif()
