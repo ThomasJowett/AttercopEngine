@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Set reusable strings
         id: strings
@@ -69,4 +69,4 @@ jobs:
 
       - name: Test
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
-        run: ctest --build-config ${{ matrix.build_type }}
+        run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
