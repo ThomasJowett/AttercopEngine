@@ -2,15 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Core Tests",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/tests/CoreTests${env:EXE_SUFFIX}${env:TARGET_SUFFIX}",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb",
+      "windows": {
+        "program": "${workspaceFolder}/build/tests/Debug/CoreTests${env:EXE_SUFFIX}${env:TARGET_SUFFIX}"
+      }
+    },
+    {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug",
-      "program": "${workspaceFolder}/build/App/App${env:EXE_SUFFIX}${env:TARGET_SUFFIX}",
+      "name": "Debug HelloTriangle",
+      "program": "${workspaceFolder}/build/examples/HelloTriangle${env:EXE_SUFFIX}${env:TARGET_SUFFIX}",
       "args": [],
       "preLaunchTask": "build",
       "cwd": "${workspaceFolder}",
       "windows": {
-        "program": "${workspaceFolder}/build/App/Debug/App${env:EXE_SUFFIX}${env:TARGET_SUFFIX}"
+        "program": "${workspaceFolder}/build/examples/Debug/HelloTriangle${env:EXE_SUFFIX}${env:TARGET_SUFFIX}"
       }
     }
   ]
