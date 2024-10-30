@@ -15,6 +15,8 @@ public:
 
 	int Init(int argc, char* argv[]);
 
+	void Close();
+
 private:
 	void Run();
 	wgpu::TextureView GetNextSurfaceTextureView();
@@ -25,7 +27,7 @@ private:
 	double GetTime();
 
 private:
-	bool m_Running = false;
+	std::atomic<bool> m_Running = false;
 	float m_FixedUpdateInterval = 0.01f;
 
 	wgpu::Instance m_Instance = nullptr;
