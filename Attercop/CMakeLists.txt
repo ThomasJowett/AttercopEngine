@@ -43,16 +43,16 @@ add_custom_command(
     TARGET Attercop POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/resources
-    "${CMAKE_BINARY_DIR}/tests/resources"
-    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/tests/resources'..."
+    "${CMAKE_BINARY_DIR}/tests/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>/resources"
+    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/tests/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>/resources'..."
 )
 
 add_custom_command(
     TARGET Attercop POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/resources
-    "${CMAKE_BINARY_DIR}/examples/resources"
-    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/examples/resources'..."
+    "${CMAKE_BINARY_DIR}/examples/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>/resources"
+    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/examples/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>/resources'..."
 )
 
 if(SDL_SHARED)
@@ -60,15 +60,15 @@ if(SDL_SHARED)
         TARGET Attercop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:SDL2>"
-        "${CMAKE_BINARY_DIR}/tests"
-        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/tests'..."
+        "${CMAKE_BINARY_DIR}/tests/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>"
+        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/tests/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>'..."
     )
     add_custom_command(
         TARGET Attercop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:SDL2>"
-        "${CMAKE_BINARY_DIR}/examples"
-        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/examples'..."
+        "${CMAKE_BINARY_DIR}/examples/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>"
+        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/examples/$<$<CONFIG:>:${CMAKE_BUILD_TYPE}>'..."
     )
 endif()
 
