@@ -32,7 +32,7 @@ Ensure you have these installed:
 1. Clone the repository:
    ```bash
    git clone https://github.com/ThomasJowett/AttercopEngine.git --recursive
-   cd Attercop
+   cd AttercopEngine
    ```
 
    If you have already cloned without --recursive, you can initialize the submodules afterward by running:
