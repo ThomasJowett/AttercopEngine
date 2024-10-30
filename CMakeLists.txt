@@ -10,6 +10,8 @@ project(
 
 enable_testing()
 
+include(${CMAKE_SOURCE_DIR}/cmake/CopyData.cmake)
+
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BUILD_TYPE "Debug")

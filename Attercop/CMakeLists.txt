@@ -39,39 +39,6 @@ target_include_directories(Attercop PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
 
-add_custom_command(
-    TARGET Attercop POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/resources
-    "${CMAKE_BINARY_DIR}/tests/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/resources"
-    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/tests/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/resources'..."
-)
-
-add_custom_command(
-    TARGET Attercop POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/resources
-    "${CMAKE_BINARY_DIR}/examples/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/resources"
-    COMMENT "Copying the resources folder to '${CMAKE_BINARY_DIR}/examples/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/resources'..."
-)
-
-if(SDL_SHARED)
-    add_custom_command(
-        TARGET Attercop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:SDL2>"
-        "${CMAKE_BINARY_DIR}/tests/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/"
-        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/tests/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>/'..."
-    )
-    add_custom_command(
-        TARGET Attercop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:SDL2>"
-        "${CMAKE_BINARY_DIR}/examples/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>"
-        COMMENT "Copying '$<TARGET_FILE:SDL2>' to '${CMAKE_BINARY_DIR}/examples/$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>$<$<NOT:$<BOOL:${CMAKE_CONFIGURATION_TYPES}>>:${CMAKE_BUILD_TYPE}>'..."
-    )
-endif()
-
 install(DIRECTORY ../include/
     DESTINATION include/Attercop
 )

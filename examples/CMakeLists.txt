@@ -2,7 +2,7 @@ add_executable(HelloTriangle ./HelloTriangle.cpp)
 
 target_link_libraries(HelloTriangle PRIVATE Attercop)
 
-target_copy_webgpu_binaries(HelloTriangle)
+target_copy_data(HelloTriangle)
 
 install(TARGETS HelloTriangle
     DESTINATION bin)

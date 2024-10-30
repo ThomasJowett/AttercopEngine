@@ -4,6 +4,6 @@ target_link_libraries(CoreTests PRIVATE
     Attercop
 )
 
-target_copy_webgpu_binaries(CoreTests)
+target_copy_data(CoreTests)
 
 add_test(NAME CoreTests COMMAND CoreTests)
