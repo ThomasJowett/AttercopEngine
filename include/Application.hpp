@@ -3,6 +3,7 @@
 
 #include <webgpu/webgpu.hpp>
 #include <filesystem>
+#include <atomic>
 
 int main(int argc, char* argv[]);
 
