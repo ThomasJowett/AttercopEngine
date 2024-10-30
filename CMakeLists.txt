@@ -8,6 +8,8 @@ project(
     LANGUAGES CXX C
 )
 
+enable_testing()
+
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BUILD_TYPE "Debug")
@@ -27,12 +29,16 @@ if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
 
-set(SDL_SHARED OFF)
+option(SDL_SHARED OFF)
 
 add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
 add_subdirectory(external/sdl2webgpu)
 
-add_subdirectory(App)
+add_subdirectory(Attercop)
+add_subdirectory(tests)
+add_subdirectory(examples)
+
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation Directory" FORCE)
 
 set_target_properties(spdlog PROPERTIES FOLDER ThirdParty/spdlog)
