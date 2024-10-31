@@ -7,15 +7,17 @@ function(target_copy_data target)
         COMMENT "Copying the resources folder to '$<TARGET_FILE_DIR:${target}>/resources'..."
     )
 
-    if(SDL_SHARED)
-        add_custom_command(
-            TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:SDL2>"
-            "$<TARGET_FILE_DIR:${target}>"
-            COMMENT "Copying '$<TARGET_FILE:SDL2>' to '$<TARGET_FILE_DIR:${target}>'..."
-        )
-    endif()
+    if(NOT EMSCRIPTEN)
+        if(SDL_SHARED)
+            add_custom_command(
+                TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:SDL2>"
+                "$<TARGET_FILE_DIR:${target}>"
+                COMMENT "Copying '$<TARGET_FILE:SDL2>' to '$<TARGET_FILE_DIR:${target}>'..."
+            )
+        endif()
 
-    target_copy_webgpu_binaries(${target})
+        target_copy_webgpu_binaries(${target})
+    endif()
 endfunction()
