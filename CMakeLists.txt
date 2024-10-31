@@ -27,7 +27,7 @@ FetchContent_MakeAvailable(webgpu)
 
 if (MSVC)
     add_compile_options(/MP /ZI /JMC)
-    set(DEFAULT_STARTUP_TARGET App)
+    set(DEFAULT_STARTUP_TARGET HelloTriangle)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
 
