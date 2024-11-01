@@ -11,14 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dependencies:
-    runs-on: [ubuntu-latest]
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers xvfb
-
   build:
     runs-on: ${{ matrix.os }}
 
@@ -27,6 +19,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         build_type: [Release]
+        c_compiler: [gcc, clang, cl]
         include:
           - os: windows-latest
             c_compiler: cl
@@ -40,6 +33,17 @@ jobs:
           - os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
+        exclude:
+          - os: windows-latest
+            c_compiler: gcc
+          - os: windows-latest
+            c_compiler: clang
+          - os: ubuntu-latest
+            c_compiler: cl
+          - os: macos-latest
+            c_compiler: gcc
+          - os: macos-latest
+            c_compiler: cl
 
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +55,11 @@ jobs:
         shell: bash
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: Install Mesa llvmpipe
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers xvfb
 
       - name: Configure CMake
         run: >
