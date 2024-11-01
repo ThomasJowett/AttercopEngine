@@ -59,7 +59,7 @@ jobs:
       - name: Install Mesa llvmpipe
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers
+          sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers xvfb
 
       - name: Configure CMake
         run: >
@@ -73,5 +73,12 @@ jobs:
         run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
       - name: Test
+        if: matrix.os != 'ubuntu-latest'
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+      - name: Test Linux
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" ctest --build-config ${{ matrix.build_type }} --output-on-failure
