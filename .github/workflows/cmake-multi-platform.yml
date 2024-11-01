@@ -16,6 +16,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers xvfb
 
   build:
