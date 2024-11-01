@@ -59,7 +59,7 @@ jobs:
       - name: Install Mesa llvmpipe
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install -y mesa-utils -libgl1-mesa-dri mesa-vulkan-drivers
+          sudo apt-get install -y mesa-utils libgl1-mesa-dri mesa-vulkan-drivers
 
       - name: Configure CMake
         run: >
