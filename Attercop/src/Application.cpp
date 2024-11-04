@@ -34,6 +34,7 @@ uint32_t ceilToNextMultiple(uint32_t value, uint32_t step) {
 
 Application::Application()
 {
+	atcp::Logger::Init("App");
 }
 
 Application::~Application()
@@ -269,6 +270,11 @@ int Application::Init(int, char* argv[])
 	InitializeBuffers();
 
 	return 0;
+}
+
+void Application::Close()
+{
+	m_Running = false;
 }
 
 void Application::Run()
