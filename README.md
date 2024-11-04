@@ -57,9 +57,9 @@ Ensure you have these installed:
     ```
 
 ### Running the App
-After a successful build, run the executable from the build directory:
+After a successful build, the HelloTriangle example executable can be run from the build directory:
 ```
-./App/App
+./examples/HelloTriangle
 ```
 
 ## 🤝 Contributing
