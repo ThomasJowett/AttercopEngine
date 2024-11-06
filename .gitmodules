@@ -7,3 +7,6 @@
 [submodule "external/sdl2webgpu"]
 	path = external/sdl2webgpu
 	url = git@github.com:eliemichel/sdl2webgpu.git
+[submodule "external/glm"]
+	path = external/glm
+	url = git@github.com:g-truc/glm.git

@@ -32,10 +32,13 @@ if (MSVC)
 endif()
 
 option(SDL_SHARED OFF)
+option(GLM_ENABLE_CXX_17 ON)
+option(GLM_ENABLE_FAST_MATH ON)
 
 add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
 add_subdirectory(external/sdl2webgpu)
+add_subdirectory(external/glm)
 
 add_subdirectory(Attercop)
 add_subdirectory(tests)
