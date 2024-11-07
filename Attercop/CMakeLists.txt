@@ -33,6 +33,7 @@ target_link_libraries(Attercop PUBLIC
     SDL2::SDL2
     webgpu
     sdl2webgpu
+    glm
 )
 
 target_include_directories(Attercop PUBLIC
