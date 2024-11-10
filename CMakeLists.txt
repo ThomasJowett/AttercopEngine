@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
-cmake_policy(VERSION 3.8)
+cmake_policy(VERSION 3.10)
+cmake_policy(SET CMP0077 NEW)
+
 project(
     Attercop
     VERSION 0.1.0
     LANGUAGES CXX C
 )
+
+enable_testing()
+
+include(${CMAKE_SOURCE_DIR}/cmake/CopyData.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -21,16 +27,23 @@ FetchContent_MakeAvailable(webgpu)
 
 if (MSVC)
     add_compile_options(/MP /ZI /JMC)
-    set(DEFAULT_STARTUP_TARGET App)
+    set(DEFAULT_STARTUP_TARGET HelloTriangle)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
 
-set(SDL_SHARED OFF)
+option(SDL_SHARED OFF)
+option(GLM_ENABLE_CXX_17 ON)
+option(GLM_ENABLE_FAST_MATH ON)
 
 add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
 add_subdirectory(external/sdl2webgpu)
+add_subdirectory(external/glm)
 
-add_subdirectory(App)
+add_subdirectory(Attercop)
+add_subdirectory(tests)
+add_subdirectory(examples)
+
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation Directory" FORCE)
 
 set_target_properties(spdlog PROPERTIES FOLDER ThirdParty/spdlog)

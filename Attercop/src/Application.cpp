@@ -1,6 +1,7 @@
 #include "Application.hpp"
 #include "Logger.hpp"
 #include "SimpleMeshParser.hpp"
+#include "Uniforms.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -23,8 +24,17 @@ void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool 
 #endif
 }
 
+/**
+ * Round 'value' up to the next multiplier of 'step'.
+ */
+uint32_t ceilToNextMultiple(uint32_t value, uint32_t step) {
+	uint32_t divide_and_ceil = value / step + (value % step == 0 ? 0 : 1);
+	return step * divide_and_ceil;
+}
+
 Application::Application()
 {
+	atcp::Logger::Init("App");
 }
 
 Application::~Application()
@@ -197,9 +207,10 @@ int Application::Init(int, char* argv[])
 
 	wgpu::BindGroupLayoutEntry bindingLayout = wgpu::Default;
 	bindingLayout.binding = 0;
-	bindingLayout.visibility = wgpu::ShaderStage::Vertex;
+	bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
 	bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
-	bindingLayout.buffer.minBindingSize = sizeof(float);
+	bindingLayout.buffer.minBindingSize = sizeof(MyUniform);
+	bindingLayout.buffer.hasDynamicOffset = true;
 
 	wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
 	bindGroupLayoutDesc.entryCount = 1;
@@ -215,21 +226,33 @@ int Application::Init(int, char* argv[])
 
 	m_Pipeline = m_Device.createRenderPipeline(pipelineDesc);
 
+	uint32_t uniformStride = ceilToNextMultiple(
+		(uint32_t)sizeof(MyUniform),
+		(uint32_t)m_DeviceLimits.minUniformBufferOffsetAlignment
+	);
+
 	wgpu::BufferDescriptor bufferDesc;
 	bufferDesc.label = "Uniform Buffer";
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-	bufferDesc.size = sizeof(float);
+	bufferDesc.size = uniformStride + sizeof(MyUniform);
 	bufferDesc.mappedAtCreation = false;
 	m_UniformBuffer = m_Device.createBuffer(bufferDesc);
 
-	float currentTime = 1.0f;
-	m_Queue.writeBuffer(m_UniformBuffer, 0, &currentTime, sizeof(float));
+	MyUniform uniforms;
+	uniforms.time = 1.0f;
+	uniforms.colour = { 0.4f, 0.0f, 1.0f, 1.0f };
+	m_Queue.writeBuffer(m_UniformBuffer, 0, &uniforms, sizeof(MyUniform));
+
+	uniforms.time = -1.0f;
+	uniforms.colour = { 0.0f, 1.0f, 0.4f, 1.0f };
+	m_Queue.writeBuffer(m_UniformBuffer, uniformStride, &uniforms, sizeof(MyUniform));
+
 
 	wgpu::BindGroupEntry binding{};
 	binding.binding = 0;
 	binding.buffer = m_UniformBuffer;
 	binding.offset = 0;
-	binding.size = sizeof(float);
+	binding.size = sizeof(MyUniform);
 
 	wgpu::BindGroupDescriptor bindGroupDesc{};
 	bindGroupDesc.layout = bindGroupLayout;
@@ -247,6 +270,11 @@ int Application::Init(int, char* argv[])
 	InitializeBuffers();
 
 	return 0;
+}
+
+void Application::Close()
+{
+	m_Running = false;
 }
 
 void Application::Run()
@@ -270,8 +298,17 @@ void Application::Run()
 			//else if(event.type == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID())
 		}
 
-		float t = static_cast<float>(GetTime());
-		m_Queue.writeBuffer(m_UniformBuffer, 0, &t, sizeof(float));
+		uint32_t uniformStride = ceilToNextMultiple(
+			(uint32_t)sizeof(MyUniform),
+			(uint32_t)m_DeviceLimits.minUniformBufferOffsetAlignment
+		);
+
+		MyUniform uniforms;
+		uniforms.time = static_cast<float>(GetTime());
+		m_Queue.writeBuffer(m_UniformBuffer, offsetof(MyUniform, time), &uniforms.time, sizeof(float));
+
+		uniforms.time = -static_cast<float>(GetTime()) - 1.0f;
+		m_Queue.writeBuffer(m_UniformBuffer, uniformStride + offsetof(MyUniform, time), &uniforms.time, sizeof(float));
 
 		wgpu::TextureView targetView = GetNextSurfaceTextureView();
 		if (!targetView)
@@ -302,8 +339,17 @@ void Application::Run()
 		renderPass.setPipeline(m_Pipeline);
 		renderPass.setVertexBuffer(0, m_VertexBuffer, 0, m_VertexBuffer.getSize());
 		renderPass.setIndexBuffer(m_IndexBuffer, wgpu::IndexFormat::Uint16, 0, m_IndexCount * sizeof(uint16_t));
-		renderPass.setBindGroup(0, m_BindGroup, 0, nullptr);
+
+		uint32_t dynamicOffset = 0;
+
+		dynamicOffset = 0 * uniformStride;
+		renderPass.setBindGroup(0, m_BindGroup, 1, &dynamicOffset);
 		renderPass.drawIndexed(m_IndexCount, 1, 0, 0, 0);
+
+		dynamicOffset = 1 * uniformStride;
+		renderPass.setBindGroup(0, m_BindGroup, 1, &dynamicOffset);
+		renderPass.drawIndexed(m_IndexCount, 1, 0, 0, 0);
+
 		renderPass.end();
 		renderPass.release();
 
@@ -354,6 +400,7 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 {
 	wgpu::SupportedLimits supportedLimits;
 	adapter.getLimits(&supportedLimits);
+	m_DeviceLimits = supportedLimits.limits;
 
 	wgpu::RequiredLimits requiredLimits = wgpu::Default;
 
@@ -368,6 +415,7 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 	requiredLimits.limits.maxBindGroups = 1;
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
 	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4;
+	requiredLimits.limits.maxDynamicUniformBuffersPerPipelineLayout = 1;
 
 	return requiredLimits;
 }

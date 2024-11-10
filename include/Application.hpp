@@ -3,6 +3,7 @@
 
 #include <webgpu/webgpu.hpp>
 #include <filesystem>
+#include <atomic>
 
 int main(int argc, char* argv[]);
 
@@ -15,6 +16,8 @@ public:
 
 	int Init(int argc, char* argv[]);
 
+	void Close();
+
 private:
 	void Run();
 	wgpu::TextureView GetNextSurfaceTextureView();
@@ -25,7 +28,7 @@ private:
 	double GetTime();
 
 private:
-	bool m_Running = false;
+	std::atomic<bool> m_Running = false;
 	float m_FixedUpdateInterval = 0.01f;
 
 	wgpu::Instance m_Instance = nullptr;
@@ -34,6 +37,7 @@ private:
 	wgpu::Device m_Device = nullptr;
 	wgpu::Queue m_Queue = nullptr;
 	wgpu::RenderPipeline m_Pipeline = nullptr;
+	wgpu::Limits m_DeviceLimits;
 
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
