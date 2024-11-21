@@ -39,6 +39,9 @@ private:
 	wgpu::RenderPipeline m_Pipeline = nullptr;
 	wgpu::Limits m_DeviceLimits;
 
+	wgpu::Texture m_DepthTexture = nullptr;
+	wgpu::TextureView m_DepthTextureView = nullptr;
+
 	static Application* s_Instance;
 	friend int ::main(int argc, char* argv[]);
 

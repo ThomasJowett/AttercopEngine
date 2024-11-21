@@ -46,6 +46,10 @@ Application::~Application()
 	m_Queue.release();
 	m_Instance.release();
 	m_VertexBuffer.release();
+
+	m_DepthTextureView.release();
+	m_DepthTexture.destroy();
+	m_DepthTexture.release();
 	SDL_Quit();
 }
 
@@ -153,17 +157,17 @@ int Application::Init(int, char* argv[])
 	std::vector<wgpu::VertexAttribute> vertexAttribs(2);
 	wgpu::VertexAttribute& positionAttrib = vertexAttribs[0];
 	positionAttrib.shaderLocation = 0;
-	positionAttrib.format = wgpu::VertexFormat::Float32x2;
+	positionAttrib.format = wgpu::VertexFormat::Float32x3;
 	positionAttrib.offset = 0;
 
 	wgpu::VertexAttribute& colorAttrib = vertexAttribs[1];
 	colorAttrib.shaderLocation = 1;
 	colorAttrib.format = wgpu::VertexFormat::Float32x3;
-	colorAttrib.offset = 2 * sizeof(float);
+	colorAttrib.offset = 3 * sizeof(float);
 
 	vertexBufferLayout.attributeCount = static_cast<uint32_t>(vertexAttribs.size());
 	vertexBufferLayout.attributes = vertexAttribs.data();
-	vertexBufferLayout.arrayStride = 5 * sizeof(float);
+	vertexBufferLayout.arrayStride = 6 * sizeof(float);
 	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
 
 	pipelineDesc.vertex.bufferCount = 1;
@@ -178,6 +182,17 @@ int Application::Init(int, char* argv[])
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW;
 	pipelineDesc.primitive.cullMode = wgpu::CullMode::None;
 
+	wgpu::DepthStencilState depthStencilState;
+	depthStencilState.depthCompare = wgpu::CompareFunction::Less;
+	depthStencilState.stencilFront.compare = wgpu::CompareFunction::Less;
+	depthStencilState.stencilBack.compare = wgpu::CompareFunction::Less;
+	depthStencilState.depthWriteEnabled = true;
+	wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
+	depthStencilState.format = depthTextureFormat;
+	depthStencilState.stencilReadMask = 0;
+	depthStencilState.stencilWriteMask = 0;
+	pipelineDesc.depthStencil = &depthStencilState;
+
 	wgpu::FragmentState fragmentState;
 	fragmentState.module = shaderModule;
 	fragmentState.entryPoint = "fs_main";
@@ -185,8 +200,6 @@ int Application::Init(int, char* argv[])
 	fragmentState.constants = nullptr;
 
 	pipelineDesc.fragment = &fragmentState;
-
-	pipelineDesc.depthStencil = nullptr;
 
 	wgpu::BlendState blendState;
 	blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
@@ -225,6 +238,28 @@ int Application::Init(int, char* argv[])
 	pipelineDesc.layout = layout;
 
 	m_Pipeline = m_Device.createRenderPipeline(pipelineDesc);
+
+	//Create the depth texture
+	wgpu::TextureDescriptor depthTextureDesc;
+	depthTextureDesc.dimension = wgpu::TextureDimension::_2D;
+	depthTextureDesc.format = depthTextureFormat;
+	depthTextureDesc.mipLevelCount = 1;
+	depthTextureDesc.sampleCount = 1;
+	depthTextureDesc.size = { (uint32_t)windowWidth, (uint32_t)windowHeight, 1 };
+	depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
+	depthTextureDesc.viewFormatCount = 1;
+	depthTextureDesc.viewFormats = (WGPUTextureFormat*)&depthTextureFormat;
+	m_DepthTexture = m_Device.createTexture(depthTextureDesc);
+
+	wgpu::TextureViewDescriptor depthTextureViewDesc;
+	depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
+	depthTextureViewDesc.baseArrayLayer = 0;
+	depthTextureViewDesc.arrayLayerCount = 1;
+	depthTextureViewDesc.baseMipLevel = 0;
+	depthTextureViewDesc.mipLevelCount = 1;
+	depthTextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
+	depthTextureViewDesc.format = depthTextureFormat;
+	m_DepthTextureView = m_DepthTexture.createView(depthTextureViewDesc);
 
 	uint32_t uniformStride = ceilToNextMultiple(
 		(uint32_t)sizeof(MyUniform),
@@ -329,9 +364,20 @@ void Application::Run()
 		renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
 		renderPassColorAttachment.clearValue = wgpu::Color{ 0.1, 0.4, 0.1, 1.0 };
 
+		wgpu::RenderPassDepthStencilAttachment depthStencilAttachment = {};
+		depthStencilAttachment.view = m_DepthTextureView;
+		depthStencilAttachment.depthClearValue = 1.0f;
+		depthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
+		depthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
+		depthStencilAttachment.depthReadOnly = false;
+		depthStencilAttachment.stencilClearValue = 0;
+		depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Clear;
+		depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Store;
+		depthStencilAttachment.stencilReadOnly = true;
+
 		renderPassDesc.colorAttachmentCount = 1;
 		renderPassDesc.colorAttachments = &renderPassColorAttachment;
-		renderPassDesc.depthStencilAttachment = nullptr;
+		renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
 		renderPassDesc.timestampWrites = nullptr;
 		renderPassDesc.nextInChain = nullptr;
 
@@ -407,15 +453,17 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 	requiredLimits.limits.maxVertexAttributes = 2;
 	requiredLimits.limits.maxVertexBuffers = 1;
 	requiredLimits.limits.maxBufferSize = 15 * 5 * sizeof(float);
-	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float);
+	requiredLimits.limits.maxVertexBufferArrayStride = 6 * sizeof(float);
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+	requiredLimits.limits.maxTextureDimension1D = supportedLimits.limits.maxTextureDimension1D;
 	requiredLimits.limits.maxTextureDimension2D = supportedLimits.limits.maxTextureDimension2D;
 	requiredLimits.limits.maxInterStageShaderComponents = 3;
 	requiredLimits.limits.maxBindGroups = 1;
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
 	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4;
 	requiredLimits.limits.maxDynamicUniformBuffersPerPipelineLayout = 1;
+	requiredLimits.limits.maxTextureArrayLayers = 1;
 
 	return requiredLimits;
 }
@@ -425,7 +473,7 @@ void Application::InitializeBuffers()
 
 	std::vector<uint16_t> indexData;
 
-	bool success = SimpleMeshParser::LoadGeometry(m_WorkingDirectory / "resources" / "simple_mesh.txt", vertexData, indexData);
+	bool success = SimpleMeshParser::LoadGeometry(m_WorkingDirectory / "resources" / "simple_mesh.txt", vertexData, indexData, 3);
 	if (!success) {
 		LOG_ERROR("Could not load geometry!");
 		return;

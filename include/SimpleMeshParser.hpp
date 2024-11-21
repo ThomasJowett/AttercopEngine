@@ -9,6 +9,6 @@ namespace atcp
 class SimpleMeshParser
 {
 public:
-    static bool LoadGeometry(const std::filesystem::path& path, std::vector<float>& vertexData, std::vector<uint16_t>& indexData);
+    static bool LoadGeometry(const std::filesystem::path& path, std::vector<float>& vertexData, std::vector<uint16_t>& indexData, int dimensions);
 };
 } // namespace atcp
