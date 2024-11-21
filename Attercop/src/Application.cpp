@@ -431,6 +431,10 @@ void Application::InitializeBuffers()
 		return;
 	}
 
+	size_t indexBufferSize = indexData.size() * sizeof(uint16_t);
+	if (indexBufferSize % 4 != 0)
+		indexBufferSize += 4 - (indexBufferSize % 4);
+
 	m_VertexCount = static_cast<uint32_t>(vertexData.size() / 5);
 	m_IndexCount = static_cast<uint32_t>(indexData.size());
 
@@ -442,7 +446,7 @@ void Application::InitializeBuffers()
 
 	m_Queue.writeBuffer(m_VertexBuffer, 0, vertexData.data(), bufferDesc.size);
 
-	bufferDesc.size = indexData.size() * sizeof(uint16_t);
+	bufferDesc.size = indexBufferSize;
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_IndexBuffer = m_Device.createBuffer(bufferDesc);
 
