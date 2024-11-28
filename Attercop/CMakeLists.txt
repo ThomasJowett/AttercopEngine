@@ -36,6 +36,14 @@ target_link_libraries(Attercop PUBLIC
     glm
 )
 
+set(ATCP_ENABLE_PROFILING OFF CACHE BOOL "Enable Profiling with Tracy")
+
+if(ATCP_ENABLE_PROFILING)
+    add_compile_definitions(ATCP_ENABLE_TRACY)
+    target_include_directories(Attercop PUBLIC "${CMAKE_SOURCE_DIR}/external/tracy/public/tracy")
+    target_link_libraries(Attercop PUBLIC Tracy::TracyClient)
+endif()
+
 target_include_directories(Attercop PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )

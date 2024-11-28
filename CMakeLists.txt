@@ -39,6 +39,7 @@ add_subdirectory(external/spdlog)
 add_subdirectory(external/SDL)
 add_subdirectory(external/sdl2webgpu)
 add_subdirectory(external/glm)
+add_subdirectory(external/tracy)
 
 add_subdirectory(Attercop)
 add_subdirectory(tests)

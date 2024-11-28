@@ -1,8 +1,10 @@
 #include "SimpleMeshParser.hpp"
+#include "Profiler.hpp"
 namespace atcp
 {
 bool SimpleMeshParser::LoadGeometry(const std::filesystem::path& path, std::vector<float>& vertexData, std::vector<uint16_t>& indexData, int dimensions)
 {
+	PROFILE_FUNCTION();
 	std::ifstream file(path);
 	if (!file.is_open())
 	{
