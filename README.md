@@ -8,7 +8,7 @@
 
 A cutting-edge **C++ graphics engine** built on **WebGPU** that brings high-performance, modern rendering capabilities to your applications. A work in progress, this engine aims to leverage the **power and flexibility of WebGPU** with seamless CMake integration for easy project setup and extension.
 
-![Screenshot of WebGPU Graphics Engine](screenshots/Screenshot%202024-10-25%20at%2020.01.58.png)
+![Screenshot of WebGPU Graphics Engine](screenshots/Screenshot_2024-11-28_at_09.30.15.png)
 
 ## ✨ Features (Planned and In Progress)
 
