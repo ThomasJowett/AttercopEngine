@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include "SimpleMeshParser.hpp"
 #include "Uniforms.hpp"
+#include "Profiler.hpp"
 
 #define SDL_MAIN_HANDLED
 #include <sdl2webgpu.h>
@@ -12,6 +13,7 @@
 namespace atcp {
 
 void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool yieldToWebBrowser) {
+	PROFILE_FUNCTION();
 #if defined(WEBGPU_BACKEND_DAWN)
 	device.tick();
 #elif defined(WEBGPU_BACKEND_WGPU)
@@ -28,17 +30,20 @@ void wgpuPollEvents([[maybe_unused]] wgpu::Device device, [[maybe_unused]] bool 
  * Round 'value' up to the next multiplier of 'step'.
  */
 uint32_t ceilToNextMultiple(uint32_t value, uint32_t step) {
+	PROFILE_FUNCTION();
 	uint32_t divide_and_ceil = value / step + (value % step == 0 ? 0 : 1);
 	return step * divide_and_ceil;
 }
 
 Application::Application()
 {
+	PROFILE_FUNCTION();
 	atcp::Logger::Init("App");
 }
 
 Application::~Application()
 {
+	PROFILE_FUNCTION();
 	m_Pipeline.release();
 	m_Adapter.release();
 	m_Surface.release();
@@ -51,10 +56,12 @@ Application::~Application()
 	m_DepthTexture.destroy();
 	m_DepthTexture.release();
 	SDL_Quit();
+	PROFILE_FRAME();
 }
 
 int Application::Init(int, char* argv[])
 {
+	PROFILE_FUNCTION();
 	m_WorkingDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path();
 	std::filesystem::current_path(m_WorkingDirectory);
 	m_Instance = wgpu::createInstance(wgpu::InstanceDescriptor{});
@@ -309,11 +316,13 @@ int Application::Init(int, char* argv[])
 
 void Application::Close()
 {
+	PROFILE_FUNCTION();
 	m_Running = false;
 }
 
 void Application::Run()
 {
+	PROFILE_FUNCTION();
 	if (m_Running) {
 		LOG_ERROR("Application is already running");
 	}
@@ -324,6 +333,7 @@ void Application::Run()
 
 	while (m_Running)
 	{
+		PROFILE_FRAME();
 		while (SDL_PollEvent(&event))
 		{
 			if (event.type == SDL_QUIT)
@@ -419,6 +429,7 @@ void Application::Run()
 }
 wgpu::TextureView Application::GetNextSurfaceTextureView()
 {
+	PROFILE_FUNCTION();
 	wgpu::SurfaceTexture surfaceTexture;
 	m_Surface.getCurrentTexture(&surfaceTexture);
 	if (surfaceTexture.status != wgpu::SurfaceGetCurrentTextureStatus::Success) {
@@ -444,6 +455,7 @@ wgpu::TextureView Application::GetNextSurfaceTextureView()
 
 wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 {
+	PROFILE_FUNCTION();
 	wgpu::SupportedLimits supportedLimits;
 	adapter.getLimits(&supportedLimits);
 	m_DeviceLimits = supportedLimits.limits;
@@ -469,6 +481,7 @@ wgpu::RequiredLimits Application::GetRequiredLimits(wgpu::Adapter adapter)
 }
 void Application::InitializeBuffers()
 {
+	PROFILE_FUNCTION();
 	std::vector<float> vertexData;
 
 	std::vector<uint16_t> indexData;
@@ -502,6 +515,7 @@ void Application::InitializeBuffers()
 }
 wgpu::ShaderModule Application::LoadShaderModule(const std::filesystem::path& path)
 {
+	PROFILE_FUNCTION();
 	std::ifstream file(path);
 	if (!file.is_open()) {
 		LOG_CRITICAL("Could not load shader from {0}", path.string());
@@ -525,6 +539,7 @@ wgpu::ShaderModule Application::LoadShaderModule(const std::filesystem::path& pa
 }
 double Application::GetTime()
 {
+	PROFILE_FUNCTION();
 	static Uint64 startCounter = SDL_GetPerformanceCounter();
 	Uint64 currentCounter = SDL_GetPerformanceCounter();
 	return (currentCounter - startCounter) / (double)SDL_GetPerformanceFrequency();

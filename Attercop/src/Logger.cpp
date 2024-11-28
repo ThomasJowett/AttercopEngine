@@ -5,11 +5,13 @@
 #include <spdlog/sinks/msvc_sink.h>
 
 #include "InternalConsoleSink.hpp"
+#include "Profiler.hpp"
 
 namespace atcp {
 std::shared_ptr<spdlog::logger> Logger::s_Logger;
 void Logger::Init(const std::string& name)
 {
+	PROFILE_FUNCTION();
 	std::string logFilename = "Log.txt";
 
 	std::vector<spdlog::sink_ptr>logSinks;
