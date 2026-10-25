@@ -29,5 +29,5 @@ private:
 
     Ref<OrthographicCamera> m_Camera;
 
-    std::string m_String;
+    const std::string m_String = "The quick brown fox jumps over the lazy dog\n\n!\"#$%&\'()*+,-./0123456789:;<=>?@ ABCDEFGHIJKLMNOPQRSTUVWXYZ [\\]^_`abcdefghijklmnopqrstuvwxyz{ | }~'";
 };

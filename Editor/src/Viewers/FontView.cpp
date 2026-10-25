@@ -20,8 +20,6 @@ FontView::FontView(bool* show, std::filesystem::path filepath)
 	FrameBufferSpecification frameBufferSpecification = { 512, 256 };
 	frameBufferSpecification.attachments = { FrameBufferTextureFormat::RGBA8, FrameBufferTextureFormat::RED_INTEGER, FrameBufferTextureFormat::Depth };
 	m_Framebuffer = FrameBuffer::Create(frameBufferSpecification);
-
-	m_String = "The quick brown fox jumps over the lazy dog\n\n!\"#$%&\'()*+,-./0123456789:;<=>?@ ABCDEFGHIJKLMNOPQRSTUVWXYZ [\\]^_`abcdefghijklmnopqrstuvwxyz{ | }~'";
 }
 
 void FontView::OnAttach()
