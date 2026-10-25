@@ -31,7 +31,6 @@ void ImGuiManager::Init()
 	ImGuiIO& io = ImGui::GetIO();
 	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 	RendererAPI::API api = RendererAPI::GetAPI();
@@ -110,6 +109,14 @@ void ImGuiManager::OnEvent(Event& event)
 	event.Handled |= event.IsInCategory(EventCategory::MOUSE) & io.WantCaptureMouse;
 	event.Handled |= event.IsInCategory(EventCategory::KEYBOARD) & io.WantCaptureKeyboard;
 }
+
+void ImGuiManager::EnableGamepadNavigation()
+{
+	if (ImGui::GetCurrentContext())
+		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 void ImGuiManager::Begin()
 {

@@ -1,5 +1,6 @@
 #include "InputActionSystem.h"
 #include "Core/Input.h"
+#include "Core/Joysticks.h"
 
 #include <algorithm>
 #include <cmath>
@@ -59,13 +60,19 @@ float InputActionSystem::EvaluateBinding(const InputBinding& binding)
 	case InputBindingDevice::MouseButton:
 		raw = Input::IsMouseButtonPressed(binding.code) ? 1.0f : 0.0f;
 		break;
+	// Single local player: gamepad bindings read the first device with a gamepad mapping
 	case InputBindingDevice::GamepadButton:
-		// v1 assumes a single local player, so this always polls joystick slot 0.
-		raw = Input::IsJoystickButtonPressed(0, binding.code) ? 1.0f : 0.0f;
+	{
+		int slot = Joysticks::GetFirstGamepadSlot();
+		raw = slot >= 0 && Input::IsJoystickButtonPressed(slot, binding.code) ? 1.0f : 0.0f;
 		break;
+	}
 	case InputBindingDevice::GamepadAxis:
-		raw = (float)Input::GetJoystickAxis(0, binding.code);
+	{
+		int slot = Joysticks::GetFirstGamepadSlot();
+		raw = slot >= 0 ? (float)Input::GetJoystickAxis(slot, binding.code) : 0.0f;
 		break;
+	}
 	case InputBindingDevice::MouseAxis:
 	{
 		Vector2f delta = Input::GetMouseDelta();

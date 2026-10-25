@@ -542,64 +542,6 @@ bool Window::Init(const WindowProps& props)
 				Input::AccumulateMouseMotion(xPos, yPos);
 			});
 	}
-	if (false) {
-		PROFILE_SCOPE("Joysticks");
-		auto initJoysticks(
-			[]()
-			{
-				for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST; jid++)
-				{
-					PROFILE_SCOPE("Joystick Init");
-					if (glfwJoystickPresent(jid))
-					{
-						GLFWgamepadstate state;
-						Joysticks::Joystick joystick;
-						joystick.id = jid;
-						joystick.name = glfwGetJoystickName(joystick.id);
-						joystick.isMapped = glfwGetGamepadState(joystick.id, &state);
-						glfwGetJoystickAxes(joystick.id, &joystick.axes);
-						glfwGetJoystickButtons(joystick.id, &joystick.buttons);
-						glfwGetJoystickHats(joystick.id, &joystick.hats);
-						Joysticks::AddJoystick(joystick);
-					}
-				}
-			});
-
-		glfwSetJoystickCallback(
-			[](int jid, int e)
-			{
-				if (e == GLFW_CONNECTED)
-				{
-					GLFWgamepadstate state;
-					Joysticks::Joystick joystick;
-					joystick.id = jid;
-					joystick.name = glfwGetJoystickName(joystick.id);
-					joystick.isMapped = glfwGetGamepadState(joystick.id, &state);
-					glfwGetJoystickAxes(joystick.id, &joystick.axes);
-					glfwGetJoystickButtons(joystick.id, &joystick.buttons);
-					glfwGetJoystickHats(joystick.id, &joystick.hats);
-					Joysticks::AddJoystick(joystick);
-					JoystickConnected event(jid);
-					Application::CallEvent(event);
-				}
-				else if (e == GLFW_DISCONNECTED)
-				{
-					Joysticks::RemoveJoystick(jid);
-					JoystickDisconnected event(jid);
-					Application::CallEvent(event);
-				}
-			});
-
-		if (glfwGetPlatform() == GLFW_PLATFORM_WIN32)
-		{
-			std::thread joystickThread(initJoysticks);
-			joystickThread.detach();
-		}
-		else
-		{
-			initJoysticks();
-		}
-	}
 #ifdef __EMSCRIPTEN__
 	// CaptureMouse needs the pointer that pressed the button
 	Window_TrackPointer();
@@ -615,6 +557,51 @@ bool Window::Init(const WindowProps& props)
 			});
 	}
 	return true;
+}
+
+#ifndef __EMSCRIPTEN__
+static Joysticks::Joystick DescribeJoystick(int jid)
+{
+	Joysticks::Joystick joystick;
+	joystick.id = jid;
+	if (const char* name = glfwGetJoystickName(jid))
+		joystick.name = name;
+	joystick.isMapped = glfwJoystickIsGamepad(jid);
+	glfwGetJoystickAxes(jid, &joystick.axes);
+	glfwGetJoystickButtons(jid, &joystick.buttons);
+	glfwGetJoystickHats(jid, &joystick.hats);
+	return joystick;
+}
+#endif
+
+void Window::InitJoysticks()
+{
+#ifndef __EMSCRIPTEN__
+	PROFILE_FUNCTION();
+
+	// GLFW's joystick functions must only be called from the main thread
+	glfwSetJoystickCallback([](int jid, int e)
+		{
+			if (e == GLFW_CONNECTED)
+			{
+				Joysticks::AddJoystick(DescribeJoystick(jid));
+				JoystickConnected event(jid);
+				Application::CallEvent(event);
+			}
+			else if (e == GLFW_DISCONNECTED)
+			{
+				Joysticks::RemoveJoystick(jid);
+				JoystickDisconnected event(jid);
+				Application::CallEvent(event);
+			}
+		});
+
+	for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST; jid++)
+	{
+		if (glfwJoystickPresent(jid))
+			Joysticks::AddJoystick(DescribeJoystick(jid));
+	}
+#endif
 }
 
 void Window::Shutdown()

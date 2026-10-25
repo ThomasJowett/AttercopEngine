@@ -273,6 +273,14 @@ void Application::Tick() {
 	{
 		m_Window->GetContext()->MakeCurrent();
 		m_Window->OnUpdate();
+
+		// The first frame is presented by this OnUpdate
+		if (m_FrameCount == 1)
+		{
+			m_Window->InitJoysticks();
+			if (m_ImGuiManager)
+				m_ImGuiManager->EnableGamepadNavigation();
+		}
 	}
 
 	// On Update 

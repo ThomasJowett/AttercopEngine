@@ -15,6 +15,9 @@ public:
 	virtual void OnEvent(Event& event);
 
 	void Begin();
+
+	// Gamepad navigation starts GLFW's joystick scan, so it's enabled after Window::InitJoysticks
+	void EnableGamepadNavigation();
 	void End();
 
 	bool IsUsing() { return m_UsingImGui; }

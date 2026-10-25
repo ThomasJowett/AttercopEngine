@@ -90,6 +90,9 @@ public:
 	void MaximizeWindow(); 
 	void RestoreWindow();
 
+	// Registers connected joysticks and starts listening for connections; scans devices, so call once the first frame is showing
+	void InitJoysticks();
+
 	GLFWwindow* GetNativeWindow() const;
 	Ref<GraphicsContext> GetContext() const;
 

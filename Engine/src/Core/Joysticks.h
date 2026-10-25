@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #define MAX_JOYSTICKS 16
 
 class Joysticks
@@ -8,7 +10,7 @@ public:
 
 	struct Joystick
 	{
-		const char* name = "";
+		std::string name;
 		bool isMapped = false;
 		int id = 0;
 		int axes = 0;
@@ -16,20 +18,20 @@ public:
 		int hats = 0;
 	};
 
-	static void AddJoystick(Joystick joystick)
+	static void AddJoystick(const Joystick& joystick)
 	{
-		s_Joysticks[s_JoystickCount++] = joystick;
+		if (s_JoystickCount < MAX_JOYSTICKS)
+			s_Joysticks[s_JoystickCount++] = joystick;
 	}
 
-	static void RemoveJoystick(uint32_t joystickID)
+	static void RemoveJoystick(int joystickID)
 	{
-		int i;
+		int i = 0;
+		while (i < s_JoystickCount && s_Joysticks[i].id != joystickID)
+			i++;
 
-		for (i = 0; i < s_JoystickCount; i++)
-		{
-			if (s_Joysticks[i].id == joystickID)
-				break;
-		}
+		if (i == s_JoystickCount)
+			return;
 
 		for (i = i + 1; i < s_JoystickCount; i++)
 			s_Joysticks[i - 1] = s_Joysticks[i];
@@ -38,6 +40,8 @@ public:
 	}
 
 	static int GetJoystickCount() { return s_JoystickCount; }
+	// Slot of the first joystick with a standard gamepad mapping, or -1. Mice and keyboards that report as joysticks have none
+	static int GetFirstGamepadSlot();
 	static Joystick GetJoystick(int joystickSlot);
 	static double GetDeadZone() { return s_DeadZone; }
 
