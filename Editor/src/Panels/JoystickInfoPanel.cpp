@@ -42,7 +42,9 @@ void JoystickInfoPanel::OnImGuiRender()
 		{
 			Joysticks::Joystick joystick = Joysticks::GetJoystick(i);
 
-			ImGui::Text("%s", joystick.name);
+			// Devices share axis and button labels, so give each its own ID scope
+			ImGui::PushID(i);
+			ImGui::Text("%s", joystick.name.c_str());
 
 			if (joystick.isMapped)
 			{
@@ -153,6 +155,7 @@ void JoystickInfoPanel::OnImGuiRender()
 				}
 			}
 
+			ImGui::PopID();
 			ImGui::Separator();
 		}
 		ImGui::PopItemFlag();
