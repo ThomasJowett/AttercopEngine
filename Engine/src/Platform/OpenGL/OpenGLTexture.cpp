@@ -153,15 +153,11 @@ void* OpenGLTexture2D::GetRendererID() const
 
 bool OpenGLTexture2D::Reload()
 {
-	if (!m_Filepath.empty() || m_Filepath != "NO DATA")
-	{
-		glDeleteTextures(1, &m_RendererID);
-		return LoadTextureFromFile();
-	}
-	else {
+	glDeleteTextures(1, &m_RendererID);
+	bool success = !m_Filepath.empty() && m_Filepath != "NO DATA" && LoadTextureFromFile();
+	if (!success)
 		NullTexture();
-		return false;
-	}
+	return success;
 }
 
 bool OpenGLTexture2D::operator==(const Texture& other) const
