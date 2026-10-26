@@ -1,6 +1,22 @@
 #include "SceneGraph.h"
 #include "Components.h"
 
+// Adds or removes the hidden marker, returning whether the entity is hidden
+static bool UpdateHidden(entt::registry& registry, entt::entity entity, bool parentHidden)
+{
+	HiddenComponent* hiddenComp = registry.try_get<HiddenComponent>(entity);
+	bool hidden = parentHidden || (hiddenComp != nullptr && hiddenComp->hidden);
+
+	if (hidden != registry.all_of<HiddenInHierarchyMarker>(entity))
+	{
+		if (hidden)
+			registry.emplace<HiddenInHierarchyMarker>(entity);
+		else
+			registry.remove<HiddenInHierarchyMarker>(entity);
+	}
+	return hidden;
+}
+
 void SceneGraph::Traverse(entt::registry& registry)
 {
 	PROFILE_FUNCTION();
@@ -10,32 +26,18 @@ void SceneGraph::Traverse(entt::registry& registry)
 	for (auto entity : nonHierarchyView)
 	{
 		registry.get<TransformComponent>(entity).SetWorldMatrix(Matrix4x4());
+		UpdateHidden(registry, entity, false);
 	}
 
 	registry.view<TransformComponent, HierarchyComponent>(/*entt::exclude<CanvasComponent>*/).each(
-		[&]([[maybe_unused]] const auto entity, auto& transformComp, auto& hierarchyComp)
+		[&](const auto entity, [[maybe_unused]] auto& transformComp, auto& hierarchyComp)
 		{
 			// if the entity is active and a root node
 			if (hierarchyComp.isActive && hierarchyComp.parent == entt::null)
 			{
-				UpdateTransform(&transformComp, &hierarchyComp, registry);
+				UpdateTransform(entity, registry);
 			}
 		});
-}
-
-bool SceneGraph::IsEffectivelyHidden(entt::registry& registry, entt::entity entity)
-{
-	while (entity != entt::null)
-	{
-		if (HiddenComponent* hiddenComp = registry.try_get<HiddenComponent>(entity))
-		{
-			if (hiddenComp->hidden)
-				return true;
-		}
-		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
-		entity = hierarchyComp != nullptr ? hierarchyComp->parent : entt::null;
-	}
-	return false;
 }
 
 void SceneGraph::TraverseUI(entt::registry& registry, uint32_t viewportWidth, uint32_t viewportHeight)
@@ -69,9 +71,7 @@ void SceneGraph::TraverseUI(entt::registry& registry, uint32_t viewportWidth, ui
 	}
 }
 
-// ancestorHidden is carried down from the parent rather than re-walking up per node (which
-// SceneGraph::IsEffectivelyHidden does, for the non-tree-walked render loops that need it) - this walk
-// already visits every ancestor before its descendants, so propagating the flag is equivalent and cheaper.
+// ancestorHidden is carried down from the parent, since this walk visits every ancestor before its descendants
 static void CollectUIDrawOrderRecursive(entt::registry& registry, entt::entity node, bool ancestorHidden, std::vector<entt::entity>& outOrder)
 {
 	while (node != entt::null)
@@ -396,38 +396,38 @@ entt::entity SceneGraph::FindEntity(const std::vector<std::string>& path, entt::
 	return entt::null;
 }
 
-void SceneGraph::UpdateTransform(TransformComponent* transformComp, HierarchyComponent* hierarchyComp, entt::registry& registry)
+void SceneGraph::UpdateTransform(entt::entity root, entt::registry& registry)
 {
 	PROFILE_FUNCTION();
-	if (hierarchyComp->parent != entt::null)
-	{
-		TransformComponent* parentTransformComp = registry.try_get<TransformComponent>(hierarchyComp->parent);
-		transformComp->SetWorldMatrix(parentTransformComp->GetWorldMatrix());
-	}
-	else
-	{
-		transformComp->SetWorldMatrix(Matrix4x4());
-	}
 
-	// Update the first child
-	if (hierarchyComp->firstChild != entt::null)
+	struct PendingNode
 	{
-		TransformComponent* childTransformComp = registry.try_get<TransformComponent>(hierarchyComp->firstChild);
-		HierarchyComponent* childHierarchyComp = registry.try_get<HierarchyComponent>(hierarchyComp->firstChild);
-		if (childHierarchyComp != nullptr && childTransformComp != nullptr)
-		{
-			UpdateTransform(childTransformComp, childHierarchyComp, registry);
-		}
-	}
+		entt::entity entity;
+		bool parentHidden;
+	};
+	std::vector<PendingNode> stack = { { root, false } };
 
-	// Update the next sibling
-	if (hierarchyComp->nextSibling != entt::null)
+	while (!stack.empty())
 	{
-		TransformComponent* siblingTransformComp = registry.try_get<TransformComponent>(hierarchyComp->nextSibling);
-		HierarchyComponent* siblingHierarchyComp = registry.try_get<HierarchyComponent>(hierarchyComp->nextSibling);
-		if (siblingHierarchyComp != nullptr && siblingTransformComp != nullptr)
+		PendingNode node = stack.back();
+		stack.pop_back();
+
+		TransformComponent* transformComp = registry.try_get<TransformComponent>(node.entity);
+		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(node.entity);
+		if (transformComp == nullptr || hierarchyComp == nullptr)
+			continue;
+
+		bool hidden = UpdateHidden(registry, node.entity, node.parentHidden);
+
+		TransformComponent* parentTransformComp = hierarchyComp->parent != entt::null
+			? registry.try_get<TransformComponent>(hierarchyComp->parent) : nullptr;
+		transformComp->SetWorldMatrix(parentTransformComp != nullptr ? parentTransformComp->GetWorldMatrix() : Matrix4x4());
+
+		for (entt::entity child = hierarchyComp->firstChild; child != entt::null;)
 		{
-			UpdateTransform(siblingTransformComp, siblingHierarchyComp, registry);
+			stack.push_back({ child, hidden });
+			HierarchyComponent* childHierarchyComp = registry.try_get<HierarchyComponent>(child);
+			child = childHierarchyComp != nullptr ? childHierarchyComp->nextSibling : entt::null;
 		}
 	}
 }

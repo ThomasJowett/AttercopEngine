@@ -22,3 +22,6 @@ private:
 		archive(hidden);
 	}
 };
+
+// Set by SceneGraph::Traverse on entities hidden by themselves or an ancestor; never saved
+struct HiddenInHierarchyMarker {};

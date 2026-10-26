@@ -9,10 +9,6 @@ public:
 	static void Traverse(entt::registry& registry);
 	static void TraverseUI(entt::registry& registry, uint32_t viewportWidth, uint32_t viewportHeight);
 
-	// True if this entity or any ancestor carries a HiddenComponent - HiddenComponent is never added
-	// onto descendants, so this walks up the parent chain rather than checking a single entity.
-	static bool IsEffectivelyHidden(entt::registry& registry, entt::entity entity);
-
 	// Every entity carrying a WidgetComponent, in draw order (Canvas -> firstChild -> nextSibling,
 	// parent before children, earlier siblings before later ones) - the single canonical z-order both
 	// RenderUI (what's on top visually) and HitTestUI (what's on top for input) must agree on.
@@ -30,7 +26,7 @@ public:
 	static std::vector<Entity> GetChildren(Entity entity);
 	static entt::entity FindEntity(const std::vector<std::string>& path, entt::registry& registry);
 private:
-	static void UpdateTransform(TransformComponent* transformComp, HierarchyComponent* hierarchyComp, entt::registry& registry);
+	static void UpdateTransform(entt::entity root, entt::registry& registry);
 
 	// All position/size/anchor/margin math happens in a single consistent unit - reference-resolution
 	// pixels (WidgetComponent::s_referenceWidth/Height) - all the way down the tree, exactly like

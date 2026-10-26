@@ -425,20 +425,16 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 
 	Renderer::BeginScene(cameraTransform, projection);
 
-	auto spriteGroup = m_Registry.view<TransformComponent, SpriteComponent>();
+	auto spriteGroup = m_Registry.view<TransformComponent, SpriteComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : spriteGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, spriteComp] = spriteGroup.get(entity);
 		Renderer2D::DrawSprite(transformComp.GetWorldMatrix(), spriteComp, (int)entity);
 	}
 
-	auto animatedSpriteGroup = m_Registry.view<TransformComponent, AnimatedSpriteComponent>();
+	auto animatedSpriteGroup = m_Registry.view<TransformComponent, AnimatedSpriteComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : animatedSpriteGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, spriteComp] = animatedSpriteGroup.get(entity);
 		if (spriteComp.spriteSheet && spriteComp.spriteSheet->GetSubTexture()) {
 			spriteComp.spriteSheet->GetSubTexture()->SetCurrentCell(spriteComp.currentFrame);
@@ -447,29 +443,23 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		}
 	}
 
-	auto circleGroup = m_Registry.view<TransformComponent, CircleRendererComponent>();
+	auto circleGroup = m_Registry.view<TransformComponent, CircleRendererComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : circleGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, circleComp] = circleGroup.get(entity);
 		Renderer2D::DrawCircle(transformComp.GetWorldMatrix(), circleComp, (int)entity);
 	}
 
-	auto textGroup = m_Registry.view<TransformComponent, TextComponent>();
+	auto textGroup = m_Registry.view<TransformComponent, TextComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : textGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, textComp] = textGroup.get(entity);
 		Renderer2D::DrawString(textComp.text, textComp.font, textComp.maxWidth, transformComp.GetWorldMatrix(), textComp.colour, (int)entity);
 	}
 
-	auto staticMeshGroup = m_Registry.view<TransformComponent, StaticMeshComponent>();
+	auto staticMeshGroup = m_Registry.view<TransformComponent, StaticMeshComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : staticMeshGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, staticMeshComp] = staticMeshGroup.get(entity);
 		if (!staticMeshComp.mesh || !staticMeshComp.mesh->GetMesh())
 			continue;
@@ -477,11 +467,9 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		Renderer::Submit(staticMeshComp.mesh->GetMesh(), staticMeshComp.materialOverrides, transformComp.GetWorldMatrix(), (int)entity);
 	}
 
-	auto primitiveGroup = m_Registry.view<TransformComponent, PrimitiveComponent>();
+	auto primitiveGroup = m_Registry.view<TransformComponent, PrimitiveComponent>(entt::exclude<HiddenInHierarchyMarker>);
 	for (auto entity : primitiveGroup)
 	{
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
-			continue;
 		auto&& [transformComp, primitiveComp] = primitiveGroup.get(entity);
 		Renderer::Submit(primitiveComp.mesh, primitiveComp.material, transformComp.GetWorldMatrix(), (int)entity);
 	}
@@ -491,7 +479,7 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 	{
 		auto&& [transformComp, tilemapComp] = tilemapGroup.get(entity);
 		tilemapComp.UpdateRebuild();
-		if (SceneGraph::IsEffectivelyHidden(m_Registry, entity))
+		if (m_Registry.all_of<HiddenInHierarchyMarker>(entity))
 			continue;
 		if (tilemapComp.tileset && tilemapComp.mesh)
 		{
