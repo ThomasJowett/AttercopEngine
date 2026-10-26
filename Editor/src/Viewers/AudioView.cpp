@@ -17,14 +17,21 @@ AudioView::AudioView(bool* show, std::filesystem::path filepath)
 
 AudioView::~AudioView()
 {
-	ma_sound_uninit(m_Sound.get());
-	ma_engine_uninit(m_AudioEngine.get());
+	if (m_Sound)
+		ma_sound_uninit(m_Sound.get());
+	if (m_AudioEngine)
+		ma_engine_uninit(m_AudioEngine.get());
 }
 
 void AudioView::OnAttach()
 {
 	m_WindowName = ICON_FA_FILE_AUDIO + std::string(" " + m_Filepath.filename().string());
 	m_Audio = AssetManager::GetAsset<AudioClip>(m_Filepath);
+	if (!m_Audio)
+	{
+		*m_Show = false;
+		return;
+	}
 
 	m_AudioEngine = CreateRef<ma_engine>();
 	if (ma_engine_init(nullptr, m_AudioEngine.get()) != MA_SUCCESS)

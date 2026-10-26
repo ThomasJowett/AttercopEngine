@@ -72,7 +72,12 @@ public:
 		std::filesystem::path absolutePath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / filepath);
 		if (std::filesystem::exists(absolutePath)) {
 			ENGINE_INFO("Loading asset from disk: {0}", absolutePath);
-			asset = CreateRef<T>(filepath);
+			asset = CreateRef<T>();
+			if (!asset->Load(filepath))
+			{
+				ENGINE_ERROR("Failed to load asset: {0}", filepath);
+				return nullptr;
+			}
 		}
 		else if (vfs)
 		{
@@ -81,7 +86,12 @@ public:
 				if (vfs->ReadFile(filepath, data))
 				{
 					ENGINE_INFO("Loading asset from bundle: {0}", filepath);
-					asset = CreateRef<T>(filepath, data);
+					asset = CreateRef<T>();
+					if (!asset->Load(filepath, data))
+					{
+						ENGINE_ERROR("Failed to load asset from bundle: {0}", filepath);
+						return nullptr;
+					}
 				}
 				else
 				{

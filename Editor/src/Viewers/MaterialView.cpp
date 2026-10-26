@@ -25,11 +25,16 @@ MaterialView::MaterialView(bool* show, std::filesystem::path filepath)
 
 void MaterialView::OnAttach()
 {
+	m_WindowName = ICON_FA_BOWLING_BALL + std::string(" " + m_FilePath.filename().string());
+
 	m_Material = AssetManager::GetAsset<Material>(m_FilePath);
+	if (!m_Material)
+	{
+		*m_Show = false;
+		return;
+	}
 
 	m_LocalMaterial = CreateRef<Material>(*m_Material);
-
-	m_WindowName = ICON_FA_BOWLING_BALL + std::string(" " + m_FilePath.filename().string());
 }
 
 void MaterialView::OnImGuiRender()
@@ -181,6 +186,8 @@ void MaterialView::OnImGuiRender()
 void MaterialView::OnUpdate(float deltaTime)
 {
 	PROFILE_FUNCTION();
+	if (!m_LocalMaterial)
+		return;
 
 	FrameBufferSpecification spec = m_Framebuffer->GetSpecification();
 	if (((uint32_t)m_ViewportSize.x != spec.width || (uint32_t)m_ViewportSize.y != spec.height) && (m_ViewportSize.x > 0.0f && m_ViewportSize.y > 0.0f))

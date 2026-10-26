@@ -51,9 +51,11 @@ private:
 			if (!mesh->GetFilepath().empty())
 				relativeMeshPath = mesh->GetFilepath().string();
 			
-			for (size_t i = 0; i < mesh->GetMesh()->GetSubmeshes().size(); ++i)
+			size_t submeshCount = mesh->GetMesh() ? mesh->GetMesh()->GetSubmeshes().size() : 0;
+			for (size_t i = 0; i < submeshCount; ++i)
 			{
-				relativeMaterials.push_back(materialOverrides[i]->GetFilepath().string());
+				bool hasMaterial = i < materialOverrides.size() && materialOverrides[i];
+				relativeMaterials.push_back(hasMaterial ? materialOverrides[i]->GetFilepath().string() : std::string());
 			}
 			
 		}

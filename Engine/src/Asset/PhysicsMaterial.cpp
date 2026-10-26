@@ -60,6 +60,11 @@ bool PhysicsMaterial::Load(const std::filesystem::path& filepath)
 			return false;
 		}
 	}
+	else
+	{
+		ENGINE_ERROR("Could not load physics material {0}. {1} on line {2}", absolutePath, doc.ErrorName(), doc.ErrorLineNum());
+		return false;
+	}
 
 	m_Filepath = filepath;
 	m_Filepath.make_preferred();
@@ -76,6 +81,11 @@ bool PhysicsMaterial::Load(const std::filesystem::path& filepath, const std::vec
 			ENGINE_ERROR("Could not load physics material file: {0}", filepath);
 			return false;
 		}
+	}
+	else
+	{
+		ENGINE_ERROR("Could not load physics material from memory {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
+		return false;
 	}
 	m_Filepath = filepath;
 	m_Filepath.make_preferred();

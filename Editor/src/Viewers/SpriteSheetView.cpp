@@ -18,6 +18,11 @@ void SpriteSheetView::OnAttach()
 	m_WindowName = ICON_FA_PHOTO_FILM + std::string(" " + m_Filepath.filename().string());
 
 	m_SpriteSheet = AssetManager::GetAsset<SpriteSheet>(m_Filepath);
+	if (!m_SpriteSheet)
+	{
+		*m_Show = false;
+		return;
+	}
 	m_LocalSpriteSheet = CreateRef<SpriteSheet>(*m_SpriteSheet);
 	m_LocalSpriteSheet->SetSubTexture(CreateRef<SubTexture2D>(*m_LocalSpriteSheet->GetSubTexture()));
 

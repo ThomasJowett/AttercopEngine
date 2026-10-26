@@ -18,6 +18,8 @@ void PhysicsMaterialView::OnAttach()
 {
 	m_PhysicsMaterial = AssetManager::GetAsset<PhysicsMaterial>(m_FilePath);
 	m_WindowName = ICON_FA_VOLLEYBALL + std::string(" " + m_FilePath.filename().string());
+	if (!m_PhysicsMaterial)
+		*m_Show = false;
 }
 
 void PhysicsMaterialView::OnImGuiRender()

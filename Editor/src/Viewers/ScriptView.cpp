@@ -33,6 +33,11 @@ void ScriptView::OnAttach()
 	}
 
 	m_Script = AssetManager::GetAsset<LuaScript>(m_FilePath);
+	if (!m_Script)
+	{
+		*m_Show = false;
+		return;
+	}
 
 	m_WindowName = ICON_FA_FILE_CODE + std::string(" " + m_FilePath.filename().string());
 
@@ -264,7 +269,7 @@ void ScriptView::OnEvent(Event& event)
 	EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<LuaErrorEvent>([this](LuaErrorEvent& luaErrorEvent)
 		{
-			if (luaErrorEvent.GetFile() == m_Script->GetFilepath()) {
+			if (m_Script && luaErrorEvent.GetFile() == m_Script->GetFilepath()) {
 				TextEditor::ErrorMarkers errorMarkers;
 				errorMarkers.emplace(luaErrorEvent.GetLine(), luaErrorEvent.GetErrorMessage());
 				m_TextEditor.SetErrorMarkers(errorMarkers);

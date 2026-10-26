@@ -73,16 +73,13 @@ bool Texture2D::Load(const std::filesystem::path& filepath)
 	PROFILE_FUNCTION();
 	m_Filepath = filepath;
 	m_Filepath.make_preferred();
-	std::filesystem::path absolutePath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / m_Filepath);
-	return (Texture2D::Create(absolutePath) == nullptr);
+	return Reload();
 }
 
 bool Texture2D::Load(const std::filesystem::path& filepath, const std::vector<uint8_t>& data)
 {
-	PROFILE_FUNCTION();
-	m_Filepath = filepath;
-	m_Filepath.make_preferred();
-	return (Texture2D::Create(m_Filepath, data) == nullptr);
+	ENGINE_ERROR("Textures can't be loaded from memory into an existing texture, use Texture2D::Create: {0}", filepath);
+	return false;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

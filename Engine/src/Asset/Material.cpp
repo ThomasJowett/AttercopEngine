@@ -100,6 +100,11 @@ bool Material::Load(const std::filesystem::path& filepath, const std::vector<uin
 			return false;
 		}
 	}
+	else
+	{
+		ENGINE_ERROR("Could not load material from memory {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
+		return false;
+	}
 
 	m_Filepath = filepath;
 	m_Filepath.make_preferred();

@@ -66,9 +66,14 @@ bool Tileset::Load(const std::filesystem::path& filepath, const std::vector<uint
 			return false;
 		}
 	}
+	else
+	{
+		ENGINE_ERROR("Could not load tileset from memory {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
+		return false;
+	}
 	m_Filepath = filepath;
 	m_Filepath.make_preferred();
-	return false;
+	return true;
 }
 
 bool Tileset::Save() const
