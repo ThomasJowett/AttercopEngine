@@ -44,7 +44,7 @@ bool SceneSerializer::Serialize(const std::filesystem::path& filepath) const
 				hierarchyComp != nullptr && hierarchyComp->parent != entt::null)
 				return;
 
-			SerializeEntity(pRoot->InsertNewChildElement("Entity"), entity, pRoot);
+			SerializeEntity(pRoot->InsertNewChildElement("Entity"), entity);
 			return;
 		});
 
@@ -145,7 +145,7 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath, const s
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity entity, tinyxml2::XMLElement* pParentNode)
+void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity entity)
 {
 	PROFILE_FUNCTION();
 
@@ -659,23 +659,13 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 
 	if (entity.HasComponent<HierarchyComponent>())
 	{
-		if (HierarchyComponent const& component = entity.GetComponent<HierarchyComponent>();
-			component.firstChild != entt::null)
+		for (entt::entity child = entity.GetComponent<HierarchyComponent>().firstChild; child != entt::null;)
 		{
-			Entity child = { component.firstChild, entity.GetScene() };
+			Entity childEntity = { child, entity.GetScene() };
+			SerializeEntity(pElement->InsertNewChildElement("Entity"), childEntity);
 
-			SerializeEntity(pElement->InsertNewChildElement("Entity"), child, pElement);
-		}
-
-		if (pParentNode != nullptr)
-		{
-			entt::entity next = entity.GetComponent<HierarchyComponent>().nextSibling;
-			if (next != entt::null)
-			{
-				Entity siblingEntity = { next, entity.GetScene() };
-				SerializeEntity(pParentNode->InsertNewChildElement("Entity"), siblingEntity, pParentNode);
-				return;
-			}
+			HierarchyComponent const* childHierarchyComp = childEntity.TryGetComponent<HierarchyComponent>();
+			child = childHierarchyComp != nullptr ? childHierarchyComp->nextSibling : entt::null;
 		}
 	}
 }
