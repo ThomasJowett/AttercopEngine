@@ -72,7 +72,11 @@ void LoadNode(const Matrix4x4& parentTransform, const tinygltf::Node& node, uint
 	}
 
 	Matrix4x4 worldTransform = parentTransform * localTransform;
-	Matrix4x4 rotationMatrix = Matrix4x4::Rotate(worldTransform.ExtractRotation());
+
+	// Directions ignore translation; normals use the inverse transpose so non-uniform scale keeps them perpendicular
+	Matrix4x4 directionMatrix = worldTransform;
+	directionMatrix.m[0][3] = directionMatrix.m[1][3] = directionMatrix.m[2][3] = 0.0f;
+	Matrix4x4 normalMatrix = Matrix4x4::Inverse(directionMatrix).GetTranspose();
 
 	if (node.mesh > -1)
 	{
@@ -134,8 +138,8 @@ void LoadNode(const Matrix4x4& parentTransform, const tinygltf::Node& node, uint
 				subMin.x = std::min(subMin.x, vert.position.x); subMin.y = std::min(subMin.y, vert.position.y); subMin.z = std::min(subMin.z, vert.position.z);
 				subMax.x = std::max(subMax.x, vert.position.x); subMax.y = std::max(subMax.y, vert.position.y); subMax.z = std::max(subMax.z, vert.position.z);
 
-				if (bufferNormals) vert.normal = (rotationMatrix * Vector3f(bufferNormals[v * normByteStride], bufferNormals[v * normByteStride + 1], bufferNormals[v * normByteStride + 2])).GetNormalized();
-				if (bufferTangents) vert.tangent = (rotationMatrix * Vector3f(bufferTangents[v * tangentByteStride], bufferTangents[v * tangentByteStride + 1], bufferTangents[v * tangentByteStride + 2])).GetNormalized();
+				if (bufferNormals) vert.normal = (normalMatrix * Vector3f(bufferNormals[v * normByteStride], bufferNormals[v * normByteStride + 1], bufferNormals[v * normByteStride + 2])).GetNormalized();
+				if (bufferTangents) vert.tangent = (directionMatrix * Vector3f(bufferTangents[v * tangentByteStride], bufferTangents[v * tangentByteStride + 1], bufferTangents[v * tangentByteStride + 2])).GetNormalized();
 				// glTF UVs have (0,0) at the top-left of the image; this engine's textures are loaded
 				// with stbi_set_flip_vertically_on_load(1), i.e. (0,0) at the bottom-left - flip V to match.
 				if (bufferUVs) vert.texcoord = Vector2f(bufferUVs[v * uvByteStride], 1.0f - bufferUVs[v * uvByteStride + 1]);

@@ -29,9 +29,29 @@ struct TransformComponent
 		return m_ParentMatrix * position;
 	}
 
+	// Euler angles of the world matrix with scale removed; a mirrored matrix is treated as a negative x scale
 	const Vector3f GetWorldRotation() const
 	{
-		return m_ParentMatrix.ExtractRotation().EulerAngles() + rotation;
+		Vector3f basis[3];
+		for (int column = 0; column < 3; column++)
+		{
+			basis[column] = Vector3f(m_WorldMatrix(0, column), m_WorldMatrix(1, column), m_WorldMatrix(2, column));
+			if (basis[column].Magnitude() < 1e-6f)
+				return rotation;
+			basis[column].Normalize();
+		}
+
+		if (Vector3f::Dot(Vector3f::Cross(basis[0], basis[1]), basis[2]) < 0.0f)
+			basis[0] = basis[0] * -1.0f;
+
+		Matrix4x4 rotationMatrix;
+		for (int column = 0; column < 3; column++)
+		{
+			rotationMatrix.m[0][column] = basis[column].x;
+			rotationMatrix.m[1][column] = basis[column].y;
+			rotationMatrix.m[2][column] = basis[column].z;
+		}
+		return rotationMatrix.ExtractRotation().EulerAngles();
 	}
 
 	Matrix4x4 GetLocalMatrix() const
