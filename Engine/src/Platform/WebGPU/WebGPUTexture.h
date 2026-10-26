@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Asset/Texture.h"
+
+#include <functional>
 #include "WebGPUContext.h"
 #include <memory>
 #include <vector>
@@ -49,6 +51,12 @@ private:
 	void NullTexture();
 
 	bool LoadTextureFromFile();
+	bool LoadTextureFromMemory(const std::vector<uint8_t>& imageData);
+	// Uploads decoded pixels as m_Texture; false for unsupported channel counts
+	bool CreateTextureFromPixels(const uint8_t* pixels, int width, int height, int channels);
+	// Releases the current texture, view and sampler and rebuilds them from load(), or the null texture if it fails
+	bool ReplaceTexture(const std::function<bool()>& load);
+	void CreateTextureView();
 
 	void CreateSampler();
 	uint32_t m_Width, m_Height;

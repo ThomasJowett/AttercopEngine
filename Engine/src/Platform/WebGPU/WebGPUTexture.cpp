@@ -5,6 +5,7 @@
 
 #include <stb/stb_image.h>
 #include <filesystem>
+#include <functional>
 #include <webgpu/webgpu.h>
 #include "imgui/backends/imgui_impl_wgpu.h"
 
@@ -142,106 +143,19 @@ WebGPUTexture2D::WebGPUTexture2D(const std::filesystem::path& path)
 }
 
 WebGPUTexture2D::WebGPUTexture2D(const std::filesystem::path& filepath, const std::vector<uint8_t>& imageData)
+	:m_Height(0), m_Width(0)
 {
 	PROFILE_FUNCTION();
 	m_Filepath = filepath;
 
-	int width = 0, height = 0, channels = 0;
-	stbi_set_flip_vertically_on_load(1);
-	stbi_uc* data = stbi_load_from_memory(imageData.data(), (int)imageData.size(), &width, &height, &channels, 0);
-
-	CORE_ASSERT(data, "Failed to load image from memory! " + filepath.string());
-	if (!data)
-	{
-		ENGINE_ERROR("stb image failure: {0}", stbi_failure_reason());
-		return;
-	}
-
-	m_Width = (uint32_t)width;
-	m_Height = (uint32_t)height;
-	m_Channels = (uint32_t)channels;
-
-	if (channels == 4)
-	{
-		m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;
-	}
-	else if (channels == 3)
-	{
-		m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;
-
-		//WebGPU does not support 3 channel textures so we must convert into 4
-
-		ENGINE_WARN("Converting RGB to RGBA for compatibility with WebGPU ({0})", m_Filepath);
-
-		stbi_uc* rgbaData = new stbi_uc[m_Width * m_Height * 4];
-		for (uint32_t i = 0; i < m_Width * m_Height; ++i) {
-			rgbaData[i * 4 + 0] = data[i * 3 + 0];
-			rgbaData[i * 4 + 1] = data[i * 3 + 1];
-			rgbaData[i * 4 + 2] = data[i * 3 + 2];
-			rgbaData[i * 4 + 3] = 255;
-		}
-
-		channels = 4;
-
-		stbi_image_free(data);
-		data = rgbaData;
-	}
-	else if (channels == 1)
-	{
-		m_TextureFormat = wgpu::TextureFormat::R8Unorm;
-	}
-	else {
-		ENGINE_ERROR("Texture format not supported");
-		stbi_image_free(data);
-		NullTexture();
-		return;
-	}
-
-	m_TextureDesc.size.width = m_Width;
-	m_TextureDesc.size.height = m_Height;
-	m_TextureDesc.size.depthOrArrayLayers = 1;
-	m_TextureDesc.mipLevelCount = 1; //TODO: implement mipmap generation
-	m_TextureDesc.sampleCount = 1;
-	m_TextureDesc.dimension = wgpu::TextureDimension::_2D;
-	m_TextureDesc.format = m_TextureFormat;
-	m_TextureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc;
-
 	Ref<GraphicsContext> context = Application::GetWindow()->GetContext();
 	m_WebGPUContext = std::dynamic_pointer_cast<WebGPUContext>(context);
 
-	auto device = m_WebGPUContext->GetWebGPUDevice();
-	auto queue = m_WebGPUContext->GetQueue();
+	if (!LoadTextureFromMemory(imageData))
+		NullTexture();
 
-	m_Texture = device.createTexture(m_TextureDesc);
-
-	wgpu::ImageCopyTexture imageCopyTexture{};
-	imageCopyTexture.texture = m_Texture;
-	imageCopyTexture.mipLevel = 0;
-	imageCopyTexture.origin = { 0,0,0 };
-
-	wgpu::TextureDataLayout dataLayout{};
-	dataLayout.offset = 0;
-	dataLayout.bytesPerRow = m_Width * channels;
-	dataLayout.rowsPerImage = m_Height;
-
-	wgpu::Extent3D textureSize{};
-	textureSize.width = m_Width;
-	textureSize.height = m_Height;
-	textureSize.depthOrArrayLayers = 1;
-
-	queue.writeTexture(imageCopyTexture, data, m_Width * m_Height * channels, dataLayout, textureSize);
-
-	m_TextureViewDesc.format = m_TextureFormat;
-	m_TextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
-	m_TextureViewDesc.baseMipLevel = 0;
-	m_TextureViewDesc.mipLevelCount = 1;
-	m_TextureViewDesc.baseArrayLayer = 0;
-	m_TextureViewDesc.arrayLayerCount = 1;
-	m_TextureView = m_Texture.createView(m_TextureViewDesc);
-
+	CreateTextureView();
 	CreateSampler();
-
-	stbi_image_free(data);
 }
 
 std::vector<wgpu::Texture> WebGPUTexture2D::s_PendingTextureReleases;
@@ -377,45 +291,53 @@ void* WebGPUTexture2D::GetRendererID() const
 
 bool WebGPUTexture2D::Reload()
 {
-	if (!m_Filepath.empty() && m_Filepath != "NO DATA" && m_Filepath != "NULL")
+	if (m_Filepath.empty() || m_Filepath == "NO DATA")
 	{
-		// Same hazards as ~WebGPUTexture2D() - a stale ImGui bind-group cache entry if the new
-		// view reuses this address, and releasing a view ImGui still references this frame.
-#ifdef IMGUI_IMPL_WGPU_HAS_INVALIDATE_IMAGE_BIND_GROUPS
-		ImGui_ImplWGPU_InvalidateImageBindGroups();
-#endif
-		if (m_Texture)
-			s_PendingTextureReleases.push_back(m_Texture);
-		if (m_Sampler)
-			s_PendingSamplerReleases.push_back(m_Sampler);
-		if (m_TextureView)
-			s_PendingTextureViewReleases.push_back(m_TextureView);
-
-		bool success = LoadTextureFromFile();
-		if (success)
-		{
-			m_TextureViewDesc.format = m_TextureFormat;
-			m_TextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
-			m_TextureViewDesc.baseMipLevel = 0;
-			m_TextureViewDesc.mipLevelCount = 1;
-			m_TextureViewDesc.baseArrayLayer = 0;
-			m_TextureViewDesc.arrayLayerCount = 1;
-			m_TextureView = m_Texture.createView(m_TextureViewDesc);
-		}
-		return success;
-	}
-	else {
-		NullTexture();
-		m_TextureViewDesc.format = m_TextureFormat;
-		m_TextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
-		m_TextureViewDesc.baseMipLevel = 0;
-		m_TextureViewDesc.mipLevelCount = 1;
-		m_TextureViewDesc.baseArrayLayer = 0;
-		m_TextureViewDesc.arrayLayerCount = 1;
-		m_TextureView = m_Texture.createView(m_TextureViewDesc);
+		ReplaceTexture([this]() { return false; });
 		return false;
 	}
+	return ReplaceTexture([this]() { return LoadTextureFromFile(); });
 }
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+bool WebGPUTexture2D::ReplaceTexture(const std::function<bool()>& load)
+{
+	// Same hazards as ~WebGPUTexture2D() - a stale ImGui bind-group cache entry if the new
+	// view reuses this address, and releasing a view ImGui still references this frame.
+#ifdef IMGUI_IMPL_WGPU_HAS_INVALIDATE_IMAGE_BIND_GROUPS
+	ImGui_ImplWGPU_InvalidateImageBindGroups();
+#endif
+	if (m_Texture)
+		s_PendingTextureReleases.push_back(m_Texture);
+	if (m_Sampler)
+		s_PendingSamplerReleases.push_back(m_Sampler);
+	if (m_TextureView)
+		s_PendingTextureViewReleases.push_back(m_TextureView);
+
+	bool success = load();
+	if (!success)
+		NullTexture();
+
+	CreateTextureView();
+	CreateSampler();
+	return success;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void WebGPUTexture2D::CreateTextureView()
+{
+	m_TextureViewDesc.format = m_TextureFormat;
+	m_TextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
+	m_TextureViewDesc.baseMipLevel = 0;
+	m_TextureViewDesc.mipLevelCount = 1;
+	m_TextureViewDesc.baseArrayLayer = 0;
+	m_TextureViewDesc.arrayLayerCount = 1;
+	m_TextureView = m_Texture.createView(m_TextureViewDesc);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 bool WebGPUTexture2D::operator==(const Texture& other) const
 {
@@ -588,51 +510,78 @@ bool WebGPUTexture2D::LoadTextureFromFile()
 		data = stbi_load(absolutePath.string().c_str(), &width, &height, &channels, 0);
 	}
 
-	CORE_ASSERT(data, "Failed to load image! " + m_Filepath.string());
-
 	if (!data)
 	{
-		ENGINE_ERROR("stb image failure: {0}", stbi_failure_reason());
+		ENGINE_ERROR("Failed to load image {0}: {1}", absolutePath.string(), stbi_failure_reason());
 		return false;
 	}
 
-	m_Width = (uint32_t)width;
-	m_Height = (uint32_t)height;
-	m_Channels = (uint32_t)channels;
+	bool success = CreateTextureFromPixels(data, width, height, channels);
+	stbi_image_free(data);
+	return success;
+}
 
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+bool WebGPUTexture2D::LoadTextureFromMemory(const std::vector<uint8_t>& imageData)
+{
+	PROFILE_FUNCTION();
+
+	int width, height, channels;
+	stbi_set_flip_vertically_on_load(1);
+	stbi_uc* data = stbi_load_from_memory(imageData.data(), (int)imageData.size(), &width, &height, &channels, 0);
+
+	if (!data)
+	{
+		ENGINE_ERROR("Failed to load image {0} from memory: {1}", m_Filepath.string(), stbi_failure_reason());
+		return false;
+	}
+
+	bool success = CreateTextureFromPixels(data, width, height, channels);
+	stbi_image_free(data);
+	return success;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+bool WebGPUTexture2D::CreateTextureFromPixels(const uint8_t* pixels, int width, int height, int channels)
+{
+	PROFILE_FUNCTION();
+
+	// WebGPU has no 3 channel format, so RGB is expanded to RGBA
+	std::vector<uint8_t> rgbaPixels;
 	if (channels == 4)
 	{
 		m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;
 	}
 	else if (channels == 3)
 	{
-		m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;
-
-		//WebGPU does not support 3 channel textures so we must convert into 4
-
 		ENGINE_WARN("Converting RGB to RGBA for compatibility with WebGPU ({0})", m_Filepath);
-
-		stbi_uc* rgbaData = new stbi_uc[m_Width * m_Height * 4];
-		for (uint32_t i = 0; i < m_Width * m_Height; ++i) {
-			rgbaData[i * 4 + 0] = data[i * 3 + 0];
-			rgbaData[i * 4 + 1] = data[i * 3 + 1];
-			rgbaData[i * 4 + 2] = data[i * 3 + 2];
-			rgbaData[i * 4 + 3] = 255;
+		m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;
+		rgbaPixels.resize((size_t)width * height * 4);
+		for (size_t i = 0; i < (size_t)width * height; ++i)
+		{
+			rgbaPixels[i * 4 + 0] = pixels[i * 3 + 0];
+			rgbaPixels[i * 4 + 1] = pixels[i * 3 + 1];
+			rgbaPixels[i * 4 + 2] = pixels[i * 3 + 2];
+			rgbaPixels[i * 4 + 3] = 255;
 		}
-
+		pixels = rgbaPixels.data();
 		channels = 4;
-
-		stbi_image_free(data);
-		data = rgbaData;
 	}
 	else if (channels == 1)
 	{
 		m_TextureFormat = wgpu::TextureFormat::R8Unorm;
 	}
-	else {
-		ENGINE_ERROR("Texture format not supported");
+	else
+	{
+		ENGINE_ERROR("Texture format not supported ({0} channels): {1}", channels, m_Filepath);
 		return false;
 	}
+
+	m_Width = (uint32_t)width;
+	m_Height = (uint32_t)height;
+	m_Channels = (uint32_t)channels;
 
 	m_TextureDesc.size.width = m_Width;
 	m_TextureDesc.size.height = m_Height;
@@ -641,7 +590,7 @@ bool WebGPUTexture2D::LoadTextureFromFile()
 	m_TextureDesc.sampleCount = 1;
 	m_TextureDesc.dimension = wgpu::TextureDimension::_2D;
 	m_TextureDesc.format = m_TextureFormat;
-	m_TextureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+	m_TextureDesc.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc;
 
 	auto device = m_WebGPUContext->GetWebGPUDevice();
 	auto queue = m_WebGPUContext->GetQueue();
@@ -663,11 +612,6 @@ bool WebGPUTexture2D::LoadTextureFromFile()
 	textureSize.height = m_Height;
 	textureSize.depthOrArrayLayers = 1;
 
-	queue.writeTexture(imageCopyTexture, data, m_Width * m_Height * channels, dataLayout, textureSize);
-
-	CreateSampler();
-
-	stbi_image_free(data);
-
+	queue.writeTexture(imageCopyTexture, pixels, (size_t)m_Width * m_Height * channels, dataLayout, textureSize);
 	return true;
 }
