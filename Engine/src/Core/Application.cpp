@@ -21,6 +21,9 @@
 
 #include "Utilities/StringUtils.h"
 #include "Scripting/Lua/LuaManager.h"
+#ifdef __EMSCRIPTEN__
+#include "Platform/Web/WebGamepads.h"
+#endif
 
 #include <chrono>
 
@@ -249,6 +252,9 @@ void Application::Tick() {
 
 	m_DeltaTime = (float)frameTime;
 
+#ifdef __EMSCRIPTEN__
+	WebGamepads::Poll();
+#endif
 	InputActionSystem::Update();
 
 	// On Fixed update

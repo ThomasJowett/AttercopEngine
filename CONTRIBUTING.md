@@ -78,7 +78,7 @@ Put new code in the folder that matches what it does; `Core/` is only for the ap
 - `Math/`: bounding boxes, frustums, random numbers, triangulation and other maths helpers.
 - `Asset/`: asset types (textures, meshes, materials, fonts, sprite sheets, tilesets, audio clips, scripts), the asset base class, and the virtual file system for asset bundles.
 - `Renderer/`: the renderer, `Renderer2D`, render pipeline, post-processing and the abstract GPU types (buffers, framebuffers, pipelines, textures).
-- `Platform/`: backend implementations: `OpenGL/`, `WebGPU/`, `Null/` (headless) and `Web/` (browser-only code).
+- `Platform/`: backend implementations: `OpenGL/`, `WebGPU/`, `Null/` (headless) and `Web/` (browser-only code, only compiled in Emscripten builds).
 - `Scene/`: scenes, entities, components, the scene graph, serialisation and the asset manager.
 - `Physics/`: 2D physics, collision layers and physics debug drawing.
 - `Scripting/`: Lua bindings and the Lua manager.

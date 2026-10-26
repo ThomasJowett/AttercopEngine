@@ -1,5 +1,4 @@
 #include "Input.h"
-#include "Renderer/RendererAPI.h"
 
 #include <GLFW/glfw3.h>
 
@@ -7,6 +6,10 @@
 
 #include "Input/Joysticks.h"
 #include "Core/Application.h"
+
+#ifdef __EMSCRIPTEN__
+#include "Platform/Web/WebGamepads.h"
+#endif
 
 Scope<Input> Input::s_Instance = nullptr;
 
@@ -133,12 +136,7 @@ bool Input::IsJoystickButtonPressedImpl(int joystickSlot, int button)
 		return false;
 
 #ifdef __EMSCRIPTEN__
-	int button_count;
-	const unsigned char* buttons = glfwGetJoystickButtons(joystickSlot, &button_count);
-
-	if (button < button_count)
-		return buttons[button];
-	return false;
+	return WebGamepads::IsButtonPressed(joystickSlot, button);
 #else
 	if (joystickSlot < 0 || joystickSlot >= Joysticks::GetJoystickCount())
 		return false;
@@ -163,13 +161,7 @@ double Input::GetJoystickAxisImpl(int joystickSlot, int axis)
 		return 0.0;
 
 #ifdef __EMSCRIPTEN__
-	int axes_count;
-	const float* axes = glfwGetJoystickAxes(joystickSlot, &axes_count);
-
-	if (axes && axis >= 0 && axis < axes_count)
-		return axes[axis];
-
-	return 0.0f;
+	return WebGamepads::GetAxis(joystickSlot, axis);
 #else
 	if (joystickSlot < 0 || joystickSlot >= Joysticks::GetJoystickCount())
 		return 0.0;

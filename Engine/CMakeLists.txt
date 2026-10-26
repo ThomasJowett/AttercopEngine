@@ -23,6 +23,11 @@ file(GLOB_RECURSE ENGINE_FILES
     src/ImGui/ImGuiUtilities.cpp
 )
 
+if (EMSCRIPTEN)
+    file(GLOB_RECURSE ENGINE_WEB_FILES src/Platform/Web/*.cpp)
+    list(APPEND ENGINE_FILES ${ENGINE_WEB_FILES})
+endif()
+
 add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
 
 add_library(Engine ${ENGINE_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/stb/stb.cpp)
