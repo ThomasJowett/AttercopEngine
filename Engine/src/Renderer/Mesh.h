@@ -3,10 +3,10 @@
 #include "Buffer.h"
 #include "Utilities/FileUtils.h"
 #include "Core/Application.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "math/Vector2f.h"
 #include "math/Vector3f.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 #include "Asset/Material.h"
 
 enum class MeshLayout : uint8_t {

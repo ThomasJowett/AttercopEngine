@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Utilities/Random.h"
+#include "Math/Random.h"
 
 class Uuid
 {

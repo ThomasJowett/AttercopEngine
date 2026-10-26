@@ -7,7 +7,7 @@
 #include "Scene/AssetManager.h"
 #include "Scene/Entity.h"
 #include "Scripting/Lua/LuaErrorEvent.h"
-#include "Utilities/Random.h"
+#include "Math/Random.h"
 
 #include "sol/sol.hpp"
 

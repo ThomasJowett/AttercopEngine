@@ -1,5 +1,5 @@
 #include "Renderer2D.h"
-#include "Core/Frustum.h"
+#include "Math/Frustum.h"
 #include "Logging/Instrumentor.h"
 #include "Renderer.h"
 
@@ -10,7 +10,7 @@
 #include "RenderCommand.h"
 #include "UniformBuffer.h"
 #include "Sampler.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 
 #include "Renderer/UI/MSDFData.h"
 

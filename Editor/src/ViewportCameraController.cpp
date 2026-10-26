@@ -1,12 +1,12 @@
 #include "ViewportCameraController.h"
 
-#include "Core/Input.h"
-#include "Core/KeyCodes.h"
-#include "Core/MouseButtonCodes.h"
+#include "Input/Input.h"
+#include "Input/KeyCodes.h"
+#include "Input/MouseButtonCodes.h"
 
 #include "Logging/Instrumentor.h"
 #include "Core/Application.h"
-#include "Core/Cursor.h"
+#include "Input/Cursor.h"
 #include "Core/Settings.h"
 
 ViewportCameraController::ViewportCameraController()

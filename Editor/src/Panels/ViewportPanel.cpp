@@ -9,14 +9,14 @@
 
 #include "Renderer/FrameBuffer.h"
 #include "Core/Settings.h"
-#include "Core/Input.h"
-#include "Core/MouseButtonCodes.h"
-#include "Core/KeyCodes.h"
+#include "Input/Input.h"
+#include "Input/MouseButtonCodes.h"
+#include "Input/KeyCodes.h"
 #include "Renderer/Renderer2D.h"
 #include "Renderer/Renderer.h"
-#include "Core/Frustum.h"
+#include "Math/Frustum.h"
 #include "Renderer/RenderCommand.h"
-#include "Utilities/MathUtils.h"
+#include "Math/MathUtils.h"
 #include "Scene/Components.h"
 #include "Scene/SceneManager.h"
 #include "History/HistoryManager.h"
@@ -29,7 +29,7 @@
 #include "Scene/Components.h"
 
 #include "ImGui/ImGuizmo.h"
-#include "Utilities/MathUtils.h"
+#include "Math/MathUtils.h"
 
 #include "Events/SceneEvent.h"
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 
 namespace tinyxml2
 {

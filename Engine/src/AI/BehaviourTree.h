@@ -12,7 +12,7 @@
 #include "Logging/Logger.h"
 #include "math/Vector2f.h"
 #include "math/Vector3f.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "BehaviourTreeSerializer.h"
 
 #include <iostream>

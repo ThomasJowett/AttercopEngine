@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "Renderer/SubTexture2D.h"
 #include "Animation/Animation.h"
 

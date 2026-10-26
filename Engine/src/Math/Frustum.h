@@ -4,7 +4,7 @@
 
 #include "math/Matrix.h"
 #include "math/Plane.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 
 // Six inward facing planes of a camera's view volume, for culling what can't be seen
 class Frustum

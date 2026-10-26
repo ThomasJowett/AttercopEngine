@@ -5,8 +5,8 @@
 #include "Events/MouseEvent.h"
 #include "Events/JoystickEvent.h"
 
-#include "Core/Joysticks.h"
-#include "Core/Input.h"
+#include "Input/Joysticks.h"
+#include "Input/Input.h"
 
 #include "Renderer/Renderer.h"
 

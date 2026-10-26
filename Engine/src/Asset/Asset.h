@@ -3,7 +3,7 @@
 #include "Core/core.h"
 #include "Core/UUID.h"
 #include "Core/Factory.h"
-#include "Core/VirtualFileSystem.h"
+#include "Asset/VirtualFileSystem.h"
 #include "Core/Application.h"
 #include "Utilities/FileWatcher.h"
 #include "Utilities/FileUtils.h"

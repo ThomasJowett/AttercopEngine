@@ -5,7 +5,7 @@
 #include "box2d/box2d.h"
 #include "Scene/Entity.h"
 #include "Scene/SceneGraph.h"
-#include "Utilities/Triangulation.h"
+#include "Math/Triangulation.h"
 
 #include "HierarchyComponent.h"
 #include "TransformComponent.h"

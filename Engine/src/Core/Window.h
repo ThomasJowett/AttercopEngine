@@ -9,7 +9,7 @@
 #include "core.h"
 #include "Events/Event.h"
 #include "Renderer/GraphicsContext.h"
-#include "Cursor.h"
+#include "Input/Cursor.h"
 
 enum class WindowMode
 {

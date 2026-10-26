@@ -3,9 +3,9 @@
 #include "Logging/Instrumentor.h"
 #include "LuaManager.h"
 
-#include "Core/Input.h"
-#include "Core/MouseButtonCodes.h"
-#include "Core/Joysticks.h"
+#include "Input/Input.h"
+#include "Input/MouseButtonCodes.h"
+#include "Input/Joysticks.h"
 
 #include "Scene/SceneManager.h"
 #include <Core/Application.h>

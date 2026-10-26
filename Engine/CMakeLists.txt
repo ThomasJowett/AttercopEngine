@@ -4,7 +4,9 @@ file(GLOB_RECURSE ENGINE_FILES
     src/Asset/*.cpp
     src/Core/*.cpp
     src/Events/*.cpp
+    src/Input/*.cpp
     src/Logging/*.cpp
+    src/Math/*.cpp
     src/Particles/*.cpp
     src/Physics/*.cpp
     src/Platform/Null/*.cpp

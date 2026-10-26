@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Renderer/Camera.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 #include "math/Vector2f.h"
 
 // Perspective camera that orbits a target point, pitch is clamped so the view stays upright

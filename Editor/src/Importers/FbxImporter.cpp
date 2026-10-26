@@ -1,7 +1,7 @@
 #include "FbxImporter.h"
 
 #include "Renderer/Mesh.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 #include "math/Matrix.h"
 #include "Asset/Material.h"
 #include "Logging/Logger.h"

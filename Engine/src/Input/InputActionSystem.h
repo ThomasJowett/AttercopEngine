@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core/core.h"
-#include "Core/InputMappings.h"
+#include "Input/InputMappings.h"
 #include "math/Vector2f.h"
 
 #include <filesystem>

@@ -4,7 +4,7 @@
 #include <filesystem>
 
 #include "Core/core.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 
 class Texture : public Asset
 {

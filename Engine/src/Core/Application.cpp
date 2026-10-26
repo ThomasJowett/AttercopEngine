@@ -16,8 +16,8 @@
 #include "Scene/AssetManager.h"
 
 #include "Logging/Logger.h"
-#include "Core/Input.h"
-#include "Core/InputActionSystem.h"
+#include "Input/Input.h"
+#include "Input/InputActionSystem.h"
 
 #include "Utilities/StringUtils.h"
 #include "Scripting/Lua/LuaManager.h"

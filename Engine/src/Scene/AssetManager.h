@@ -7,11 +7,11 @@
 
 #include "Core/core.h"
 #include "Core/Application.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "Logging/Instrumentor.h"
 #include "Asset/Texture.h"
 #include "Core/Factory.h"
-#include "Core/VirtualFileSystem.h"
+#include "Asset/VirtualFileSystem.h"
 #include "Utilities/FileUtils.h"
 
 class AssetManager

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Renderer/Camera.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 #include "math/Quaternion.h"
 
 // Axis aligned views for the view menus, pitch and yaw in radians

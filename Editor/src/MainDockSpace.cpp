@@ -36,7 +36,7 @@
 
 #include "ProjectData.h"
 #include "ProjectSerializer.h"
-#include "Core/InputActionSystem.h"
+#include "Input/InputActionSystem.h"
 
 #include "FileSystem/AssetPacker.h"
 #include "FileSystem/SpriteAtlasBuilder.h"

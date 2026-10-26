@@ -12,7 +12,7 @@
 
 #include "Core/Application.h"
 #include "Utilities/FileUtils.h"
-#include "Core/InputMappings.h"
+#include "Input/InputMappings.h"
 #include "Physics/CollisionLayers.h"
 #include "ProjectSerializer.h"
 #include "WebProject.h"

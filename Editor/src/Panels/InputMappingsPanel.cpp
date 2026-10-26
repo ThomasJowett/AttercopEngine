@@ -2,10 +2,10 @@
 #include "IconsFontAwesome6.h"
 #include "MainDockSpace.h"
 #include "ImGui/ImGuiUtilities.h"
-#include "Core/Input.h"
-#include "Core/Joysticks.h"
+#include "Input/Input.h"
+#include "Input/Joysticks.h"
 #include "Core/Application.h"
-#include "Core/InputActionSystem.h"
+#include "Input/InputActionSystem.h"
 
 #include "imgui/imgui.h"
 

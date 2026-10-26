@@ -1,6 +1,6 @@
 #pragma once
 #include "Utilities/GeometryGenerator.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 #include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
 

@@ -10,9 +10,9 @@
 #include "Events/SceneEvent.h"
 
 #include "Renderer/Renderer2D.h"
-#include "Core/Input.h"
-#include "Core/KeyCodes.h"
-#include "Core/MouseButtonCodes.h"
+#include "Input/Input.h"
+#include "Input/KeyCodes.h"
+#include "Input/MouseButtonCodes.h"
 #include "ImGui/ImGuiUtilities.h"
 
 TilemapEditor::TilemapEditor(bool* show)

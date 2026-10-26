@@ -2,7 +2,7 @@
 
 #include <filesystem>
 #include "Core/Layer.h"
-#include "Core/InputMappings.h"
+#include "Input/InputMappings.h"
 class InputMappingsPanel
 	:public Layer
 {

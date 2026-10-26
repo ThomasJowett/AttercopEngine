@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-#include "Core/Joysticks.h"
+#include "Input/Joysticks.h"
 #include "Core/Application.h"
 
 Scope<Input> Input::s_Instance = nullptr;

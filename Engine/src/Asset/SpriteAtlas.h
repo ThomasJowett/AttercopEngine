@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "Asset/Texture.h"
 #include "math/Vector2f.h"
 

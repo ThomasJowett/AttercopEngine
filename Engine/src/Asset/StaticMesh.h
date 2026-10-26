@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "Renderer/Mesh.h"
 
 class StaticMesh : public Asset

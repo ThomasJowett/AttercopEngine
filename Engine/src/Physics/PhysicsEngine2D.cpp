@@ -15,8 +15,8 @@
 #include "Scene/Components/WeldJoint2DComponent.h"
 #include "Renderer/Renderer2D.h"
 #include "box2d/box2d.h"
-#include "Utilities/Box2DDebugDraw.h"
-#include "Utilities/Triangulation.h"
+#include "Physics/Box2DDebugDraw.h"
+#include "Math/Triangulation.h"
 #include "Logging/Instrumentor.h"
 
 #define COLLIDER_COMPONENTS	\

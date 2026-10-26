@@ -3,7 +3,7 @@
 #include "Logging/Instrumentor.h"
 #include "LuaManager.h"
 
-#include "Core/InputActionSystem.h"
+#include "Input/InputActionSystem.h"
 
 namespace Lua
 {

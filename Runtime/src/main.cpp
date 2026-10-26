@@ -4,8 +4,8 @@
 #include "Scene/SceneManager.h"
 #include "Scene/AssetManager.h"
 #include "Asset/SpriteAtlas.h"
-#include "Core/InputActionSystem.h"
-#include "Core/InputMappings.h"
+#include "Input/InputActionSystem.h"
+#include "Input/InputMappings.h"
 #include "Physics/CollisionLayers.h"
 
 #include "RuntimeLayer.h"

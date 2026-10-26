@@ -6,7 +6,7 @@
 #include "Asset/Material.h"
 
 #include "Core/Colour.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 
 #include "TinyXml2/tinyxml2.h"
 #include "Scene/AssetManager.h"

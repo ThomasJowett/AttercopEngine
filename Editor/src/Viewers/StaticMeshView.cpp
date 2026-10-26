@@ -5,7 +5,7 @@
 #include "Utilities/GeometryGenerator.h"
 #include "Utilities/MeshSerializer.h"
 #include "Renderer/RenderCommand.h"
-#include "Core/Input.h"
+#include "Input/Input.h"
 #include "ImGui/ImGuiUtilities.h"
 #include "ImGui/ImGuiAssetEdit.h"
 #include "Renderer/Renderer.h"

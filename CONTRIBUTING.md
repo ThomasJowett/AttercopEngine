@@ -14,7 +14,7 @@ This document provides foundational mandates and architectural guidance for work
 
 ### Memory Management
 - **NEVER** use `std::shared_ptr` or `std::unique_ptr` directly for high-level engine objects.
-- **ALWAYS** use the following custom aliases defined in `core.h`:
+- **ALWAYS** use the following custom aliases defined in `Core/core.h`:
   - `Scope<T>` instead of `std::unique_ptr<T>`.
   - `Ref<T>` instead of `std::shared_ptr<T>`.
 - Use the helper functions for instantiation:
@@ -71,8 +71,22 @@ Use the provided spdlog-based macros for all logging:
 - `Runtime/`: Standalone game runtime.
 - `Resources/`: Assets, shaders, and configurations.
 
+### `Engine/src`
+Put new code in the folder that matches what it does; `Core/` is only for the application itself.
+- `Core/`: the application and its main loop (`Application`, `Layer`, `LayerStack`, `Window`), settings, command-line parsing, the engine version and basic types (`core.h`, `UUID`, `Colour`).
+- `Input/`: keyboard, mouse and gamepad input, key and button codes, cursors, and the input action system.
+- `Math/`: bounding boxes, frustums, random numbers, triangulation and other maths helpers.
+- `Asset/`: asset types (textures, meshes, materials, fonts, sprite sheets, tilesets, audio clips, scripts), the asset base class, and the virtual file system for asset bundles.
+- `Renderer/`: the renderer, `Renderer2D`, render pipeline, post-processing and the abstract GPU types (buffers, framebuffers, pipelines, textures).
+- `Platform/`: backend implementations: `OpenGL/`, `WebGPU/`, `Null/` (headless) and `Web/` (browser-only code).
+- `Scene/`: scenes, entities, components, the scene graph, serialisation and the asset manager.
+- `Physics/`: 2D physics, collision layers and physics debug drawing.
+- `Scripting/`: Lua bindings and the Lua manager.
+- `AI/`, `Animation/`, `Events/`, `Logging/`, `ImGui/`: behaviour trees and pathfinding, animation, the event system, logging and profiling, and Dear ImGui integration.
+- `Utilities/`: helpers that don't fit a system above (file and string utilities, serialisation helpers, geometry generation).
+
 ## 🔧 Build Instructions
 - Use CMake to generate project files for your preferred IDE or build tool.
-- **New Files**: Always add new `.cpp` and `.h` files to the relevant `CMakeLists.txt`, most files are automatically added with cmake glob.
+- **New Files**: `.cpp` and `.h` files are picked up automatically by a CMake glob of each folder, but `Engine/CMakeLists.txt` lists the folders explicitly: when adding a new folder under `Engine/src`, add it to that list too.
 - Ensure submodules are initialized: `git submodule update --init --recursive`.
 - Define `DEBUG` or `RELEASE` configurations appropriately.

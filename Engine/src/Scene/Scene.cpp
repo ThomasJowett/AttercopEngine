@@ -10,7 +10,7 @@
 
 #include "Scene/SceneManager.h"
 #include "Utilities/GeometryGenerator.h"
-#include "Utilities/Box2DDebugDraw.h"
+#include "Physics/Box2DDebugDraw.h"
 
 #include "cereal/archives/binary.hpp"
 #include "cereal/types/string.hpp"
@@ -26,10 +26,10 @@
 #include "Physics/Contact2D.h"
 
 #include "miniaudio/miniaudio.h"
-#include "Core/Input.h"
-#include "Core/InputActionSystem.h"
+#include "Input/Input.h"
+#include "Input/InputActionSystem.h"
 #include "Core/Application.h"
-#include "Utilities/MathUtils.h"
+#include "Math/MathUtils.h"
 
 struct DestroyMarker {};
 

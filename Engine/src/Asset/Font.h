@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "cereal/access.hpp"
 #include "Texture.h"
 

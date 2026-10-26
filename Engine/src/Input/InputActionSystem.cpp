@@ -1,6 +1,6 @@
 #include "InputActionSystem.h"
-#include "Core/Input.h"
-#include "Core/Joysticks.h"
+#include "Input/Input.h"
+#include "Input/Joysticks.h"
 
 #include <algorithm>
 #include <cmath>

@@ -5,15 +5,15 @@
 // Core
 #include "Core/Layer.h"
 #include "Core/Application.h"
-#include "Core/Input.h"
-#include "Core/Joysticks.h"
-#include "Core/KeyCodes.h"
-#include "Core/MouseButtonCodes.h"
+#include "Input/Input.h"
+#include "Input/Joysticks.h"
+#include "Input/KeyCodes.h"
+#include "Input/MouseButtonCodes.h"
 #include "Core/Colour.h"
 #include "Core/Settings.h"
-#include "Core/Asset.h"
+#include "Asset/Asset.h"
 #include "Core/Version.h"
-#include "Core/BoundingBox.h"
+#include "Math/BoundingBox.h"
 
 // Logging
 #include "Logging/Logger.h"
@@ -42,7 +42,7 @@
 
 // Utilities
 #include "Utilities/GeometryGenerator.h"
-#include "Utilities/Random.h"
+#include "Math/Random.h"
 #include "Utilities/StringUtils.h"
 #include "Utilities/FileWatcher.h"
 
