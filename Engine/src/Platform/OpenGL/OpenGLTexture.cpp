@@ -185,7 +185,6 @@ void OpenGLTexture2D::SetWrapMethod(WrapMethod wrapMethod)
 
 void OpenGLTexture2D::NullTexture()
 {
-	m_Filepath = "NULL";
 	m_Width = m_Height = 4;
 
 	m_InternalFormat = GL_RGBA8, m_DataFormat = GL_RGBA;

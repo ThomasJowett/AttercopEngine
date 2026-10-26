@@ -520,7 +520,6 @@ int WebGPUTexture2D::ReadPixel(uint32_t x, uint32_t y)
 
 void WebGPUTexture2D::NullTexture()
 {
-	m_Filepath = "NULL";
 	m_Width = m_Height = 4;
 
 	m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;

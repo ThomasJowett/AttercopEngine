@@ -59,7 +59,6 @@ bool NullTexture2D::ReadInfoFromFile()
 // Same size as the GPU backends' missing-texture checkerboard
 void NullTexture2D::SetPlaceholderSize()
 {
-	m_Filepath = "NULL";
 	m_Width = m_Height = 4;
 	m_Channels = 4;
 }
