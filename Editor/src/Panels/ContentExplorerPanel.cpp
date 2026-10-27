@@ -1048,7 +1048,7 @@ void ContentExplorerPanel::OnImGuiRender()
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, dummyButtonColour);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, dummyButtonColour);
 			}
-			else if (ImGui::IsWindowHovered())
+			else if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
 			{
 				historyBackClicked = ImGui::IsMouseClicked(3);
 			}
@@ -1065,7 +1065,7 @@ void ContentExplorerPanel::OnImGuiRender()
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, dummyButtonColour);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, dummyButtonColour);
 			}
-			else if (ImGui::IsWindowHovered())
+			else if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
 			{
 				historyForwardClicked = ImGui::IsMouseClicked(4);
 			}
@@ -1361,18 +1361,6 @@ void ContentExplorerPanel::OnImGuiRender()
 					break;
 				}
 
-				if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(4))
-				{
-					if (m_History.GoForward())
-						m_ForceRescan = true;
-				}
-
-				if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(3))
-				{
-					if (m_History.GoBack())
-						m_ForceRescan = true;
-				}
-
 				CalculateBrowsingDataTableSizes(ImGui::GetContentRegionAvail());
 				ImGui::Columns(m_NumBrowsingColumns);
 				int cntEntries = 0;
@@ -1555,17 +1543,6 @@ void ContentExplorerPanel::OnImGuiRender()
 
 				if (ImGui::BeginTable("Thumbnails Table", m_NumBrowsingColumns, table_flags))
 				{
-					if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(4))
-					{
-						if (m_History.GoForward())
-							m_ForceRescan = true;
-					}
-
-					if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(3))
-					{
-						if (m_History.GoBack())
-							m_ForceRescan = true;
-					}
 
 					m_CurrentPath = *m_History.GetCurrentFolder();
 
@@ -1764,20 +1741,6 @@ void ContentExplorerPanel::OnImGuiRender()
 					}
 
 					ImGui::TableHeadersRow();
-
-					//Forward button
-					if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(4))
-					{
-						if (m_History.GoForward())
-							m_ForceRescan = true;
-					}
-
-					//Back button
-					if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(3))
-					{
-						if (m_History.GoBack())
-							m_ForceRescan = true;
-					}
 
 					m_CurrentPath = *m_History.GetCurrentFolder();
 
