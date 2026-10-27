@@ -10,9 +10,9 @@
 #include "Asset/Asset.h"
 #include "Logging/Instrumentor.h"
 #include "Asset/Texture.h"
-#include "Core/Factory.h"
 #include "Asset/VirtualFileSystem.h"
 #include "Utilities/FileUtils.h"
+#include "Utilities/FileWatcher.h"
 
 class AssetManager
 {

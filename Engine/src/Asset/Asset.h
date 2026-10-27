@@ -1,16 +1,12 @@
 #pragma once
 
 #include "Core/core.h"
-#include "Core/UUID.h"
-#include "Core/Factory.h"
 #include "Asset/VirtualFileSystem.h"
 #include "Core/Application.h"
-#include "Utilities/FileWatcher.h"
 #include "Utilities/FileUtils.h"
 #include "Logging/Instrumentor.h"
 
 #include <filesystem>
-#include <string>
 
 class Asset
 {
@@ -21,10 +17,8 @@ public:
 	virtual bool Load(const std::filesystem::path& filepath, const std::vector<uint8_t>& data) = 0;
 
 	virtual bool Reload() { return Load(m_Filepath); }
-	const Uuid& GetUUID() const { return m_Uuid; }
 protected:
 	std::filesystem::path m_Filepath;
-	Uuid m_Uuid;
 };
 
 class AssetLibrary
