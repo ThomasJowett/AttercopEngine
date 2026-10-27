@@ -1,9 +1,11 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 class glTFImporter
 {
 public:
-	static void ImportAssets(const std::filesystem::path& filepath, const std::filesystem::path& destination);
+	// Returns why the import failed, or an empty string if it worked
+	static std::string ImportAssets(const std::filesystem::path& filepath, const std::filesystem::path& destination);
 };

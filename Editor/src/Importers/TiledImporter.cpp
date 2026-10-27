@@ -12,6 +12,8 @@
 static TilemapComponent::Orientation s_Orientation;
 static std::map<uint32_t, Ref<Tileset>> s_Tilesets;
 static std::filesystem::path s_Filepath;
+// The first problem found in a layer, reported once the import finishes
+static std::string s_LayerError;
 
 static uint32_t s_TileWidth, s_TileHeight;
 
@@ -145,15 +147,21 @@ Entity LoadLayer(tinyxml2::XMLElement* pLayer)
 		if (!ParseCsv(pData->GetText(), entity.GetComponent<TilemapComponent>()))
 		{
 			ENGINE_ERROR("Could not parse tilemap layer {0}", name);
+			if (s_LayerError.empty())
+				s_LayerError = "The layer \"" + name + "\" couldn't be read.";
 		}
 	}
 	else if (!strcmp(encoding, "base64"))
 	{
 		ENGINE_ERROR("Could not load tilemap. {0} encoding not yet supported", encoding);
+		if (s_LayerError.empty())
+			s_LayerError = "The layer \"" + name + "\" uses Base64 encoding, which isn't supported. In Tiled, set the map's tile layer format to CSV and save it again.";
 	}
 	else
 	{
 		ENGINE_ERROR("Could not load tilemap. {0} encoding not recognised", encoding);
+		if (s_LayerError.empty())
+			s_LayerError = "The layer \"" + name + "\" uses an unknown encoding.";
 	}
 
 	for (size_t i = 0; i < height; i++)
@@ -238,7 +246,7 @@ Entity LoadGroup(tinyxml2::XMLElement* pGroup)
 	return groupEntity;
 }
 
-void LoadTileset(const std::filesystem::path& filepath, const std::filesystem::path& destination)
+std::string LoadTileset(const std::filesystem::path& filepath, const std::filesystem::path& destination)
 {
 	tinyxml2::XMLDocument doc;
 
@@ -248,6 +256,8 @@ void LoadTileset(const std::filesystem::path& filepath, const std::filesystem::p
 		tinyxml2::XMLElement* pRoot;
 
 		pRoot = doc.FirstChildElement("tileset");
+		if (!pRoot)
+			return "It isn't a Tiled tileset.";
 
 		uint32_t tileWidth, tileHeight;
 
@@ -305,27 +315,29 @@ void LoadTileset(const std::filesystem::path& filepath, const std::filesystem::p
 		std::filesystem::path newFilePath = filepath;
 		newFilePath.replace_extension(".tileset");
 		tileset->SaveAs(destination / newFilePath.filename());
+		return {};
 	}
-	else
-	{
-		CLIENT_ERROR("Could not load tileset {0}. {1} on line {2}. File format must be xml!", filepath, doc.ErrorName(), doc.ErrorLineNum());
-	}
+
+	return std::string("It couldn't be read as XML (") + doc.ErrorName() + " on line " + std::to_string(doc.ErrorLineNum()) + "). In Tiled, save tilesets in the XML format.";
 }
 
-void TiledImporter::ImportTileset(const std::filesystem::path& filepath, const std::filesystem::path& destination)
+std::string TiledImporter::ImportTileset(const std::filesystem::path& filepath, const std::filesystem::path& destination)
 {
-	LoadTileset(filepath, destination);
+	return LoadTileset(filepath, destination);
 }
 
-void TiledImporter::ImportTilemap(const std::filesystem::path& filepath, const std::filesystem::path& destination)
+std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, const std::filesystem::path& destination)
 {
 	tinyxml2::XMLDocument doc;
 
 	s_Filepath = filepath;
+	s_LayerError.clear();
 
 	if (doc.LoadFile(filepath.string().c_str()) == tinyxml2::XML_SUCCESS)
 	{
 		tinyxml2::XMLElement* pRoot = doc.FirstChildElement("map");
+		if (!pRoot)
+			return "It isn't a Tiled map.";
 
 		uint32_t width, height;
 
@@ -414,8 +426,9 @@ void TiledImporter::ImportTilemap(const std::filesystem::path& filepath, const s
 	}
 	else
 	{
-		CLIENT_ERROR("Could not load Tiled tilemap {0}. {1} on line {2}. File format must be xml!", filepath, doc.ErrorName(), doc.ErrorLineNum());
+		return std::string("It couldn't be read as XML (") + doc.ErrorName() + " on line " + std::to_string(doc.ErrorLineNum()) + "). In Tiled, save maps in the XML format.";
 	}
 
 	s_Tilesets.clear();
+	return s_LayerError;
 }
