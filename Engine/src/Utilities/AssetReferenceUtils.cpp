@@ -61,7 +61,7 @@ namespace
 		return std::nullopt;
 	}
 
-	static const char* s_ScannedExtensions[] = { ".material", ".scene", ".spritesheet", ".tileset", ".proj" };
+	static const char* s_ScannedExtensions[] = { ".material", ".scene", ".spritesheet", ".tileset", ".proj", ".behaviourtree", ".statemachine" };
 
 	bool IsScannedExtension(const std::filesystem::path& extension)
 	{
