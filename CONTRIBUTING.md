@@ -16,7 +16,7 @@ This document provides foundational mandates and architectural guidance for work
 - **Readable files**: project files are human readable and can be edited by hand. Binary is only for data where it matters for performance (e.g. mesh vertex data), and even then any references and the version go in a readable header.
 - **Assets are identified by their file path**: no GUIDs, no `.meta` or sidecar files. Renaming or moving an asset in the editor updates every reference to it.
 - **Deleting an asset deletes the file**: no redirects or hidden leftovers. References to it are reported as missing.
-- **Importers just work**: no import options. Support a few formats well rather than many formats badly.
+- **Importers just work**: no import options. Support a few formats well rather than many formats badly: glTF for models, Tiled for tilemaps.
 
 ## 🛠 Coding Standards & Conventions
 

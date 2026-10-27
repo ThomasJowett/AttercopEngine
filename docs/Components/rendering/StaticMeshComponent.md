@@ -2,7 +2,7 @@
 
 Draws an imported 3D model.
 
-Point it at a `.staticmesh` asset, made by importing a glTF or OBJ file in the Content
+Point it at a `.staticmesh` asset, made by importing a glTF file in the Content
 Explorer. Each submesh uses the material the model came with, unless a material override
 replaces it.
 

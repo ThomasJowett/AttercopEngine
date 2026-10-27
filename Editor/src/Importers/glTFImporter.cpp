@@ -12,6 +12,7 @@
 #include "Logging/Logger.h"
 
 #include <cfloat>
+#include <fstream>
 
 #define TINYGLTF_IMPLEMENTATION
 // STB_IMAGE and STB_IMAGE_WRITE implementations are already in Engine/vendor/stb/stb.cpp
@@ -257,6 +258,38 @@ void LoadNode(const Matrix4x4& parentTransform, const tinygltf::Node& node, uint
 
 using namespace gltf_importer_internal;
 
+// Extensions the file says a loader must support, none of which the importer does
+static std::vector<std::string> RequiredExtensions(const std::filesystem::path& filepath)
+{
+	std::ifstream file(filepath, std::ios::binary);
+	std::string json;
+	if (filepath.extension() == ".glb")
+	{
+		// The JSON is the first chunk, after the 12-byte header and the chunk's length and type
+		uint32_t header[5] = {};
+		if (!file.read(reinterpret_cast<char*>(header), sizeof(header)))
+			return {};
+		json.resize(header[3]);
+		file.read(json.data(), json.size());
+	}
+	else
+	{
+		json.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+	}
+
+	nlohmann::json document = nlohmann::json::parse(json, nullptr, false);
+	if (document.is_discarded() || !document.contains("extensionsRequired"))
+		return {};
+
+	std::vector<std::string> required;
+	for (const auto& extension : document["extensionsRequired"])
+	{
+		if (extension.is_string())
+			required.push_back(extension.get<std::string>());
+	}
+	return required;
+}
+
 void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std::filesystem::path& destination)
 {
 	PROFILE_FUNCTION();
@@ -264,6 +297,17 @@ void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std
 	GltfLoaderInfo loaderInfo;
 	loaderInfo.destination = destination;
 	loaderInfo.assetDir = filepath.parent_path();
+
+	if (std::vector<std::string> required = RequiredExtensions(filepath); !required.empty())
+	{
+		std::string names;
+		for (const std::string& name : required)
+			names += (names.empty() ? "" : ", ") + name;
+
+		CLIENT_ERROR("Can't import {0}: it needs the glTF extension {1}, which isn't supported. "
+			"Re-export it as glTF without extension {1}.", filepath.filename().string(), names);
+		return;
+	}
 
 	tinygltf::Model gltfModel;
 	tinygltf::TinyGLTF gltfContext;
