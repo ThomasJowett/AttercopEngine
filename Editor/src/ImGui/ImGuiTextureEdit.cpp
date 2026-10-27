@@ -7,8 +7,27 @@
 #include "IconsFontAwesome6.h"
 #include "Scene/AssetManager.h"
 #include "Utilities/FileUtils.h"
+#include "Panels/ContentExplorerPanel.h"
 
 #include <filesystem>
+
+// The project path, with a thumbnail once the content explorer has loaded one
+static void TexturePathTooltip(const std::filesystem::path& file, const std::filesystem::path& relativePath)
+{
+	ImGui::BeginTooltip();
+	ImGui::TextUnformatted(relativePath.string().c_str());
+
+	if (ThumbnailCache* thumbnails = ContentExplorerPanel::GetThumbnailCache())
+	{
+		if (const ThumbnailCache::Thumbnail* thumbnail = thumbnails->Get(file); thumbnail && thumbnail->sourceWidth > 0 && thumbnail->sourceHeight > 0)
+		{
+			const float maxSize = 128.0f;
+			float scale = maxSize / (float)std::max(thumbnail->sourceWidth, thumbnail->sourceHeight);
+			ImGui::Image(thumbnail->texture, ImVec2(thumbnail->sourceWidth * scale, thumbnail->sourceHeight * scale));
+		}
+	}
+	ImGui::EndTooltip();
+}
 
 bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::FilterMethod& filterMethod, Texture::WrapMethod& wrapMethod, const ImVec2& size)
 {
@@ -84,10 +103,18 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 	{
 		for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::IMAGE)))
 		{
-			const bool is_selected = false;
-			if (ImGui::Selectable(file.filename().string().c_str(), is_selected))
+			std::filesystem::path relativePath = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
+			bool isSelected = texture && texture->GetFilepath() == relativePath;
+
+			// Files with the same name in different folders need their own IDs
+			ImGui::PushID(relativePath.string().c_str());
+			bool clicked = ImGui::Selectable(file.filename().string().c_str(), isSelected);
+			if (ImGui::IsItemHovered())
+				TexturePathTooltip(file, relativePath);
+			ImGui::PopID();
+
+			if (clicked)
 			{
-				auto relativePath = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
 				texture = AssetManager::GetTexture(relativePath);
 				edited = true;
 				break;

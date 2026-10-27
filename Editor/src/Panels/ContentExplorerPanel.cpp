@@ -33,6 +33,7 @@
 #include "ImGui/ImGuiUtilities.h"
 
 static std::filesystem::path s_IconDirectory;
+ThumbnailCache* ContentExplorerPanel::s_ThumbnailCache = nullptr;
 
 template <typename TP>
 std::time_t to_time_t(TP tp)
@@ -869,6 +870,7 @@ ContentExplorerPanel::ContentExplorerPanel(bool* show)
 	m_FileWatcher(std::chrono::seconds(1))
 {
 	s_IconDirectory = Application::GetWorkingDirectory() / "data" / "Icons";
+	s_ThumbnailCache = &m_Thumbnails;
 	m_TotalNumBrowsingEntries = 0;
 	m_NumBrowsingColumns = 0;
 	m_NumBrowsingEntriesPerColumn = 0;
@@ -888,6 +890,8 @@ static std::filesystem::path GetProjectRootPath()
 
 ContentExplorerPanel::~ContentExplorerPanel()
 {
+	if (s_ThumbnailCache == &m_Thumbnails)
+		s_ThumbnailCache = nullptr;
 	delete m_TextFilter;
 }
 
