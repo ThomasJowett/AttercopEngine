@@ -79,7 +79,9 @@ void OpenGLRendererAPI::EndRenderPass()
 
 void OpenGLRendererAPI::DrawIndexed(uint32_t indexCount, uint32_t indexStart, uint32_t vertexOffset)
 {
-	glDrawRangeElementsBaseVertex(GL_TRIANGLES, indexStart, indexStart + indexCount, indexCount, GL_UNSIGNED_INT, nullptr, vertexOffset);
+	// The offset into the bound index buffer is passed as the indices pointer
+	const void* firstIndex = reinterpret_cast<const void*>(static_cast<uintptr_t>(indexStart) * sizeof(uint32_t));
+	glDrawElementsBaseVertex(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, firstIndex, vertexOffset);
 }
 
 void OpenGLRendererAPI::DrawLines(uint32_t vertexCount)
