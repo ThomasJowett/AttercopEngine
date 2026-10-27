@@ -10,10 +10,14 @@
 #include "Scene/Components/AnimatedSpriteComponent.h"
 #include "Scene/Components/UIWidgets/ButtonComponent.h"
 #include "Utilities/FileUtils.h"
+#include "Utilities/MeshSerializer.h"
 #include "Asset/Material.h"
 #include "Asset/SpriteSheet.h"
 #include "Asset/Tileset.h"
+#include "Asset/StaticMesh.h"
 
+#include <fstream>
+#include <iterator>
 #include <optional>
 
 namespace
@@ -79,7 +83,36 @@ namespace AssetReferenceUtils
 		std::error_code errorCode;
 		for (auto& entry : std::filesystem::recursive_directory_iterator(projectDirectory, errorCode))
 		{
-			if (!entry.is_regular_file() || !IsScannedExtension(entry.path().extension()))
+			if (!entry.is_regular_file())
+				continue;
+
+			// Meshes keep their references in an XML header in front of the binary data
+			if (entry.path().extension() == ".staticmesh")
+			{
+				std::ifstream file(entry.path(), std::ios::binary);
+				std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+				file.close();
+
+				std::string header;
+				size_t binaryStart = 0;
+				if (!MeshSerializer::SplitHeader(data, header, binaryStart))
+					continue;
+
+				tinyxml2::XMLDocument document;
+				if (document.Parse(header.c_str(), header.size()) != tinyxml2::XML_SUCCESS)
+					continue;
+
+				tinyxml2::XMLElement* root = document.RootElement();
+				if (root && VisitFilepathAttributesRecursive(entry.path(), root, visit))
+				{
+					tinyxml2::XMLPrinter printer;
+					document.Print(&printer);
+					MeshSerializer::WriteWithHeader(entry.path(), printer.CStr(), data, binaryStart);
+				}
+				continue;
+			}
+
+			if (!IsScannedExtension(entry.path().extension()))
 				continue;
 
 			tinyxml2::XMLDocument document;
@@ -246,6 +279,11 @@ namespace AssetReferenceUtils
 			{
 				if (Ref<Tileset> tileset = AssetManager::GetAsset<Tileset>(relativePath))
 					tileset->Reload();
+			}
+			else if (extension == ".staticmesh")
+			{
+				if (Ref<StaticMesh> mesh = AssetManager::GetAsset<StaticMesh>(relativePath))
+					mesh->Reload();
 			}
 		}
 	}
