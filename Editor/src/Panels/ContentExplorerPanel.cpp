@@ -117,6 +117,23 @@ void ContentExplorerPanel::Duplicate()
 	Paste();
 }
 
+// The path itself if it's a file, otherwise every file inside it
+static void ForEachFile(const std::filesystem::path& path, const std::function<void(const std::filesystem::path&)>& action)
+{
+	if (std::filesystem::is_regular_file(path))
+	{
+		action(path);
+		return;
+	}
+
+	std::error_code errorCode;
+	for (const auto& entry : std::filesystem::recursive_directory_iterator(path, errorCode))
+	{
+		if (entry.is_regular_file())
+			action(entry.path());
+	}
+}
+
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 void ContentExplorerPanel::Delete()
@@ -139,17 +156,32 @@ void ContentExplorerPanel::Delete()
 		}
 	}
 
+	std::vector<std::filesystem::path> canonicalTargets;
+	for (const std::filesystem::path& target : targets)
+		canonicalTargets.push_back(std::filesystem::weakly_canonical(target));
+
+	// A file that's being deleted too, or is inside a folder being deleted, doesn't count as a reference
+	auto isBeingDeleted = [&canonicalTargets](const std::filesystem::path& file)
+	{
+		std::filesystem::path canonicalFile = std::filesystem::weakly_canonical(file);
+		for (const std::filesystem::path& target : canonicalTargets)
+		{
+			auto [targetEnd, fileEnd] = std::mismatch(target.begin(), target.end(), canonicalFile.begin(), canonicalFile.end());
+			if (targetEnd == target.end())
+				return true;
+		}
+		return false;
+	};
+
 	std::vector<std::filesystem::path> references;
 	for (const std::filesystem::path& target : targets)
 	{
-		// Reference-fixup only makes sense for individual asset files - a directory delete
-		// would need to check every file inside it, which isn't handled here.
-		if (!std::filesystem::is_regular_file(target))
-			continue;
-
 		std::filesystem::path relativePath = FileUtils::RelativePath(target, Application::GetOpenDocumentDirectory());
-		std::vector<std::filesystem::path> found = AssetReferenceUtils::FindReferences(relativePath);
-		references.insert(references.end(), found.begin(), found.end());
+		for (const std::filesystem::path& reference : AssetReferenceUtils::FindReferences(relativePath))
+		{
+			if (!isBeingDeleted(reference) && std::find(references.begin(), references.end(), reference) == references.end())
+				references.push_back(reference);
+		}
 	}
 
 	if (!references.empty())
@@ -168,11 +200,11 @@ void ContentExplorerPanel::PerformDelete(const std::vector<std::filesystem::path
 {
 	for (const std::filesystem::path& target : targets)
 	{
-		if (std::filesystem::is_regular_file(target))
-		{
-			std::filesystem::path relativePath = FileUtils::RelativePath(target, Application::GetOpenDocumentDirectory());
-			AssetReferenceUtils::UpdateCurrentSceneTextureReferences(relativePath);
-		}
+		ForEachFile(target, [](const std::filesystem::path& file)
+			{
+				std::filesystem::path relativePath = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
+				AssetReferenceUtils::UpdateCurrentSceneTextureReferences(relativePath);
+			});
 
 		std::filesystem::remove_all(target);
 	}
@@ -241,14 +273,9 @@ bool ContentExplorerPanel::Rename()
 		if (!std::filesystem::exists(m_CurrentPath / newFilename))
 		{
 			std::filesystem::path newPath = m_CurrentPath / newFilename;
-			bool wasFile = isFile;
 
 			std::filesystem::rename(m_CurrentSelectedPath, newPath);
-
-			// Reference-fixup only makes sense for individual asset files - renaming a
-			// directory would need to remap every file inside it, which isn't handled here.
-			if (wasFile)
-				UpdateReferencesAfterRename(m_CurrentSelectedPath, newPath);
+			UpdateReferencesAfterRename(m_CurrentSelectedPath, newPath);
 
 			m_ForceRescan = true;
 		}
@@ -287,8 +314,17 @@ void ContentExplorerPanel::UpdateReferencesAfterRename(const std::filesystem::pa
 	std::filesystem::path newRelative = FileUtils::RelativePath(newPath, Application::GetOpenDocumentDirectory());
 
 	std::vector<std::filesystem::path> updatedFiles = AssetReferenceUtils::UpdateReferences(oldRelative, newRelative);
-	AssetManager::RemoveAsset(oldRelative);
-	AssetReferenceUtils::UpdateCurrentSceneTextureReferences(oldRelative, newRelative);
+
+	// A renamed folder moves every file inside it
+	ForEachFile(newPath, [&](const std::filesystem::path& file)
+		{
+			std::filesystem::path pathInside = std::filesystem::relative(file, newPath);
+			std::filesystem::path oldFile = pathInside == "." ? oldRelative : oldRelative / pathInside;
+			std::filesystem::path newFile = pathInside == "." ? newRelative : newRelative / pathInside;
+			AssetManager::RemoveAsset(oldFile);
+			AssetReferenceUtils::UpdateCurrentSceneTextureReferences(oldFile, newFile);
+		});
+
 	AssetReferenceUtils::ReloadAffectedNonSceneAssets(updatedFiles);
 }
 
