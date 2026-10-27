@@ -55,7 +55,10 @@ void ContentExplorerPanel::Paste()
 		{
 			try
 			{
-				std::filesystem::rename(path, m_CurrentPath / path.filename());
+				std::filesystem::path newPath = m_CurrentPath / path.filename();
+				std::filesystem::rename(path, newPath);
+				if (path != newPath)
+					UpdateReferencesAfterRename(path, newPath);
 			}
 			catch (const std::filesystem::filesystem_error&)
 			{
