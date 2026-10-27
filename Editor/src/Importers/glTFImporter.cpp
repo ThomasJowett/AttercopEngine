@@ -290,7 +290,7 @@ static std::vector<std::string> RequiredExtensions(const std::filesystem::path& 
 	return required;
 }
 
-void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std::filesystem::path& destination)
+std::string glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std::filesystem::path& destination)
 {
 	PROFILE_FUNCTION();
 
@@ -304,9 +304,8 @@ void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std
 		for (const std::string& name : required)
 			names += (names.empty() ? "" : ", ") + name;
 
-		CLIENT_ERROR("Can't import {0}: it needs the glTF extension {1}, which isn't supported. "
-			"Re-export it as glTF without extension {1}.", filepath.filename().string(), names);
-		return;
+		return "It needs the glTF extension " + names + ", which isn't supported. "
+			"Re-export it as glTF without extension " + names + ".";
 	}
 
 	tinygltf::Model gltfModel;
@@ -315,7 +314,10 @@ void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std
 	bool fileLoaded = (filepath.extension() == ".glb") ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filepath.string()) : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filepath.string());
 
 	if (!warning.empty()) CLIENT_WARN("glTF Warning: {0}", warning);
-	if (!fileLoaded) { CLIENT_ERROR("glTF Error: {0}", error); return; }
+	if (!fileLoaded)
+		return "The file couldn't be read: " + error;
+	if (gltfModel.scenes.empty())
+		return "The file has no scenes, so there's nothing to import.";
 
 	// Process Materials and Textures
 	std::vector<GltfImportMaterial> importMaterials;
@@ -365,4 +367,5 @@ void glTFImporter::ImportAssets(const std::filesystem::path& filepath, const std
 	{
 		LoadNode(Matrix4x4(), gltfModel.nodes[nodeIndex], nodeIndex, gltfModel, loaderInfo, importMaterials);
 	}
+	return {};
 }

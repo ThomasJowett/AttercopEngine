@@ -590,7 +590,8 @@ void ContentExplorerPanel::RightClickMenu()
 
 		if (assetPaths)
 		{
-			ImportManager::ImportMultiAssets(assetPaths.value(), m_CurrentPath);
+			m_ImportError = ImportManager::ImportMultiAssets(assetPaths.value(), m_CurrentPath);
+			m_ShowImportError = !m_ImportError.empty();
 			m_ForceRescan = true;
 		}
 	}
@@ -1973,6 +1974,28 @@ void ContentExplorerPanel::OnImGuiRender()
 			{
 				m_PendingDeletePaths.clear();
 				m_PendingDeleteReferences.clear();
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (m_ShowImportError)
+		{
+			ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
+			ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+			ImGui::OpenPopup("Import Failed");
+			m_ShowImportError = false;
+		}
+
+		if (ImGui::BeginPopupModal("Import Failed", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
+			ImGui::TextUnformatted(m_ImportError.c_str());
+			ImGui::PopTextWrapPos();
+			ImGui::Separator();
+			if (ImGui::Button("OK"))
+			{
+				m_ImportError.clear();
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::EndPopup();

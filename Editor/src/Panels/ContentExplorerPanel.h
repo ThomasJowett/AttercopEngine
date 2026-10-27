@@ -232,6 +232,9 @@ private:
 	bool m_Renaming = false;
 
 	bool m_ShowDeleteConfirmation = false;
+
+	std::string m_ImportError;
+	bool m_ShowImportError = false;
 	std::vector<std::filesystem::path> m_PendingDeletePaths;
 	std::vector<std::filesystem::path> m_PendingDeleteReferences;
 };
