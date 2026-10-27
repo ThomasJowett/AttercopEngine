@@ -143,6 +143,9 @@ public:
 	void OnImGuiRender() override;
 	void OnEvent(Event& event) override;
 
+	// Image thumbnails shared with other editor widgets, or nullptr before the panel exists
+	static ThumbnailCache* GetThumbnailCache() { return s_ThumbnailCache; }
+
 	virtual void Copy() override;
 	virtual void Cut() override;
 	virtual void Paste() override;
@@ -188,6 +191,7 @@ private:
 	bool* m_Show;
 
 	ThumbnailCache m_Thumbnails{ 256 };
+	static ThumbnailCache* s_ThumbnailCache;
 
 	std::vector<std::filesystem::path> m_Dirs, m_Files;
 	std::filesystem::path m_CurrentPath;

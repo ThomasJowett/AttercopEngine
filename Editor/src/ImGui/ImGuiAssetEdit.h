@@ -49,14 +49,17 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 	{
 		for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(type)))
 		{
-			if (ImGui::Selectable(file.filename().string().c_str()))
+			auto relativePath = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
+			ImGui::PushID(relativePath.string().c_str());
+			bool clicked = ImGui::Selectable(file.filename().string().c_str());
+			ImGui::Tooltip(relativePath.string().c_str());
+			ImGui::PopID();
+			if (clicked)
 			{
-				auto relativePath = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
 				asset = AssetManager::GetAsset<T>(relativePath);
 				edited = true;
 				break;
 			}
-			ImGui::Tooltip(file.string().c_str());
 		}
 		ImGui::EndCombo();
 	}

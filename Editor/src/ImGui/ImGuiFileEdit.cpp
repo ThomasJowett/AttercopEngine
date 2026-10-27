@@ -82,12 +82,14 @@ bool ImGui::FileSelect(const char* label, std::filesystem::path& filepath, FileT
 	{
 		for(std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(filetype)))
 		{
+			ImGui::PushID(file.string().c_str());
 			if(ImGui::Selectable(file.filename().string().c_str()))
 			{
 				filepath = file;
 				edited = true;
 			}
-			ImGui::Tooltip(file.string().c_str());
+			ImGui::Tooltip(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()).string().c_str());
+			ImGui::PopID();
 		}
 		ImGui::EndCombo();
 	}
