@@ -46,7 +46,7 @@ namespace AssetReferenceUtils
 	// Repoints any live AnimatedSpriteComponent using spriteSheet + oldName to newName instead.
 	void UpdateCurrentSceneAnimationReferences(const Ref<SpriteSheet>& spriteSheet, const std::string& oldName, const std::string& newName);
 
-	// Reloads any already-cached Material/SpriteSheet/Tileset among the given files (as
+	// Reloads any already-cached Material/SpriteSheet/Tileset/StaticMesh among the given files (as
 	// returned by FindReferences/UpdateReferences), so a live in-memory texture reference
 	// (e.g. a Material's texture slot) picks up whatever was just rewritten - or, for a
 	// straight delete, now-missing - on disk. Materials/SpriteSheets/Tilesets are always

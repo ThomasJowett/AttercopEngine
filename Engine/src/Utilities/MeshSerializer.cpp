@@ -1,89 +1,250 @@
 #include "MeshSerializer.h"
 #include "Scene/AssetManager.h"
+#include "Utilities/SerializationUtils.h"
+#include "TinyXml2/tinyxml2.h"
 
+#include <cstring>
 #include <fstream>
+#include <iterator>
+#include <sstream>
 
-#define MESH_MAGIC 0x4D455348 // "MESH"
-#define MESH_VERSION 1
+#define MESH_MAGIC 0x4D455348 // "MESH", the old binary-only format
+#define MESH_BINARY_VERSION 1
+#define MESH_VERSION 2
+
+static const char* k_HeaderEnd = "</StaticMesh>";
+
+static const char* LayoutName(MeshLayout layout)
+{
+	return layout == MeshLayout::SkinnedMesh ? "Skinned" : "Static";
+}
+
+static bool GetLayout(MeshLayout layoutType, BufferLayout& layout)
+{
+	switch (layoutType)
+	{
+	case MeshLayout::StaticMesh:
+		layout = s_StaticMeshLayout;
+		return true;
+	case MeshLayout::SkinnedMesh:
+		layout = s_SkinnedMeshLayout;
+		return true;
+	default:
+		CLIENT_ERROR("Unsupported mesh layout type: {0}", static_cast<int>(layoutType));
+		return false;
+	}
+}
+
+// A missing material falls back to the default rather than dropping the mesh
+static Ref<Material> LoadMaterial(const std::string& materialPath)
+{
+	if (materialPath.empty() || materialPath == "DefaultMaterial")
+		return Material::GetDefaultMaterial();
+
+	Ref<Material> material = AssetManager::GetAsset<Material>(materialPath);
+	if (!material)
+	{
+		CLIENT_ERROR("Failed to load material: {0}", materialPath);
+		return Material::GetDefaultMaterial();
+	}
+	return material;
+}
+
+static void EncodeMatrix(tinyxml2::XMLElement* pElement, const Matrix4x4& matrix)
+{
+	std::ostringstream text;
+	text.precision(9);
+	for (int row = 0; row < 4; row++)
+	{
+		for (int column = 0; column < 4; column++)
+			text << matrix(row, column) << (row == 3 && column == 3 ? "" : " ");
+	}
+	pElement->SetText(text.str().c_str());
+}
+
+static void DecodeMatrix(const tinyxml2::XMLElement* pElement, Matrix4x4& matrix)
+{
+	if (!pElement || !pElement->GetText())
+		return;
+
+	std::istringstream text(pElement->GetText());
+	for (int row = 0; row < 4; row++)
+	{
+		for (int column = 0; column < 4; column++)
+			text >> matrix.m[row][column];
+	}
+}
 
 bool MeshSerializer::Serialize(const std::filesystem::path& filepath, const Ref<Mesh>& mesh, MeshLayout layoutType)
 {
-    std::ofstream out(filepath, std::ios::binary);
-    if (!out.is_open())
-    {
-        CLIENT_ERROR("Could not open file {0} for writing", filepath.string());
-        return false;
-	}
+	const std::vector<float>& vertices = mesh->GetVertexList();
+	const std::vector<uint32_t>& indices = mesh->GetIndexList();
 
-    // Header
-	uint32_t magic = MESH_MAGIC;
-	uint32_t version = MESH_VERSION;
-	out.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
-	out.write(reinterpret_cast<const char*>(&version), sizeof(version));
+	tinyxml2::XMLDocument doc;
+	tinyxml2::XMLElement* pRoot = doc.NewElement("StaticMesh");
+	doc.InsertFirstChild(pRoot);
+	pRoot->SetAttribute("Version", MESH_VERSION);
+	pRoot->SetAttribute("Layout", LayoutName(layoutType));
+	pRoot->SetAttribute("VertexFloats", (uint64_t)vertices.size());
+	pRoot->SetAttribute("Indices", (uint64_t)indices.size());
 
-	// Vertex/Index buffer
-    const auto& vertices = mesh->GetVertexList();
-    const auto& indices = mesh->GetIndexList();
-    uint32_t vertexCount = static_cast<uint32_t>(vertices.size());
-	uint32_t indexCount = static_cast<uint32_t>(indices.size());
-
-	out.write(reinterpret_cast<const char*>(&vertexCount), sizeof(vertexCount));
-	out.write(reinterpret_cast<const char*>(vertices.data()), vertexCount * sizeof(float));
-
-	out.write(reinterpret_cast<const char*>(&indexCount), sizeof(indexCount));
-	out.write(reinterpret_cast<const char*>(indices.data()), indexCount * sizeof(uint32_t));
-
-	// Submeshes
-	const auto& submeshes = mesh->GetSubmeshes();
-	uint32_t submeshCount = static_cast<uint32_t>(submeshes.size());
-	out.write(reinterpret_cast<const char*>(&submeshCount), sizeof(submeshCount));
-
-	for (const auto& sm : submeshes)
+	for (const Ref<Material>& material : mesh->GetMaterials())
 	{
-		out.write(reinterpret_cast<const char*>(&sm.firstIndex), sizeof(sm.firstIndex));
-		out.write(reinterpret_cast<const char*>(&sm.vertexOffset), sizeof(sm.vertexOffset));
-		out.write(reinterpret_cast<const char*>(&sm.indexCount), sizeof(sm.indexCount));
-		out.write(reinterpret_cast<const char*>(&sm.vertexCount), sizeof(sm.vertexCount));
-		out.write(reinterpret_cast<const char*>(&sm.materialIndex), sizeof(sm.materialIndex));
-
-		out.write(reinterpret_cast<const char*>(&sm.transform), sizeof(sm.transform));
-		out.write(reinterpret_cast<const char*>(&sm.localTransform), sizeof(sm.localTransform));
-		Vector3f min = sm.boundingBox.Min();
-		Vector3f max = sm.boundingBox.Max();
-		out.write(reinterpret_cast<const char*>(&min), sizeof(Vector3f));
-		out.write(reinterpret_cast<const char*>(&max), sizeof(Vector3f));
+		tinyxml2::XMLElement* pMaterial = pRoot->InsertNewChildElement("Material");
+		if (material && material != Material::GetDefaultMaterial())
+			SerializationUtils::Encode(pMaterial, material->GetFilepath());
 	}
 
-	out.write(reinterpret_cast<const char*>(&layoutType), sizeof(layoutType));
-
-	// Materials
-	const auto& materials = mesh->GetMaterials();
-	uint32_t materialCount = static_cast<uint32_t>(materials.size());
-	out.write(reinterpret_cast<const char*>(&materialCount), sizeof(materialCount));
-	for (const auto& material : materials)
+	for (const Submesh& submesh : mesh->GetSubmeshes())
 	{
-		if (material != Material::GetDefaultMaterial())
-		{
-			std::string name = material->GetFilepath().string();
-			uint32_t nameLength = static_cast<uint32_t>(name.size());
-			out.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
-			out.write(name.data(), nameLength);
-		}
-		else
-		{
-			std::string defaultMaterialName = "DefaultMaterial";
-			uint32_t nameLength = static_cast<uint32_t>(defaultMaterialName.size());
-			out.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
-			out.write(defaultMaterialName.data(), nameLength);
-		}
+		tinyxml2::XMLElement* pSubmesh = pRoot->InsertNewChildElement("Submesh");
+		pSubmesh->SetAttribute("FirstIndex", submesh.firstIndex);
+		pSubmesh->SetAttribute("VertexOffset", submesh.vertexOffset);
+		pSubmesh->SetAttribute("IndexCount", submesh.indexCount);
+		pSubmesh->SetAttribute("VertexCount", submesh.vertexCount);
+		pSubmesh->SetAttribute("Material", submesh.materialIndex);
+		EncodeMatrix(pSubmesh->InsertNewChildElement("Transform"), submesh.transform);
+		EncodeMatrix(pSubmesh->InsertNewChildElement("LocalTransform"), submesh.localTransform);
+		SerializationUtils::Encode(pSubmesh->InsertNewChildElement("BoundsMin"), submesh.boundingBox.Min());
+		SerializationUtils::Encode(pSubmesh->InsertNewChildElement("BoundsMax"), submesh.boundingBox.Max());
 	}
 
-	out.close();
+	tinyxml2::XMLPrinter printer;
+	doc.Print(&printer);
 
-    return true;
+	std::vector<uint8_t> data(vertices.size() * sizeof(float) + indices.size() * sizeof(uint32_t));
+	if (!vertices.empty())
+		std::memcpy(data.data(), vertices.data(), vertices.size() * sizeof(float));
+	if (!indices.empty())
+		std::memcpy(data.data() + vertices.size() * sizeof(float), indices.data(), indices.size() * sizeof(uint32_t));
+
+	return WriteWithHeader(filepath, printer.CStr(), data, 0);
 }
 
-static Ref<Mesh> DeserializeFromStream(std::istream& in)
+bool MeshSerializer::SplitHeader(const std::vector<uint8_t>& data, std::string& header, size_t& binaryStart)
+{
+	if (data.empty() || data[0] != '<')
+		return false;
+
+	const char* begin = reinterpret_cast<const char*>(data.data());
+	const char* end = begin + data.size();
+	const char* found = std::search(begin, end, k_HeaderEnd, k_HeaderEnd + std::strlen(k_HeaderEnd));
+	if (found == end)
+		return false;
+
+	binaryStart = (found - begin) + std::strlen(k_HeaderEnd);
+	header.assign(begin, binaryStart);
+	if (binaryStart < data.size() && data[binaryStart] == '\n')
+		binaryStart++;
+	return true;
+}
+
+bool MeshSerializer::WriteWithHeader(const std::filesystem::path& filepath, const std::string& header, const std::vector<uint8_t>& data, size_t binaryStart)
+{
+	std::ofstream out(filepath, std::ios::binary);
+	if (!out.is_open())
+	{
+		CLIENT_ERROR("Could not open file {0} for writing", filepath.string());
+		return false;
+	}
+
+	// One newline separates the header from the binary data
+	std::string trimmedHeader = header;
+	while (!trimmedHeader.empty() && std::isspace((unsigned char)trimmedHeader.back()))
+		trimmedHeader.pop_back();
+
+	out << trimmedHeader << '\n';
+	if (binaryStart < data.size())
+		out.write(reinterpret_cast<const char*>(data.data() + binaryStart), data.size() - binaryStart);
+	return out.good();
+}
+
+static Ref<Mesh> DeserializeWithHeader(const std::filesystem::path& filepath, const std::vector<uint8_t>& data, const std::string& header, size_t binaryStart)
+{
+	tinyxml2::XMLDocument doc;
+	if (doc.Parse(header.c_str(), header.size()) != tinyxml2::XML_SUCCESS)
+	{
+		CLIENT_ERROR("Could not read mesh header {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
+		return nullptr;
+	}
+
+	tinyxml2::XMLElement* pRoot = doc.FirstChildElement("StaticMesh");
+	if (!pRoot)
+	{
+		CLIENT_ERROR("Mesh file has no StaticMesh element: {0}", filepath);
+		return nullptr;
+	}
+
+	int version = 0;
+	pRoot->QueryIntAttribute("Version", &version);
+	if (version != MESH_VERSION)
+	{
+		CLIENT_ERROR("Unsupported mesh version {0}: {1}", version, filepath);
+		return nullptr;
+	}
+
+	const char* layoutName = pRoot->Attribute("Layout");
+	MeshLayout layoutType = layoutName && std::strcmp(layoutName, "Skinned") == 0 ? MeshLayout::SkinnedMesh : MeshLayout::StaticMesh;
+	BufferLayout layout;
+	if (!GetLayout(layoutType, layout))
+		return nullptr;
+
+	uint64_t vertexFloats = 0, indexCount = 0;
+	pRoot->QueryUnsigned64Attribute("VertexFloats", &vertexFloats);
+	pRoot->QueryUnsigned64Attribute("Indices", &indexCount);
+
+	size_t binarySize = data.size() - binaryStart;
+	if (binarySize != vertexFloats * sizeof(float) + indexCount * sizeof(uint32_t))
+	{
+		CLIENT_ERROR("Mesh data is {0} bytes but the header describes {1}: {2}", binarySize, vertexFloats * sizeof(float) + indexCount * sizeof(uint32_t), filepath);
+		return nullptr;
+	}
+
+	std::vector<float> vertices(vertexFloats);
+	std::vector<uint32_t> indices(indexCount);
+	if (vertexFloats > 0)
+		std::memcpy(vertices.data(), data.data() + binaryStart, vertexFloats * sizeof(float));
+	if (indexCount > 0)
+		std::memcpy(indices.data(), data.data() + binaryStart + vertexFloats * sizeof(float), indexCount * sizeof(uint32_t));
+
+	std::vector<Ref<Material>> materials;
+	for (tinyxml2::XMLElement* pMaterial = pRoot->FirstChildElement("Material"); pMaterial; pMaterial = pMaterial->NextSiblingElement("Material"))
+	{
+		const char* materialPath = pMaterial->Attribute("Filepath");
+		materials.push_back(LoadMaterial(materialPath ? materialPath : ""));
+	}
+
+	std::vector<Submesh> submeshes;
+	for (tinyxml2::XMLElement* pSubmesh = pRoot->FirstChildElement("Submesh"); pSubmesh; pSubmesh = pSubmesh->NextSiblingElement("Submesh"))
+	{
+		Submesh submesh{};
+		pSubmesh->QueryUnsignedAttribute("FirstIndex", &submesh.firstIndex);
+		pSubmesh->QueryUnsignedAttribute("VertexOffset", &submesh.vertexOffset);
+		pSubmesh->QueryUnsignedAttribute("IndexCount", &submesh.indexCount);
+		pSubmesh->QueryUnsignedAttribute("VertexCount", &submesh.vertexCount);
+		pSubmesh->QueryUnsignedAttribute("Material", &submesh.materialIndex);
+		DecodeMatrix(pSubmesh->FirstChildElement("Transform"), submesh.transform);
+		DecodeMatrix(pSubmesh->FirstChildElement("LocalTransform"), submesh.localTransform);
+		Vector3f min, max;
+		SerializationUtils::Decode(pSubmesh->FirstChildElement("BoundsMin"), min);
+		SerializationUtils::Decode(pSubmesh->FirstChildElement("BoundsMax"), max);
+		submesh.boundingBox = BoundingBox(min, max);
+
+		if (submesh.materialIndex >= materials.size())
+		{
+			CLIENT_ERROR("Submesh uses material {0} but the mesh only has {1}: {2}", submesh.materialIndex, materials.size(), filepath);
+			submesh.materialIndex = 0;
+			if (materials.empty())
+				materials.push_back(Material::GetDefaultMaterial());
+		}
+		submeshes.push_back(submesh);
+	}
+
+	return CreateRef<Mesh>(vertices, indices, submeshes, materials, layout);
+}
+
+// The old binary-only format, still read so existing projects keep working
+static Ref<Mesh> DeserializeBinary(std::istream& in)
 {
 	uint32_t magic = 0;
 	in.read(reinterpret_cast<char*>(&magic), sizeof(magic));
@@ -94,7 +255,7 @@ static Ref<Mesh> DeserializeFromStream(std::istream& in)
 	}
 	uint32_t version = 0;
 	in.read(reinterpret_cast<char*>(&version), sizeof(version));
-	if (version != MESH_VERSION)
+	if (version != MESH_BINARY_VERSION)
 	{
 		CLIENT_ERROR("Unsupported mesh version: {0}", version);
 		return nullptr;
@@ -111,7 +272,7 @@ static Ref<Mesh> DeserializeFromStream(std::istream& in)
 	uint32_t submeshCount = 0;
 	in.read(reinterpret_cast<char*>(&submeshCount), sizeof(submeshCount));
 	std::vector<Submesh> submeshes(submeshCount);
-	
+
 	for (auto& sm : submeshes)
 	{
 		in.read(reinterpret_cast<char*>(&sm.firstIndex), sizeof(sm.firstIndex));
@@ -132,18 +293,7 @@ static Ref<Mesh> DeserializeFromStream(std::istream& in)
 	in.read(reinterpret_cast<char*>(&layoutType), sizeof(layoutType));
 
 	BufferLayout layout;
-	switch (layoutType)
-	{
-	case MeshLayout::StaticMesh:
-		layout = s_StaticMeshLayout;
-		break;
-	case MeshLayout::SkinnedMesh:
-		layout = s_SkinnedMeshLayout;
-		break;
-	default:
-		CLIENT_ERROR("Unsupported mesh layout type: {0}", static_cast<int>(layoutType));
-		break;
-	}
+	GetLayout(layoutType, layout);
 
 	// Read materials
 	std::vector<Ref<Material>> materials;
@@ -156,19 +306,7 @@ static Ref<Mesh> DeserializeFromStream(std::istream& in)
 		in.read(reinterpret_cast<char*>(&nameLength), sizeof(nameLength));
 		std::string materialName(nameLength, '\0');
 		in.read(materialName.data(), nameLength);
-		if (materialName == "DefaultMaterial" || materialName.empty())
-		{
-			materials[i] = Material::GetDefaultMaterial();
-		}
-		else
-		{
-			materials[i] = AssetManager::GetAsset<Material>(materialName);
-			if (!materials[i])
-			{
-				CLIENT_ERROR("Failed to load material: {0}", materialName);
-				return nullptr;
-			}
-		}
+		materials[i] = LoadMaterial(materialName);
 	}
 
 	return CreateRef<Mesh>(vertices, indices, submeshes, materials, layout);
@@ -176,8 +314,13 @@ static Ref<Mesh> DeserializeFromStream(std::istream& in)
 
 Ref<Mesh> MeshSerializer::DeserializeFromMemory(const std::filesystem::path& filepath, const std::vector<uint8_t>& data)
 {
+	std::string header;
+	size_t binaryStart = 0;
+	if (SplitHeader(data, header, binaryStart))
+		return DeserializeWithHeader(filepath, data, header, binaryStart);
+
 	std::istringstream in(std::string(data.begin(), data.end()), std::ios::binary);
-	return DeserializeFromStream(in);
+	return DeserializeBinary(in);
 }
 
 Ref<Mesh> MeshSerializer::Deserialize(const std::filesystem::path& filepath)
@@ -188,5 +331,7 @@ Ref<Mesh> MeshSerializer::Deserialize(const std::filesystem::path& filepath)
 		CLIENT_ERROR("Could not open mesh file {0}", filepath.string());
 		return nullptr;
 	}
-	return DeserializeFromStream(in);
+
+	std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	return DeserializeFromMemory(filepath, data);
 }
