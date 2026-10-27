@@ -37,7 +37,7 @@ public:
 	void ReleaseAfterSubmit(wgpu::BindGroup bindGroup) { m_PassBindGroups.push_back(bindGroup); }
 
 private:
-	Colour m_ClearColour = Colours::NAVY;
+	Colour m_ClearColour = Colours::GREY;
 	wgpu::RenderPassEncoder m_RenderPass;
 	wgpu::CommandEncoder m_CommandEncoder;
 	std::vector<wgpu::BindGroup> m_PassBindGroups;

@@ -33,6 +33,8 @@ bool OpenGLRendererAPI::Init()
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glEnable(GL_MULTISAMPLE);
+
+	SetClearColour(Colours::GREY);
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	glLineWidth(1.5f);
 	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
