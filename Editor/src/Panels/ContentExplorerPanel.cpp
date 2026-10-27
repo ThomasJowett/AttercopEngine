@@ -547,7 +547,6 @@ void ContentExplorerPanel::RightClickMenu()
 	{
 		std::optional<std::vector<std::wstring>> assetPaths = FileDialog::MultiOpen(L"Select Files...",
 			{ {L"Any File", L"*.*"},
-			  {L"Film Box (.fbx)", L"*.fbx"},
 			  {L"Wavefront OBJ (.obj)", L"*.obj"},
 			  {L"gltf (.gltf, .glb)", L"*.gltf;*.glb"},
 			  {L"Tiled Tilemap(.tmx)", L"*.tmx"},

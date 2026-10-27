@@ -341,7 +341,7 @@
 <rect x="1731" y="999" width="173" height="52" rx="4" fill="#000" opacity="0.25"/>
 <rect x="1726" y="994" width="173" height="52" rx="4" fill="#3a6f8f"/>
 <text x="1812.5" y="1008.79" font-size="19" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">Importers</text>
-<text x="1812.5" y="1031.21" font-size="13" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">FBX · glTF · OBJ · Tiled</text>
+<text x="1812.5" y="1031.21" font-size="13" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">glTF · OBJ · Tiled</text>
 <text x="1612" y="1112" font-size="28" fill="#d7dae0" font-weight="bold" font-family="'Roboto Condensed', 'Arial Narrow', 'Segoe UI', Arial, sans-serif" text-anchor="end" dominant-baseline="central">▶  Main</text>
 <rect x="1115" y="1146" width="510" height="262" rx="26" fill="#3a2f38" stroke="#b5534c" stroke-width="6" stroke-dasharray="22 14"/>
 <rect x="1155" y="1181" width="200" height="54" rx="4" fill="#000" opacity="0.25"/>

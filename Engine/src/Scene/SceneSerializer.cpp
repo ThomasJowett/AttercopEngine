@@ -225,7 +225,7 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 
 		// TODO: skipping default-material overrides shifts later ones to the wrong submesh on load - save one per submesh
 		for (const auto& materialOverride : component.materialOverrides) {
-			if (materialOverride != Material::GetDefaultMaterial())
+			if (materialOverride && materialOverride != Material::GetDefaultMaterial())
 				SerializationUtils::Encode(pStaticMeshElement->InsertNewChildElement("MaterialOverride"), materialOverride->GetFilepath());
 		}
 	}
@@ -820,7 +820,8 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 					break;
 				if (const char* materialFilepathChar = pMaterialElement->Attribute("Filepath"))
 				{
-					component.materialOverrides.at(materialIndex) = AssetManager::GetAsset<Material>(materialFilepathChar);
+					if (Ref<Material> material = AssetManager::GetAsset<Material>(materialFilepathChar))
+						component.materialOverrides.at(materialIndex) = material;
 				}
 				materialIndex++;
 			}

@@ -82,13 +82,12 @@ group_files_by_directory("SOURCES")
 group_files_by_directory("HEADERS")
 source_group("Data" FILES ${DATA_FILES})
 
-target_link_libraries(Editor PRIVATE Engine OpenFBX)
+target_link_libraries(Editor PRIVATE Engine)
 
 target_include_directories(Editor PUBLIC
                             ${CMAKE_CURRENT_SOURCE_DIR}/src
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/IconFont
-                            ${CMAKE_CURRENT_SOURCE_DIR}/vendor/OpenFBX/src
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/json
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/tinygltf
                             Engine/src

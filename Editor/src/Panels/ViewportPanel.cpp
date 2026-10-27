@@ -107,7 +107,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		return;
 
 	bool rightMouseDown = Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
-	bool leftMouseDown = Input::IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+	bool leftMouseDown = Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
 	m_CameraController.OnUpdate(deltaTime, m_ViewportHovered);
 
