@@ -1,7 +1,6 @@
 #include "ImportManager.h"
 
 #include "glTFImporter.h"
-#include "OBJImporter.h"
 #include "TiledImporter.h"
 
 #include <algorithm>
@@ -12,11 +11,7 @@ void ImportManager::ImportAsset(const std::filesystem::path& asset, const std::f
 
 	std::transform(extString.begin(), extString.end(), extString.begin(), ::tolower);
 
-	if (extString == ".obj")
-	{
-		OBJImporter::ImportAssets(asset, destination);
-	}
-	else if (extString == ".tmx")
+	if (extString == ".tmx")
 	{
 		TiledImporter::ImportTilemap(asset, destination);
 	}
