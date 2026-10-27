@@ -10,6 +10,14 @@ This document provides foundational mandates and architectural guidance for work
 - **ECS**: EnTT (Entity Component System).
 - **Scripting**: Lua integrated via Sol2.
 
+## 🧭 Principles
+- **Fast to load**: the editor and games start quickly. Don't add work to start-up that can be deferred.
+- **Work from source**: the engine is meant to be built and changed directly, not used as a black box.
+- **Readable files**: project files are human readable and can be edited by hand. Binary is only for data where it matters for performance (e.g. mesh vertex data), and even then any references and the version go in a readable header.
+- **Assets are identified by their file path**: no GUIDs, no `.meta` or sidecar files. Renaming or moving an asset in the editor updates every reference to it.
+- **Deleting an asset deletes the file**: no redirects or hidden leftovers. References to it are reported as missing.
+- **Importers just work**: no import options. Support a few formats well rather than many formats badly.
+
 ## 🛠 Coding Standards & Conventions
 
 ### Memory Management
