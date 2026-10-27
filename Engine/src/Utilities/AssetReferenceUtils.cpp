@@ -14,6 +14,8 @@
 #include "Asset/SpriteSheet.h"
 #include "Asset/Tileset.h"
 
+#include <optional>
+
 namespace
 {
 	std::string NormalisePath(const std::filesystem::path& path)
@@ -25,28 +27,34 @@ namespace
 		return pathString;
 	}
 
-	// Matches the "Filepath" attribute convention every asset reference uses
-	// (SerializationUtils::Encode/Decode(XMLElement*, path)), regardless of
-	// which element it's attached to or what kind of asset it points at.
-	bool ReplaceFilepathAttributesRecursive(tinyxml2::XMLElement* element, const std::string& oldPathString, const std::string& newPathString)
+	// Every asset reference uses the "Filepath" attribute (SerializationUtils::Encode/Decode),
+	// whichever element it's on and whatever it points at
+	bool VisitFilepathAttributesRecursive(const std::filesystem::path& file, tinyxml2::XMLElement* element, const AssetReferenceUtils::ReferenceVisitor& visit)
 	{
 		bool changed = false;
 
-		const char* attribute = element->Attribute("Filepath");
-		if (attribute && oldPathString == attribute)
-		{
-			if (!newPathString.empty())
-				element->SetAttribute("Filepath", newPathString.c_str());
-			changed = true;
-		}
+		if (const char* attribute = element->Attribute("Filepath"))
+			changed = visit(file, element, attribute);
 
 		for (tinyxml2::XMLElement* child = element->FirstChildElement(); child; child = child->NextSiblingElement())
 		{
-			if (ReplaceFilepathAttributesRecursive(child, oldPathString, newPathString))
+			if (VisitFilepathAttributesRecursive(file, child, visit))
 				changed = true;
 		}
 
 		return changed;
+	}
+
+	// The part of reference after path: empty for the path itself, "/rest" for something inside it, nullopt otherwise
+	std::optional<std::string> MatchReference(const std::string& reference, const std::string& path)
+	{
+		if (reference.compare(0, path.size(), path) != 0)
+			return std::nullopt;
+		if (reference.size() == path.size())
+			return std::string();
+		if (reference[path.size()] == '/')
+			return reference.substr(path.size());
+		return std::nullopt;
 	}
 
 	static const char* s_ScannedExtensions[] = { ".material", ".scene", ".spritesheet", ".tileset", ".proj" };
@@ -64,15 +72,12 @@ namespace
 
 namespace AssetReferenceUtils
 {
-	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path)
+	void ForEachReference(const std::filesystem::path& projectDirectory, const ReferenceVisitor& visit)
 	{
 		PROFILE_FUNCTION();
 
-		std::string pathString = NormalisePath(path);
-		std::vector<std::filesystem::path> references;
-
 		std::error_code errorCode;
-		for (auto& entry : std::filesystem::recursive_directory_iterator(Application::GetOpenDocumentDirectory(), errorCode))
+		for (auto& entry : std::filesystem::recursive_directory_iterator(projectDirectory, errorCode))
 		{
 			if (!entry.is_regular_file() || !IsScannedExtension(entry.path().extension()))
 				continue;
@@ -82,14 +87,39 @@ namespace AssetReferenceUtils
 				continue;
 
 			tinyxml2::XMLElement* root = document.RootElement();
-			if (root && ReplaceFilepathAttributesRecursive(root, pathString, std::string()))
-				references.push_back(entry.path());
+			if (root && VisitFilepathAttributesRecursive(entry.path(), root, visit))
+				document.SaveFile(entry.path().string().c_str());
 		}
+	}
+
+	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path)
+	{
+		return FindReferences(path, Application::GetOpenDocumentDirectory());
+	}
+
+	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path, const std::filesystem::path& projectDirectory)
+	{
+		PROFILE_FUNCTION();
+
+		std::string pathString = NormalisePath(path);
+		std::vector<std::filesystem::path> references;
+
+		ForEachReference(projectDirectory, [&](const std::filesystem::path& file, tinyxml2::XMLElement*, const char* referencedPath)
+			{
+				if (MatchReference(NormalisePath(referencedPath), pathString) && (references.empty() || references.back() != file))
+					references.push_back(file);
+				return false;
+			});
 
 		return references;
 	}
 
 	std::vector<std::filesystem::path> UpdateReferences(const std::filesystem::path& oldPath, const std::filesystem::path& newPath)
+	{
+		return UpdateReferences(oldPath, newPath, Application::GetOpenDocumentDirectory());
+	}
+
+	std::vector<std::filesystem::path> UpdateReferences(const std::filesystem::path& oldPath, const std::filesystem::path& newPath, const std::filesystem::path& projectDirectory)
 	{
 		PROFILE_FUNCTION();
 
@@ -98,27 +128,20 @@ namespace AssetReferenceUtils
 
 		std::vector<std::filesystem::path> updatedFiles;
 
-		std::error_code errorCode;
-		for (auto& entry : std::filesystem::recursive_directory_iterator(Application::GetOpenDocumentDirectory(), errorCode))
-		{
-			if (!entry.is_regular_file() || !IsScannedExtension(entry.path().extension()))
-				continue;
-
-			tinyxml2::XMLDocument document;
-			if (document.LoadFile(entry.path().string().c_str()) != tinyxml2::XML_SUCCESS)
-				continue;
-
-			tinyxml2::XMLElement* root = document.RootElement();
-			if (!root)
-				continue;
-
-			if (ReplaceFilepathAttributesRecursive(root, oldPathString, newPathString))
+		ForEachReference(projectDirectory, [&](const std::filesystem::path& file, tinyxml2::XMLElement* element, const char* referencedPath)
 			{
-				document.SaveFile(entry.path().string().c_str());
-				updatedFiles.push_back(entry.path());
-				ENGINE_INFO("Updated asset reference to {0} in {1}", newPathString, entry.path().string());
-			}
-		}
+				std::optional<std::string> rest = MatchReference(NormalisePath(referencedPath), oldPathString);
+				if (!rest)
+					return false;
+
+				element->SetAttribute("Filepath", (newPathString + *rest).c_str());
+				if (updatedFiles.empty() || updatedFiles.back() != file)
+				{
+					updatedFiles.push_back(file);
+					ENGINE_INFO("Updated asset reference to {0} in {1}", newPathString, file.string());
+				}
+				return true;
+			});
 
 		return updatedFiles;
 	}
