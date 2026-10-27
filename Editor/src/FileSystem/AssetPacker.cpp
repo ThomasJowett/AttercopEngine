@@ -12,6 +12,7 @@
 
 #include "Core/Application.h"
 #include "Utilities/FileUtils.h"
+#include "Utilities/AssetReferenceUtils.h"
 #include "Input/InputMappings.h"
 #include "Physics/CollisionLayers.h"
 #include "ProjectSerializer.h"
@@ -213,72 +214,35 @@ std::unordered_set<std::filesystem::path> AssetPacker::GetTexturePathsStillNeede
 {
 	std::unordered_set<std::filesystem::path> paths;
 
-	auto addFilepathAttribute = [&](const tinyxml2::XMLElement* pElement)
-	{
-		if (pElement)
+	AssetReferenceUtils::ForEachReference(m_ProjectDirectory, [&](const std::filesystem::path&, tinyxml2::XMLElement* element, const char* referencedPath)
 		{
-			if (const char* filepath = pElement->Attribute("Filepath"))
-				paths.insert((m_ProjectDirectory / FileUtils::ToProjectRelative(filepath, m_ProjectDirectory)).lexically_normal());
-		}
-	};
+			const tinyxml2::XMLElement* parent = element->Parent()->ToElement();
+			if (!parent)
+				return false;
 
-	for (const std::filesystem::path& materialFile : Directory::GetFilesRecursive(m_ProjectDirectory, ViewerManager::GetExtensions(FileType::MATERIAL)))
-	{
-		tinyxml2::XMLDocument doc;
-		if (doc.LoadFile(materialFile.string().c_str()) != tinyxml2::XML_SUCCESS)
-			continue;
+			std::string_view name = element->Name();
+			std::string_view parentName = parent->Name();
+			std::string_view rootName = element->GetDocument()->RootElement()->Name();
 
-		if (tinyxml2::XMLElement* pRoot = doc.FirstChildElement("Material"))
-		{
-			for (tinyxml2::XMLElement* pTexture = pRoot->FirstChildElement("Texture"); pTexture; pTexture = pTexture->NextSiblingElement("Texture"))
-				addFilepathAttribute(pTexture);
-		}
-	}
+			// Material, tileset and sprite sheet textures are sampled outside the atlas
+			bool needed = name == "Texture" && parent == element->GetDocument()->RootElement()
+				&& (rootName == "Material" || rootName == "Tileset" || rootName == "SpriteSheet");
 
-	for (FileType fileType : { FileType::TILESET, FileType::SPRITESHEET })
-	{
-		const char* rootName = fileType == FileType::TILESET ? "Tileset" : "SpriteSheet";
-		for (const std::filesystem::path& file : Directory::GetFilesRecursive(m_ProjectDirectory, ViewerManager::GetExtensions(fileType)))
-		{
-			tinyxml2::XMLDocument doc;
-			if (doc.LoadFile(file.string().c_str()) != tinyxml2::XML_SUCCESS)
-				continue;
-
-			if (tinyxml2::XMLElement* pRoot = doc.FirstChildElement(rootName))
-				addFilepathAttribute(pRoot->FirstChildElement("Texture"));
-		}
-	}
-
-	for (const std::filesystem::path& sceneFile : Directory::GetFilesRecursive(m_ProjectDirectory, ViewerManager::GetExtensions(FileType::SCENE)))
-	{
-		tinyxml2::XMLDocument doc;
-		if (doc.LoadFile(sceneFile.string().c_str()) != tinyxml2::XML_SUCCESS)
-			continue;
-
-		tinyxml2::XMLElement* pSceneRoot = doc.FirstChildElement("Scene");
-		if (!pSceneRoot)
-			continue;
-
-		for (tinyxml2::XMLElement* pEntity = pSceneRoot->FirstChildElement("Entity"); pEntity; pEntity = pEntity->NextSiblingElement("Entity"))
-		{
-			if (tinyxml2::XMLElement* pSprite = pEntity->FirstChildElement("Sprite"))
+			// Tiled sprites repeat the texture, which an atlas region can't do
+			if (rootName == "Scene" && parentName == "Sprite" && name == "Texture")
 			{
 				float tilingFactor = 1.0f;
-				pSprite->QueryFloatAttribute("TilingFactor", &tilingFactor);
-				if (tilingFactor != 1.0f)
-					addFilepathAttribute(pSprite->FirstChildElement("Texture"));
+				parent->QueryFloatAttribute("TilingFactor", &tilingFactor);
+				needed = tilingFactor != 1.0f;
 			}
 
-			tinyxml2::XMLElement* pButton = pEntity->FirstChildElement("Button");
-			if (!pButton)
-				continue;
+			if (rootName == "Scene" && parentName == "Button")
+				needed = name == "NormalTexture" || name == "HoveredTexture" || name == "ClickedTexture" || name == "DisabledTexture";
 
-			addFilepathAttribute(pButton->FirstChildElement("NormalTexture"));
-			addFilepathAttribute(pButton->FirstChildElement("HoveredTexture"));
-			addFilepathAttribute(pButton->FirstChildElement("ClickedTexture"));
-			addFilepathAttribute(pButton->FirstChildElement("DisabledTexture"));
-		}
-	}
+			if (needed)
+				paths.insert((m_ProjectDirectory / FileUtils::ToProjectRelative(referencedPath, m_ProjectDirectory)).lexically_normal());
+			return false;
+		});
 
 	return paths;
 }

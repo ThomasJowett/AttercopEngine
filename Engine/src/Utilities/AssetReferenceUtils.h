@@ -1,12 +1,14 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "Core/core.h"
 
 class SpriteSheet;
+namespace tinyxml2 { class XMLElement; }
 
 // Every asset that can reference another asset by path does so via the same
 // Filepath="..." XML attribute convention (SerializationUtils::Encode/Decode).
@@ -15,13 +17,22 @@ class SpriteSheet;
 // fix up whatever else references it, regardless of asset type.
 namespace AssetReferenceUtils
 {
-	// Every asset file under the project's open-document-directory whose
-	// Filepath attribute (anywhere in its XML tree) equals `path`.
-	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path);
+	// Called for each Filepath attribute; return true if the element was changed so the file is saved
+	using ReferenceVisitor = std::function<bool(const std::filesystem::path& file, tinyxml2::XMLElement* element, const char* referencedPath)>;
 
-	// Rewrites every such reference from oldPath to newPath. Returns the
-	// files that were updated.
+	// Visits every asset reference in every file under projectDirectory that can hold one.
+	// This is the only place that knows which files hold references and how they're stored.
+	void ForEachReference(const std::filesystem::path& projectDirectory, const ReferenceVisitor& visit);
+
+	// Every asset file under the project's open-document-directory whose
+	// Filepath attribute (anywhere in its XML tree) equals `path`, or is inside it when `path` is a folder.
+	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path);
+	std::vector<std::filesystem::path> FindReferences(const std::filesystem::path& path, const std::filesystem::path& projectDirectory);
+
+	// Rewrites every such reference from oldPath to newPath, keeping the rest of the path for
+	// references inside a renamed folder. Returns the files that were updated.
 	std::vector<std::filesystem::path> UpdateReferences(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+	std::vector<std::filesystem::path> UpdateReferences(const std::filesystem::path& oldPath, const std::filesystem::path& newPath, const std::filesystem::path& projectDirectory);
 
 	// Directly repoints (or, with newPath empty, clears) any texture reference to oldPath
 	// held by the currently loaded scene's live entities (SpriteComponent, ButtonComponent).
