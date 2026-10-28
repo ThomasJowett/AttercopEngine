@@ -515,7 +515,7 @@ void Scene::Render()
 	if (cameraEntity)
 	{
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.rotation));
+		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
 		projection = cameraComp.camera.GetProjectionMatrix();
 	}
 
@@ -1144,7 +1144,7 @@ std::tuple<Matrix4x4, Matrix4x4> Scene::GetPrimaryCameraViewProjection()
 	if (cameraEntity)
 	{
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.rotation));
+		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
 		Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();
 		return std::make_tuple(view, projection);
 	}
