@@ -1,0 +1,137 @@
+name: Release
+
+# Pushing a version tag (e.g. v0.0.2-alpha) builds the Editor for every platform and attaches the
+# builds to a draft GitHub Release, ready for release notes before publishing. Running it by hand
+# builds and uploads the packages without making a release, as a dry run.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Newer releases replace -sUSE_WEBGPU=1 with the emdawnwebgpu port
+  EMSCRIPTEN_VERSION: 3.1.74
+
+jobs:
+  desktop:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: Windows
+          - os: macos-latest
+            platform: macOS
+          - os: ubuntu-latest
+            platform: Linux
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: Install dependencies
+        if: matrix.platform == 'Linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --fix-missing ninja-build libx11-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev libxcursor-dev mesa-common-dev
+
+      # Linux uses a multi-config generator so the Runtime lands in Editor/Release/runtime, where
+      # Export Game looks for it, as it does with Visual Studio on Windows
+      - name: Configure CMake
+        shell: bash
+        run: |
+          generator=()
+          if [ "${{ matrix.platform }}" = "Linux" ]; then generator=(-G "Ninja Multi-Config"); fi
+          cmake -B build "${generator[@]}" -DCMAKE_BUILD_TYPE=Release -DATTERCOP_ENABLE_UNITY_BUILD=ON -DATTERCOP_BUILD_SCENE_TESTS=OFF -S .
+
+      - name: Build
+        run: cmake --build build --config Release --target Editor --parallel 4
+
+      - name: Package
+        shell: bash
+        run: |
+          name="Attercop-${GITHUB_REF_NAME#v}-${{ matrix.platform }}"
+          mkdir -p dist
+          case "${{ matrix.platform }}" in
+            Windows)
+              cp -r build/Editor/Release "dist/$name"
+              (cd dist && 7z a "$name.zip" "$name" > /dev/null)
+              ;;
+            macOS)
+              ditto -c -k --keepParent build/Editor/Editor.app "dist/$name.zip"
+              ;;
+            Linux)
+              cp -r build/Editor/Release "dist/$name"
+              tar -czf "dist/$name.tar.gz" -C dist "$name"
+              ;;
+          esac
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+
+  web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Configure CMake
+        run: emcmake cmake -B build_web -DCMAKE_BUILD_TYPE=Release -S .
+
+      # Building Editor builds Runtime too, and copies it next to the Editor for Export Game
+      - name: Build
+        run: cmake --build build_web --target Editor --parallel 4
+
+      - name: Package
+        run: |
+          name="Attercop-${GITHUB_REF_NAME#v}-Web"
+          mkdir -p "dist/$name"
+          cp build_web/Editor/Editor.{html,js,wasm,data} build_web/Editor/Runtime.{html,js,wasm,data} build_web/Editor/favicon.png "dist/$name/"
+          (cd dist && zip -r "$name.zip" "$name" > /dev/null)
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-Web
+          path: dist/*.zip
+
+  release:
+    needs: [desktop, web]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      # A draft, so the release notes can be added before publishing
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          case "$GITHUB_REF_NAME" in *alpha*|*beta*) prerelease=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft "${prerelease[@]}" \
+            --title "Attercop ${GITHUB_REF_NAME#v}" --notes "Release notes to follow."
