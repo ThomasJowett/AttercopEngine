@@ -57,8 +57,8 @@ void FontView::OnImGuiRender()
 		}
 
 		m_Framebuffer->Bind();
-		RenderCommand::StartRenderPass();
 		RenderCommand::Clear();
+		RenderCommand::StartRenderPass();
 		Renderer::BeginScene(Matrix4x4::Translate(Vector3f( 10.0f, -2.5f, 0.0f)), m_Camera->GetProjectionMatrix());
 		Renderer2D::DrawString(m_String, m_Font, 20, Vector3f(0, 0, 0));
 		Renderer::EndScene();

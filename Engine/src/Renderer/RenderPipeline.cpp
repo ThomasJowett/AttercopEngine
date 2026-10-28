@@ -108,8 +108,8 @@ void RenderPipeline::Render(Scene* scene, const Matrix4x4& view, const Matrix4x4
 	m_SceneFrameBuffer->SetResolveTarget(m_ResolvedSceneFrameBuffer);
 
 	m_SceneFrameBuffer->Bind();
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 	m_SceneFrameBuffer->ClearAttachment(1, -1);
 	scene->Render(view, projection);
 	RenderCommand::EndRenderPass();
@@ -125,8 +125,8 @@ void RenderPipeline::Render(Scene* scene, const Matrix4x4& view, const Matrix4x4
 	if (finalOutputTarget) {
 		finalOutputTarget->Bind();
 	}
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 
 	Ref<Texture> outputTexture = m_PostProcessStack.empty() ? sceneTexture : m_PostProcessStack.GetFinalTexture();
 

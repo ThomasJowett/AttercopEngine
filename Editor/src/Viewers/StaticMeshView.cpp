@@ -282,8 +282,8 @@ void StaticMeshView::OnUpdate(float deltaTime)
 	}
 
 	m_Framebuffer->Bind();
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 
 	Renderer::BeginScene(m_CameraController.GetTransformMatrix(), m_CameraController.GetProjectionMatrix());
 

@@ -71,7 +71,7 @@ void OpenGLRendererAPI::ClearDepth()
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void OpenGLRendererAPI::StartRenderPass(bool clear)
+void OpenGLRendererAPI::StartRenderPass()
 {
 }
 

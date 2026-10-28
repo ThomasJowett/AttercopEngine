@@ -42,8 +42,7 @@ void SceneTestLayer::OnUpdate(float deltaTime)
 
 	if (m_Options.display)
 	{
-		RenderCommand::Clear();
-		Renderer2D::ResetStats();
+			Renderer2D::ResetStats();
 		Renderer::RenderScene(SceneManager::CurrentScene());
 	}
 }

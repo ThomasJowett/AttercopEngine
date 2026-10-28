@@ -12,7 +12,7 @@ public:
 	virtual void Clear() override {}
 	virtual void ClearColour() override {}
 	virtual void ClearDepth() override {}
-	virtual void StartRenderPass(bool clear = true) override {}
+	virtual void StartRenderPass() override {}
 	virtual void EndRenderPass() override {}
 	virtual void DrawIndexed(uint32_t indexCount = 0, uint32_t startIndex = 0, uint32_t vertexOffset = 0) override {}
 	virtual void DrawLines(uint32_t vertexCount = 0) override {}
