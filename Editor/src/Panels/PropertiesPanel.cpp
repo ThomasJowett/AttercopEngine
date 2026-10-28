@@ -552,16 +552,17 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				static std::filesystem::file_time_type currentFileTime;
 
 				std::filesystem::path absoluteSpriteSheetPath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / sprite.spriteSheet->GetFilepath());
-				std::filesystem::file_time_type lastWrittenTime = std::filesystem::last_write_time(absoluteSpriteSheetPath);
+				std::error_code fileTimeError;
+				std::filesystem::file_time_type lastWrittenTime = std::filesystem::last_write_time(absoluteSpriteSheetPath, fileTimeError);
 
-				if (lastWrittenTime != currentFileTime)
+				if (!fileTimeError && lastWrittenTime != currentFileTime)
 				{
 					sprite.spriteSheet->Reload();
 					currentFileTime = lastWrittenTime;
 				}
 			}
 
-			if (ImGui::BeginCombo("SpriteSheet", spritesheetName.c_str()))
+			if (ImGui::BeginAssetCombo("SpriteSheet", spritesheetName, sprite.spriteSheet.get()))
 			{
 				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SPRITESHEET)))
 				{
@@ -734,7 +735,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 			if (tilemap.tileset)
 				tilesetName = tilemap.tileset->GetFilepath().filename().string();
 
-			if (ImGui::BeginCombo("Tileset", tilesetName.c_str()))
+			if (ImGui::BeginAssetCombo("Tileset", tilesetName, tilemap.tileset.get()))
 			{
 				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::TILESET)))
 				{
@@ -788,17 +789,25 @@ void PropertiesPanel::DrawComponents(Entity entity)
 	// Static Mesh------------------------------------------------------------------------------------------------------------
 	DrawComponent<StaticMeshComponent>(ICON_FA_SHAPES" Static Mesh", entity, [=](auto& staticMesh)
 		{
-			if(ImGui::AssetEdit<StaticMesh>("Static Mesh", staticMesh.mesh, nullptr, FileType::MESH))
+			Ref<StaticMesh> previousMesh = staticMesh.mesh;
+			ImGui::AssetEdit<StaticMesh>("Static Mesh", staticMesh.mesh, nullptr, FileType::MESH);
+			if (staticMesh.mesh != previousMesh)
 			{
-				staticMesh.SetMesh(staticMesh.mesh, false);
+				staticMesh.SetMesh(staticMesh.mesh);
 				SceneManager::CurrentScene()->MakeDirty();
 			}
 
-			if (staticMesh.mesh) {
-				for (size_t i = 0; i < staticMesh.materialOverrides.size(); ++i)
+			// One row per material slot of the mesh; clearing a row goes back to the mesh's own material
+			for (size_t slot = 0; slot < staticMesh.GetMaterialSlotCount(); ++slot)
+			{
+				Ref<Material> material = staticMesh.GetMaterial(slot);
+				Ref<Material> previousMaterial = material;
+				ImGui::AssetEdit<Material>(std::string("Material " + std::to_string(slot)).c_str(), material,
+					staticMesh.GetMeshMaterial(slot), FileType::MATERIAL);
+				if (material != previousMaterial)
 				{
-					Dirty(ImGui::AssetEdit<Material>(std::string("Material " + std::to_string(i)).c_str(), staticMesh.materialOverrides[i],
-						staticMesh.mesh->GetMesh()->GetMaterials()[staticMesh.mesh->GetMesh()->GetSubmeshes()[i].materialIndex], FileType::MATERIAL));
+					staticMesh.SetMaterialOverride(slot, material);
+					SceneManager::CurrentScene()->MakeDirty();
 				}
 			}
 		});
@@ -1342,7 +1351,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 		{
 			std::string scriptName = luaScript.script ? luaScript.script->GetFilepath().filename().string() : "";
 
-			if (ImGui::BeginCombo("##luaScript", scriptName.c_str()))
+			if (ImGui::BeginAssetCombo("##luaScript", scriptName, luaScript.script.get()))
 			{
 				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCRIPT)))
 				{

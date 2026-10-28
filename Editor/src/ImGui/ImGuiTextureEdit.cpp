@@ -8,6 +8,7 @@
 #include "Scene/AssetManager.h"
 #include "Utilities/FileUtils.h"
 #include "Panels/ContentExplorerPanel.h"
+#include "ImGui/ImGuiAssetEdit.h"
 
 #include <filesystem>
 
@@ -99,7 +100,7 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 
 	ImGui::BeginGroup();
 	std::string comboLabel = "##textureEdit" + std::string(label);
-	if (ImGui::BeginCombo(comboLabel.c_str(), textureName.c_str()))
+	if (ImGui::BeginAssetCombo(comboLabel.c_str(), textureName, texture.get()))
 	{
 		for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::IMAGE)))
 		{

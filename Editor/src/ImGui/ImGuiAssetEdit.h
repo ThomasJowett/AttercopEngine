@@ -7,11 +7,29 @@
 #include "Viewers/ViewerManager.h"
 #include "FileSystem/Directory.h"
 #include "ImGui/ImGuiUtilities.h"
-
-static std::filesystem::file_time_type s_AssetFileTime;
+#include "IconsFontAwesome6.h"
 
 namespace ImGui
 {
+// Opens an asset drop-down, previewed in red with a warning icon when the asset failed to load
+inline bool BeginAssetCombo(const char* id, const std::string& preview, const Asset* asset)
+{
+	bool missing = asset && asset->IsMissing();
+	if (missing)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
+
+	std::string shownPreview = missing ? std::string(ICON_FA_TRIANGLE_EXCLAMATION " ") + preview : preview;
+	bool open = ImGui::BeginCombo(id, shownPreview.c_str());
+
+	if (missing)
+	{
+		ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Missing: %s couldn't be loaded", asset->GetFilepath().string().c_str());
+	}
+	return open;
+}
+
 template<typename T>
 bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType type)
 {
@@ -20,32 +38,14 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 
 	std::string assetName;
 	if (asset && !asset->GetFilepath().empty())
-	{
 		assetName = asset->GetFilepath().filename().string();
-		auto absolutePath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / asset->GetFilepath());
-		if (!std::filesystem::exists(absolutePath))
-		{
-			asset = defaultAsset;
-			assetName.clear();
-		}
-		else
-		{
-			//std::filesystem::file_time_type lastWrittenTime = std::filesystem::last_write_time(asset->GetFilepath());
-			//
-			//if (lastWrittenTime != s_AssetFileTime)
-			//{
-			//	asset->Reload();
-			//	s_AssetFileTime = lastWrittenTime;
-			//}
-		}
-	}
 
 	if (assetName.empty())
 		assetName = "Default";
 
 	std::string comboId = std::string("##Combo") + label;
 
-	if (ImGui::BeginCombo(comboId.c_str(), assetName.c_str()))
+	if (BeginAssetCombo(comboId.c_str(), assetName, asset.get()))
 	{
 		for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(type)))
 		{
