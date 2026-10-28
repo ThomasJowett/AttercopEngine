@@ -33,7 +33,7 @@ void ScriptView::OnAttach()
 	}
 
 	m_Script = AssetManager::GetAsset<LuaScript>(m_FilePath);
-	if (!m_Script)
+	if (!m_Script || m_Script->IsMissing())
 	{
 		*m_Show = false;
 		return;

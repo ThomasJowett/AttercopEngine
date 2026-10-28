@@ -18,7 +18,7 @@ void SpriteSheetView::OnAttach()
 	m_WindowName = ICON_FA_PHOTO_FILM + std::string(" " + m_Filepath.filename().string());
 
 	m_SpriteSheet = AssetManager::GetAsset<SpriteSheet>(m_Filepath);
-	if (!m_SpriteSheet)
+	if (!m_SpriteSheet || m_SpriteSheet->IsMissing())
 	{
 		*m_Show = false;
 		return;

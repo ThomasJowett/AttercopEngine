@@ -27,7 +27,7 @@ void FontView::OnAttach()
 	m_WindowName = ICON_FA_FONT + std::string(" " + m_Filepath.filename().string());
 
 	m_Font = AssetManager::GetAsset<Font>(m_Filepath);
-	if (!m_Font)
+	if (!m_Font || m_Font->IsMissing())
 		*m_Show = false;
 	m_Camera = CreateRef<OrthographicCamera>(-11.0f, 11.0f, -5.0f, 5.0f);
 }

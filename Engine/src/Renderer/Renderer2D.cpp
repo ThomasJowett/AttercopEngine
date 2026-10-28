@@ -1269,6 +1269,11 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 	if (text.empty() || font == nullptr)
 		return;
 
+	// A font that failed to load draws with the default font
+	Ref<Font> drawFont = font->IsMissing() && Font::GetDefaultFont() ? Font::GetDefaultFont() : font;
+	if (!drawFont->GetMSDFData())
+		return;
+
 	if (s_Data.textIndexCount >= s_Data.maxIndices)
 	{
 		NextTextBatch();
@@ -1276,10 +1281,10 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 
 	float textureIndex = 0.0f;
 
-	Ref<Texture2D> fontAtlas = font->GetFontAtlas();
+	Ref<Texture2D> fontAtlas = drawFont->GetFontAtlas();
 
 	ASSERT(fontAtlas, "Font atlas cannot be null");
-	ASSERT(font->GetMSDFData(), "MSDF Data  cannot be null");
+	ASSERT(drawFont->GetMSDFData(), "MSDF Data  cannot be null");
 
 	for (uint32_t i = 1; i < s_Data.fontAtlasSlotIndex; i++)
 	{
@@ -1300,7 +1305,7 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 		s_Data.fontAtlasSlotIndex++;
 	}
 
-	const msdf_atlas::FontGeometry& fontGeometry = font->GetMSDFData()->fontGeometry;
+	const msdf_atlas::FontGeometry& fontGeometry = drawFont->GetMSDFData()->fontGeometry;
 	const msdfgen::FontMetrics& metrics = fontGeometry.getMetrics();
 
 	std::vector<int> nextLines;

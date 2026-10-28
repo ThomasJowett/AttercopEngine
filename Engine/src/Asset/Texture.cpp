@@ -5,6 +5,25 @@
 #include "Platform/WebGPU/WebGPUTexture.h"
 #include "Platform/Null/NullTexture.h"
 
+Ref<Texture2D> Texture2D::GetMissingTexture()
+{
+	static Ref<Texture2D> s_MissingTexture;
+	if (!s_MissingTexture)
+	{
+		uint32_t pixels[4][4];
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+				pixels[i][j] = ((i + j) % 2) ? 0xffff00ff : 0xff000000;
+		}
+		s_MissingTexture = Create(4, 4, Format::RGBA, 1, pixels);
+		s_MissingTexture->SetFilterMethod(FilterMethod::Nearest);
+	}
+	return s_MissingTexture;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
 Ref<Texture2D> Texture2D::Create(uint32_t width, uint32_t height, Format format, uint32_t samples, const void* pixels)
 {
 	PROFILE_FUNCTION();
@@ -115,30 +134,17 @@ Ref<Texture2D> TextureLibrary2D::Load(const std::filesystem::path& path, Ref<Vir
 	if (Exists(path))
 		return m_Textures[path];
 
+	// A texture that can't be loaded is the checker placeholder, keeping its path
 	Ref<Texture2D> texture;
-	std::filesystem::path absolutePath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / path);
-	if (std::filesystem::exists(absolutePath))
+	if (vfs && vfs->Exists(path) && !std::filesystem::exists(std::filesystem::absolute(Application::GetOpenDocumentDirectory() / path)))
+	{
+		std::vector<uint8_t> data;
+		AssetManager::GetFileData(path.string(), data);
+		texture = Texture2D::Create(path, data);
+	}
+	else
 	{
 		texture = Texture2D::Create(path);
-	}
-	else if (vfs)
-	{
-		if (vfs->Exists(path))
-		{
-			std::vector<uint8_t> data;
-			AssetManager::GetFileData(path.string(), data);
-			texture = Texture2D::Create(path, data);
-			if (!texture)
-			{
-				ENGINE_ERROR("Failed to load texture from bundle: {0}", path);
-				return nullptr;
-			}
-		}
-		else
-		{
-			ENGINE_ERROR("Texture does not exist in bundle: {0}", path);
-			return nullptr;
-		}
 	}
 
 	if (texture)

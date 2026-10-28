@@ -22,7 +22,7 @@ void TilesetView::OnAttach()
 	m_WindowName = ICON_FA_GRIP + std::string(" " + m_Filepath.filename().string());
 
 	m_Tileset = AssetManager::GetAsset<Tileset>(m_Filepath);
-	if (!m_Tileset)
+	if (!m_Tileset || m_Tileset->IsMissing())
 	{
 		*m_Show = false;
 		return;

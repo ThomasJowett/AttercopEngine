@@ -464,7 +464,11 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		if (!staticMeshComp.mesh || !staticMeshComp.mesh->GetMesh())
 			continue;
 
-		Renderer::Submit(staticMeshComp.mesh->GetMesh(), staticMeshComp.materialOverrides, transformComp.GetWorldMatrix(), (int)entity);
+		// A missing mesh is a checker cube, whatever its overrides
+		if (staticMeshComp.mesh->IsMissing())
+			Renderer::Submit(staticMeshComp.mesh->GetMesh(), transformComp.GetWorldMatrix(), (int)entity);
+		else
+			Renderer::Submit(staticMeshComp.mesh->GetMesh(), staticMeshComp.materialOverrides, transformComp.GetWorldMatrix(), (int)entity);
 	}
 
 	auto primitiveGroup = m_Registry.view<TransformComponent, PrimitiveComponent>(entt::exclude<HiddenInHierarchyMarker>);

@@ -27,7 +27,7 @@ void AudioView::OnAttach()
 {
 	m_WindowName = ICON_FA_FILE_AUDIO + std::string(" " + m_Filepath.filename().string());
 	m_Audio = AssetManager::GetAsset<AudioClip>(m_Filepath);
-	if (!m_Audio)
+	if (!m_Audio || m_Audio->IsMissing())
 	{
 		*m_Show = false;
 		return;

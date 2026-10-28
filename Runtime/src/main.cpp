@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 	Application::SetOpenDocument(argv[0]);
 #endif
 
-	if (Ref<SpriteAtlas> atlas = AssetManager::GetAsset<SpriteAtlas>("Generated/SpriteAtlas/Manifest.atlas"))
+	if (Ref<SpriteAtlas> atlas = AssetManager::GetAsset<SpriteAtlas>("Generated/SpriteAtlas/Manifest.atlas"); atlas && !atlas->IsMissing())
 		Renderer2D::SetSpriteAtlas(atlas);
 
 	SceneManager::ChangeScene(std::filesystem::path(defaultScene));

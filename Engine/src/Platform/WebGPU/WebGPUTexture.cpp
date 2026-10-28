@@ -315,6 +315,7 @@ bool WebGPUTexture2D::ReplaceTexture(const std::function<bool()>& load)
 	if (m_TextureView)
 		s_PendingTextureViewReleases.push_back(m_TextureView);
 
+	m_Missing = false;
 	bool success = load();
 	if (!success)
 		NullTexture();
@@ -442,6 +443,7 @@ int WebGPUTexture2D::ReadPixel(uint32_t x, uint32_t y)
 
 void WebGPUTexture2D::NullTexture()
 {
+	m_Missing = true;
 	m_Width = m_Height = 4;
 
 	m_TextureFormat = wgpu::TextureFormat::RGBA8Unorm;

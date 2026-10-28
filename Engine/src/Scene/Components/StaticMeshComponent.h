@@ -8,6 +8,7 @@
 struct StaticMeshComponent
 {
 	Ref<StaticMesh> mesh;
+	// Indexed by the mesh's material slots; an empty entry uses the mesh's own material
 	std::vector<Ref<Material>> materialOverrides;
 
 	StaticMeshComponent() = default;
@@ -15,28 +16,54 @@ struct StaticMeshComponent
 	StaticMeshComponent(Ref<StaticMesh> mesh)
 		:mesh(mesh) {}
 
-	void SetMesh(const Ref<StaticMesh> newMesh, bool updateMaterialOverrides = true)
+	// Keeps the overrides for slots the new mesh still has
+	void SetMesh(const Ref<StaticMesh> newMesh)
 	{
-		if (!newMesh)
-		{
-			mesh.reset();
-			materialOverrides.clear();
-			return;
-		}
 		mesh = newMesh;
-		if (mesh->GetMesh())
-		{
-			materialOverrides.resize(mesh->GetMesh()->GetSubmeshes().size());
-			if (!updateMaterialOverrides)
-				return;
-			
-			const auto& materials = mesh->GetMesh()->GetMaterials();
+		if (!mesh)
+			materialOverrides.clear();
+		else if (!mesh->IsMissing() && materialOverrides.size() > GetMaterialSlotCount())
+			materialOverrides.resize(GetMaterialSlotCount());
+	}
 
-			for (size_t i = 0; i < mesh->GetMesh()->GetSubmeshes().size(); ++i)
-			{
-				materialOverrides[i] = materials[mesh->GetMesh()->GetSubmeshes()[i].materialIndex];
-			}
+	// A missing mesh's slots are unknown, so its overrides are all kept
+	size_t GetMaterialSlotCount() const
+	{
+		if (!mesh || !mesh->GetMesh())
+			return 0;
+		return mesh->IsMissing() ? materialOverrides.size() : mesh->GetMesh()->GetMaterials().size();
+	}
+
+	// The mesh's own material for a slot, or null
+	Ref<Material> GetMeshMaterial(size_t slot) const
+	{
+		if (!mesh || !mesh->GetMesh() || mesh->IsMissing())
+			return nullptr;
+		const std::vector<Ref<Material>>& materials = mesh->GetMesh()->GetMaterials();
+		return slot < materials.size() ? materials[slot] : nullptr;
+	}
+
+	// The material a slot draws with: its override, otherwise the mesh's own
+	Ref<Material> GetMaterial(size_t slot) const
+	{
+		if (slot < materialOverrides.size() && materialOverrides[slot])
+			return materialOverrides[slot];
+		return GetMeshMaterial(slot);
+	}
+
+	// Null, or the mesh's own material, removes the override
+	void SetMaterialOverride(size_t slot, const Ref<Material>& material)
+	{
+		Ref<Material> slotOverride = material == GetMeshMaterial(slot) ? nullptr : material;
+		if (slot >= materialOverrides.size())
+		{
+			if (!slotOverride)
+				return;
+			materialOverrides.resize(slot + 1);
 		}
+		materialOverrides[slot] = slotOverride;
+		while (!materialOverrides.empty() && !materialOverrides.back())
+			materialOverrides.pop_back();
 	}
 
 private:
@@ -50,14 +77,9 @@ private:
 		{
 			if (!mesh->GetFilepath().empty())
 				relativeMeshPath = mesh->GetFilepath().string();
-			
-			size_t submeshCount = mesh->GetMesh() ? mesh->GetMesh()->GetSubmeshes().size() : 0;
-			for (size_t i = 0; i < submeshCount; ++i)
-			{
-				bool hasMaterial = i < materialOverrides.size() && materialOverrides[i];
-				relativeMaterials.push_back(hasMaterial ? materialOverrides[i]->GetFilepath().string() : std::string());
-			}
-			
+
+			for (const Ref<Material>& materialOverride : materialOverrides)
+				relativeMaterials.push_back(materialOverride ? materialOverride->GetFilepath().string() : std::string());
 		}
 		archive(cereal::make_nvp("Mesh", relativeMeshPath));
 		archive(cereal::make_nvp("MaterialOverrides", relativeMaterials));
@@ -71,31 +93,12 @@ private:
 		archive(cereal::make_nvp("Mesh", relativeMeshPath));
 		archive(cereal::make_nvp("MaterialOverrides", relativeMaterials));
 
-		if (!relativeMeshPath.empty())
-		{
-			mesh = AssetManager::GetAsset<StaticMesh>(relativeMeshPath);
-			if (!mesh)
-			{
-				materialOverrides.clear();
-				return;
-			}
-			
-			materialOverrides.resize(mesh->GetMesh()->GetSubmeshes().size());
-			for (size_t i = 0; i < mesh->GetMesh()->GetSubmeshes().size(); ++i)
-			{
-				if (i < relativeMaterials.size() && !relativeMaterials[i].empty())
-					materialOverrides[i] = AssetManager::GetAsset<Material>(relativeMaterials[i]);
-				else
-				{
-					auto matIndex = mesh->GetMesh()->GetSubmeshes()[i].materialIndex;
-					materialOverrides[i] = mesh->GetMesh()->GetMaterials()[matIndex];
-				}
-			}
-		}
-		else
-		{
-			mesh.reset();
-			materialOverrides.clear();
-		}
+		mesh = relativeMeshPath.empty() ? nullptr : AssetManager::GetAsset<StaticMesh>(relativeMeshPath);
+		materialOverrides.clear();
+		if (!mesh)
+			return;
+
+		for (const std::string& relativeMaterial : relativeMaterials)
+			materialOverrides.push_back(relativeMaterial.empty() ? nullptr : AssetManager::GetAsset<Material>(relativeMaterial));
 	}
 };

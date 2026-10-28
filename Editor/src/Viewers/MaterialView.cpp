@@ -28,7 +28,7 @@ void MaterialView::OnAttach()
 	m_WindowName = ICON_FA_BOWLING_BALL + std::string(" " + m_FilePath.filename().string());
 
 	m_Material = AssetManager::GetAsset<Material>(m_FilePath);
-	if (!m_Material)
+	if (!m_Material || m_Material->IsMissing())
 	{
 		*m_Show = false;
 		return;

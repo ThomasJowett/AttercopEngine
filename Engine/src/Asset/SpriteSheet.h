@@ -29,6 +29,9 @@ public:
 	void RenameAnimation(const std::string& oldName, const std::string& newName);
 
 	Ref<SubTexture2D> GetSubTexture() const { return m_Texture; }
+
+	// The missing-texture checker as a single cell
+	void MakeMissing(const std::filesystem::path& filepath) override;
 	void SetSubTexture(Ref<SubTexture2D> subTexture);
 
 	Texture::FilterMethod& GetFilterMethod() { return m_FilterMethod; }
