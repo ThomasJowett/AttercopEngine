@@ -375,9 +375,16 @@ void Renderer::Submit(const Ref<Mesh> mesh, const Matrix4x4& transform, int enti
 
 void Renderer::Submit(const Ref<Mesh> mesh, const std::vector<Ref<Material>>& materials, const Matrix4x4& transform, int entityId)
 {
+	// materials is indexed by material slot; an empty or missing entry uses the mesh's own material
+	const std::vector<Ref<Material>>& meshMaterials = mesh->GetMaterials();
 	for (const auto& submesh : mesh->GetSubmeshes())
 	{
-		QueueCommand(mesh, materials[submesh.materialIndex], transform * submesh.transform, entityId,
+		uint32_t slot = submesh.materialIndex;
+		Ref<Material> material = slot < materials.size() ? materials[slot] : nullptr;
+		if (!material && slot < meshMaterials.size())
+			material = meshMaterials[slot];
+
+		QueueCommand(mesh, material, transform * submesh.transform, entityId,
 			submesh.indexCount, submesh.firstIndex, submesh.vertexOffset, submesh.boundingBox);
 	}
 }

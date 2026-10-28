@@ -120,7 +120,7 @@ public:
 	const BoundingBox& GetBounds() const { return m_Bounds; }
 	void SetBounds(const BoundingBox& bb) { m_Bounds = bb; }
 	void SetMaterials(const std::vector<Ref<Material>> materials) { m_Materials = materials; }
-	std::vector<Ref<Material>> GetMaterials() const { return m_Materials; }
+	const std::vector<Ref<Material>>& GetMaterials() const { return m_Materials; }
 
 	uint32_t GetIndexCount() { return (uint32_t)m_Indices.size(); }
 private:
