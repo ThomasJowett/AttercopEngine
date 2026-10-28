@@ -36,7 +36,10 @@ NullTexture2D::NullTexture2D(const std::filesystem::path& filepath, const std::v
 
 bool NullTexture2D::Reload()
 {
-	return ReadInfoFromFile();
+	bool loaded = ReadInfoFromFile();
+	if (loaded)
+		m_Missing = false;
+	return loaded;
 }
 
 bool NullTexture2D::ReadInfoFromFile()
@@ -59,6 +62,7 @@ bool NullTexture2D::ReadInfoFromFile()
 // Same size as the GPU backends' missing-texture checkerboard
 void NullTexture2D::SetPlaceholderSize()
 {
+	m_Missing = true;
 	m_Width = m_Height = 4;
 	m_Channels = 4;
 }
