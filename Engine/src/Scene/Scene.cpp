@@ -391,34 +391,49 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 {
 	PROFILE_FUNCTION();
 
+	// Billboards turn to point at the camera rendering this view, leaving their own transform alone
+
+	// A rotation whose +Z points from position at the camera; upright only turns around the world Y axis
+	auto pointAtCamera = [](const Vector3f& position, const Matrix4x4& camera, bool upright)
+		{
+			Vector3f toCamera = camera.ExtractTranslation() - position;
+			Vector3f up = upright ? Vector3f(0.0f, 1.0f, 0.0f) : Vector3f(camera(0, 1), camera(1, 1), camera(2, 1));
+			if (upright)
+				toCamera.y = 0.0f;
+
+			Vector3f right = Vector3f::Cross(up, toCamera);
+			if (toCamera.Magnitude() < 1e-6f || right.Magnitude() < 1e-6f)
+			{
+				// Camera directly on or above the billboard: line up with the camera instead
+				Matrix4x4 rotation = camera;
+				rotation.m[0][3] = rotation.m[1][3] = rotation.m[2][3] = 0.0f;
+				return rotation;
+			}
+
+			Vector3f forward = toCamera.GetNormalized();
+			right.Normalize();
+			up = Vector3f::Cross(forward, right);
+
+			Matrix4x4 rotation;
+			rotation.m[0][0] = right.x;		rotation.m[0][1] = up.x;	rotation.m[0][2] = forward.x;
+			rotation.m[1][0] = right.y;		rotation.m[1][1] = up.y;	rotation.m[1][2] = forward.y;
+			rotation.m[2][0] = right.z;		rotation.m[2][1] = up.z;	rotation.m[2][2] = forward.z;
+			return rotation;
+		};
+
 	auto billboardView = m_Registry.view<TransformComponent, BillboardComponent>();
 	for (auto entity : billboardView)
 	{
 		auto&& [transformComp, billboardComp] = billboardView.get(entity);
-		Matrix4x4 transform = Matrix4x4();
 
-		Vector3f cameraRight = Vector3f(cameraTransform(0, 0), cameraTransform(1, 0), cameraTransform(2, 0));
-		Vector3f billboardRight = Vector3f(1.0f, 0.0f, 0.0f);
+		Vector3f position = transformComp.GetWorldPosition();
 
-		float angleY = acos(Vector3f::Dot(cameraRight, billboardRight));
-		if (Vector3f::Cross(cameraRight, billboardRight).y > 0.0f)
-			angleY = -angleY;
-		transform = Matrix4x4::RotateY(angleY);
-
-		if (billboardComp.orientation == BillboardComponent::Orientation::Camera)
-		{
-			Vector3f cameraUp = Vector3f(cameraTransform(0, 1), cameraTransform(1, 1), cameraTransform(2, 1));
-			Vector3f billboardUp = Vector3f(0.0f, 1.0f, 0.0f);
-			float angleX = acos(Vector3f::Dot(cameraUp, billboardUp));
-			if ((Vector3f::Cross(cameraUp, billboardUp).x > 0.0f) != (angleY > PIDIV2 || angleY < -PIDIV2))
-				angleX = -angleX;
-			transform = transform * Matrix4x4::RotateX(angleX);
-		}
-		Quaternion rot = transform.ExtractRotation();
-		transformComp.rotation = rot.EulerAngles();
+		// The entity's own rotation applies on top, e.g. 180 degrees around Y to show its back
+		bool upright = billboardComp.orientation == BillboardComponent::Orientation::WorldUp;
+		Matrix4x4 facing = pointAtCamera(position, cameraTransform, upright);
+		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.rotation));
+		transformComp.OverrideWorldMatrix(Matrix4x4::Translate(position) * facing * localRotation * Matrix4x4::Scale(transformComp.GetWorldMatrix().ExtractScale()));
 	}
-
-	SceneGraph::Traverse(m_Registry);
 
 	if (RendererAPI::GetAPI() == RendererAPI::API::None)
 		return;

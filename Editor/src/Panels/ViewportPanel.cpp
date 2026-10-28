@@ -939,7 +939,8 @@ void ViewportPanel::OnImGuiRender()
 
 					// Gizmos
 
-					Matrix4x4 transformMat = transformComp->GetWorldMatrix();
+					// The entity's own transform, not the per-view one a billboard is drawn with
+					Matrix4x4 transformMat = transformComp->GetParentMatrix() * transformComp->GetLocalMatrix();
 
 					transformMat.Transpose();
 

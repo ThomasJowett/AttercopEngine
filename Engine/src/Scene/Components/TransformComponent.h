@@ -67,6 +67,9 @@ struct TransformComponent
 
 	const Matrix4x4& GetParentMatrix() const { return m_ParentMatrix; }
 
+	// Replaces the world matrix until the next scene graph walk, without changing the local transform
+	void OverrideWorldMatrix(const Matrix4x4& worldMatrix) { m_WorldMatrix = worldMatrix; }
+
 	REFLECT_LUA_BEGIN(TransformComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Position", "Position relative to the parent entity, or to the world if it has no parent", "Vec3",
 			([](Self& c) -> Vector3f& { return c.position; }),

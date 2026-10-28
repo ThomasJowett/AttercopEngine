@@ -537,9 +537,6 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 		tinyxml2::XMLElement* pBillboardElement = pElement->InsertNewChildElement("Billboard");
 
 		pBillboardElement->SetAttribute("Orientation", (int)component->orientation);
-		pBillboardElement->SetAttribute("Position", (int)component->position);
-		if (component->position == BillboardComponent::Position::Camera)
-			SerializationUtils::Encode(pBillboardElement->InsertNewChildElement("ScreenPosition"), component->screenPosition);
 	}
 
 	if (CanvasComponent* component = entity.TryGetComponent<CanvasComponent>())
@@ -1235,9 +1232,6 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 		BillboardComponent& component = entity.AddComponent<BillboardComponent>();
 
 		component.orientation = (BillboardComponent::Orientation)pBillboardComponentElement->IntAttribute("Orientation", (int)component.orientation);
-		component.position = (BillboardComponent::Position)pBillboardComponentElement->IntAttribute("Position", (int)component.position);
-		if (component.position == BillboardComponent::Position::Camera)
-			SerializationUtils::Decode(pBillboardComponentElement->FirstChildElement("ScreenPosition"), component.screenPosition);
 	}
 
 	// Canvas ----------------------------------------------------------------------------------------------------

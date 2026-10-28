@@ -82,6 +82,10 @@ bool SceneManager::Update(float deltaTime)
 	{
 		FinalChangeScene();
 	}
+
+	// World transforms are updated once per frame, after the scene's update, for every view to share
+	if (IsSceneLoaded())
+		SceneGraph::Traverse(s_CurrentScene->GetRegistry());
 	return false;
 }
 

@@ -1241,11 +1241,6 @@ void PropertiesPanel::DrawComponents(Entity entity)
 			Dirty(ImGui::Combo("Orientation", (int*)&billboard.orientation,
 			"World Up\0"
 			"Camera\0"));
-	Dirty(ImGui::Combo("Position", (int*)&billboard.position,
-		"World\0"
-		"Camera\0"));
-	if (billboard.position == BillboardComponent::Position::Camera)
-		Dirty(ImGui::Vector("Screen Position", billboard.screenPosition, 0.0f));
 		});
 
 	DrawComponent<CanvasComponent>("Canvas", entity, [](auto& canvas)

@@ -293,6 +293,9 @@ void Application::Tick() {
 	{
 		PROFILE_SCOPE("Layer Stack Update");
 
+		// The scene updates first, so the layers render this frame's state
+		SceneManager::Update((float)frameTime);
+
 		if (!m_Minimized)
 		{
 			for (Ref<Layer> layer : m_LayerStack)
@@ -300,8 +303,6 @@ void Application::Tick() {
 				layer->OnUpdate((float)frameTime);
 			}
 		}
-
-		SceneManager::Update((float)frameTime);
 	}
 
 	// Render the imgui of each of the layers
