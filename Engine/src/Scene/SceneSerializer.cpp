@@ -223,10 +223,15 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 		if (component.mesh)
 			SerializationUtils::Encode(pStaticMeshElement, component.mesh->GetFilepath());
 
-		// TODO: skipping default-material overrides shifts later ones to the wrong submesh on load - save one per submesh
-		for (const auto& materialOverride : component.materialOverrides) {
-			if (materialOverride && materialOverride != Material::GetDefaultMaterial())
-				SerializationUtils::Encode(pStaticMeshElement->InsertNewChildElement("MaterialOverride"), materialOverride->GetFilepath());
+		// Only overridden slots are saved, each with its slot index
+		for (size_t slot = 0; slot < component.materialOverrides.size(); ++slot)
+		{
+			const Ref<Material>& materialOverride = component.materialOverrides[slot];
+			if (!materialOverride)
+				continue;
+			tinyxml2::XMLElement* pMaterialElement = pStaticMeshElement->InsertNewChildElement("Material");
+			pMaterialElement->SetAttribute("Slot", (uint32_t)slot);
+			SerializationUtils::Encode(pMaterialElement, materialOverride->GetFilepath());
 		}
 	}
 
@@ -670,6 +675,23 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 	}
 }
 
+// Sets a loaded slot override, also for a missing mesh, whose slots are unknown
+static void SetMaterialSlot(StaticMeshComponent& component, uint32_t slot, const Ref<Material>& material)
+{
+	if (!material)
+		return;
+	if (component.mesh->IsMissing())
+	{
+		if (slot >= component.materialOverrides.size())
+			component.materialOverrides.resize(slot + 1);
+		component.materialOverrides[slot] = material;
+	}
+	else if (slot < component.GetMaterialSlotCount())
+	{
+		component.SetMaterialOverride(slot, material);
+	}
+}
+
 Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pEntityElement, bool resetUuid)
 {
 	PROFILE_FUNCTION();
@@ -812,18 +834,29 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 		}
 		if (component.mesh)
 		{
-			uint32_t materialIndex = 0;
+			for (tinyxml2::XMLElement const* pMaterialElement = pStaticMeshComponentElement->FirstChildElement("Material"); pMaterialElement;
+				pMaterialElement = pMaterialElement->NextSiblingElement("Material"))
+			{
+				uint32_t slot = 0;
+				const char* materialFilepath = pMaterialElement->Attribute("Filepath");
+				if (pMaterialElement->QueryUnsignedAttribute("Slot", &slot) == tinyxml2::XML_SUCCESS && materialFilepath)
+					SetMaterialSlot(component, slot, AssetManager::GetAsset<Material>(materialFilepath));
+			}
+
+			// Older scenes saved a list with one entry per submesh, copies of the mesh's own materials included
+			uint32_t submeshIndex = 0;
 			for (tinyxml2::XMLElement const* pMaterialElement = pStaticMeshComponentElement->FirstChildElement("MaterialOverride"); pMaterialElement;
-			     pMaterialElement = pMaterialElement->NextSiblingElement("MaterialOverride"))
-			{	
-				if (component.materialOverrides.size() <= materialIndex)
+				pMaterialElement = pMaterialElement->NextSiblingElement("MaterialOverride"), ++submeshIndex)
+			{
+				const char* materialFilepath = pMaterialElement->Attribute("Filepath");
+				if (!materialFilepath)
+					continue;
+
+				const std::vector<Submesh>* submeshes = component.mesh->IsMissing() || !component.mesh->GetMesh() ? nullptr : &component.mesh->GetMesh()->GetSubmeshes();
+				if (submeshes && submeshIndex >= submeshes->size())
 					break;
-				if (const char* materialFilepathChar = pMaterialElement->Attribute("Filepath"))
-				{
-					if (Ref<Material> material = AssetManager::GetAsset<Material>(materialFilepathChar))
-						component.materialOverrides.at(materialIndex) = material;
-				}
-				materialIndex++;
+				uint32_t slot = submeshes ? (*submeshes)[submeshIndex].materialIndex : submeshIndex;
+				SetMaterialSlot(component, slot, AssetManager::GetAsset<Material>(materialFilepath));
 			}
 		}
 	}
