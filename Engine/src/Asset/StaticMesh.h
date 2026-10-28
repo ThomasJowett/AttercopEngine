@@ -17,6 +17,9 @@ public:
 
 	const Ref<Mesh>& GetMesh() const { return m_Mesh; }
 
+	// A cube with the missing-texture checker
+	void MakeMissing(const std::filesystem::path& filepath) override;
+
 private:
 	Ref<Mesh> m_Mesh;
 };

@@ -26,8 +26,13 @@ void StaticMeshView::OnAttach()
 	m_WindowName = ICON_FA_SHAPES + std::string(" " + m_FilePath.filename().string());
 
 	m_Mesh = AssetManager::GetAsset<StaticMesh>(m_FilePath);
+	if (!m_Mesh || m_Mesh->IsMissing())
+	{
+		*m_Show = false;
+		return;
+	}
 
-	if (m_Mesh && m_Mesh->GetMesh())
+	if (m_Mesh->GetMesh())
 	{
 		m_Materials = m_Mesh->GetMesh()->GetMaterials();
 		m_Bounds = m_Mesh->GetBounds();

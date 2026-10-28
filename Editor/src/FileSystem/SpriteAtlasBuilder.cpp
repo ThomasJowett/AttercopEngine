@@ -30,7 +30,7 @@ void SpriteAtlasBuilder::EnsureUpToDate()
 		return;
 	}
 
-	if (Ref<SpriteAtlas> atlas = AssetManager::GetAsset<SpriteAtlas>(std::filesystem::path(kOutputDir) / kManifestName))
+	if (Ref<SpriteAtlas> atlas = AssetManager::GetAsset<SpriteAtlas>(std::filesystem::path(kOutputDir) / kManifestName); atlas && !atlas->IsMissing())
 		Renderer2D::SetSpriteAtlas(atlas);
 	else
 		DoBuild(sources);

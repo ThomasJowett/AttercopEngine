@@ -16,9 +16,27 @@ public:
 	virtual bool Load(const std::filesystem::path& filepath) = 0;
 	virtual bool Load(const std::filesystem::path& filepath, const std::vector<uint8_t>& data) = 0;
 
-	virtual bool Reload() { return Load(m_Filepath); }
+	virtual bool Reload()
+	{
+		bool loaded = Load(m_Filepath);
+		if (loaded)
+			m_Missing = false;
+		return loaded;
+	}
+
+	// True when loading failed and this is a placeholder that keeps the asset's path
+	bool IsMissing() const { return m_Missing; }
+
+	// Turns this into the placeholder for an asset that failed to load
+	virtual void MakeMissing(const std::filesystem::path& filepath)
+	{
+		m_Filepath = filepath;
+		m_Filepath.make_preferred();
+		m_Missing = true;
+	}
 protected:
 	std::filesystem::path m_Filepath;
+	bool m_Missing = false;
 };
 
 class AssetLibrary
@@ -63,44 +81,39 @@ public:
 			ENGINE_ERROR("Cannot load asset with empty filepath");
 			return nullptr;
 		}
+		// An asset that can't be loaded becomes a placeholder that keeps its path, so saving doesn't lose the reference
+		asset = CreateRef<T>();
+		bool loaded = false;
 		std::filesystem::path absolutePath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / filepath);
 		if (std::filesystem::exists(absolutePath)) {
 			ENGINE_INFO("Loading asset from disk: {0}", absolutePath);
-			asset = CreateRef<T>();
-			if (!asset->Load(filepath))
-			{
+			loaded = asset->Load(filepath);
+			if (!loaded)
 				ENGINE_ERROR("Failed to load asset: {0}", filepath);
-				return nullptr;
-			}
 		}
-		else if (vfs)
+		else if (vfs && vfs->Exists(filepath))
 		{
-			if (vfs->Exists(filepath)) {
-				std::vector<uint8_t> data;
-				if (vfs->ReadFile(filepath, data))
-				{
-					ENGINE_INFO("Loading asset from bundle: {0}", filepath);
-					asset = CreateRef<T>();
-					if (!asset->Load(filepath, data))
-					{
-						ENGINE_ERROR("Failed to load asset from bundle: {0}", filepath);
-						return nullptr;
-					}
-				}
-				else
-				{
-					ENGINE_ERROR("Could not load asset from bundle: {0}", filepath);
-					return nullptr;
-				}
+			std::vector<uint8_t> data;
+			if (vfs->ReadFile(filepath, data))
+			{
+				ENGINE_INFO("Loading asset from bundle: {0}", filepath);
+				loaded = asset->Load(filepath, data);
+				if (!loaded)
+					ENGINE_ERROR("Failed to load asset from bundle: {0}", filepath);
 			}
-			else {
-				ENGINE_ERROR("Asset does not exist in bundle: {0}", filepath);
-				return nullptr;
+			else
+			{
+				ENGINE_ERROR("Could not read asset from bundle: {0}", filepath);
 			}
 		}
 		else {
 			ENGINE_ERROR("Asset does not exist: {0}", filepath);
-			return nullptr;
+		}
+
+		if (!loaded)
+		{
+			asset = CreateRef<T>();
+			asset->MakeMissing(filepath);
 		}
 		Add(asset);
 		return std::dynamic_pointer_cast<T>(asset);

@@ -283,3 +283,10 @@ bool Tileset::LoadXML(tinyxml2::XMLDocument* doc)
 	}
 	return true;
 }
+
+void Tileset::MakeMissing(const std::filesystem::path& filepath)
+{
+	Asset::MakeMissing(filepath);
+	Ref<Texture2D> texture = Texture2D::GetMissingTexture();
+	m_Texture = CreateRef<SubTexture2D>(texture, texture->GetWidth(), texture->GetHeight());	ResizeTiles();
+}

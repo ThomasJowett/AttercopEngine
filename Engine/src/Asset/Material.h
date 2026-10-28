@@ -64,6 +64,11 @@ public:
 
 	static Ref<Material> GetDefaultMaterial();
 
+	// The missing-texture checker, for placeholders such as a mesh that failed to load
+	static Ref<Material> GetMissingMaterial();
+
+	void MakeMissing(const std::filesystem::path& filepath) override;
+
 private:
 
 	std::string m_Shader = "Standard";
@@ -81,6 +86,7 @@ private:
 	Vector2f m_TextureOffset;
 
 	static Ref<Material> s_DefaultMaterial;
+	static Ref<Material> s_MissingMaterial;
 
 	bool LoadXML(tinyxml2::XMLDocument* doc);
 };

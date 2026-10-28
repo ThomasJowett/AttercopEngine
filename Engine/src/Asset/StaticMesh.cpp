@@ -1,5 +1,6 @@
 #include "StaticMesh.h"
 #include "Utilities/MeshSerializer.h"
+#include "Utilities/GeometryGenerator.h"
 
 #include "Scene/AssetManager.h"
 
@@ -45,4 +46,11 @@ bool StaticMesh::Load(const std::filesystem::path& filepath, const std::vector<u
 	m_Filepath.make_preferred();
 	m_Mesh = { mesh };
 	return true;
+}
+
+void StaticMesh::MakeMissing(const std::filesystem::path& filepath)
+{
+	Asset::MakeMissing(filepath);
+	m_Mesh = GeometryGenerator::CreateCube(1.0f, 1.0f, 1.0f);
+	m_Mesh->SetMaterials({ Material::GetMissingMaterial() });
 }

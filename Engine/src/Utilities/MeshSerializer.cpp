@@ -35,19 +35,14 @@ static bool GetLayout(MeshLayout layoutType, BufferLayout& layout)
 	}
 }
 
-// A missing material falls back to the default rather than dropping the mesh
 static Ref<Material> LoadMaterial(const std::string& materialPath)
 {
 	if (materialPath.empty() || materialPath == "DefaultMaterial")
 		return Material::GetDefaultMaterial();
 
+	// A material that fails to load is the checker placeholder, which keeps its path
 	Ref<Material> material = AssetManager::GetAsset<Material>(materialPath);
-	if (!material)
-	{
-		CLIENT_ERROR("Failed to load material: {0}", materialPath);
-		return Material::GetDefaultMaterial();
-	}
-	return material;
+	return material ? material : Material::GetDefaultMaterial();
 }
 
 static void EncodeMatrix(tinyxml2::XMLElement* pElement, const Matrix4x4& matrix)

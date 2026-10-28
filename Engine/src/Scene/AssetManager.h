@@ -156,8 +156,8 @@ public:
 		{
 			switch (status)
 			{
+			// A created file may replace a missing asset's placeholder
 			case FileStatus::Created:
-				break;
 			case FileStatus::Modified:
 				if (AssetManager::Get().m_Assets.Exists(relativePath))
 				{
@@ -174,7 +174,7 @@ public:
 				if (AssetManager::Get().m_Assets.Exists(relativePath))
 				{
 					ENGINE_ERROR("An asset in use has been deleted! {0}", relativePath);
-					AssetManager::Get().m_Assets.Remove(relativePath);
+					AssetManager::Get().m_Assets.Get(relativePath)->MakeMissing(relativePath);
 				}
 				else if (AssetManager::Get().m_Textures.Exists(relativePath))
 				{

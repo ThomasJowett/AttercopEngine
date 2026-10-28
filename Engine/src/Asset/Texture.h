@@ -84,6 +84,9 @@ public:
 	static Ref<Texture2D> Create(uint32_t width, uint32_t height, Format format = Format::RGBA, uint32_t samples = 1, const void* pixels = nullptr);
 	static Ref<Texture2D> Create(const std::filesystem::path& filepath);
 	static Ref<Texture2D> Create(const std::filesystem::path& filepath, const std::vector<uint8_t>& imageData);
+
+	// The black and magenta checker shown in place of anything that failed to load
+	static Ref<Texture2D> GetMissingTexture();
 };
 
 class TextureLibrary2D

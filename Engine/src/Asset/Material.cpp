@@ -6,6 +6,7 @@
 #include "Utilities/FileUtils.h"
 
 Ref<Material> Material::s_DefaultMaterial = nullptr;
+Ref<Material> Material::s_MissingMaterial = nullptr;
 
 Material::Material()
 {
@@ -177,6 +178,29 @@ Ref<Material> Material::GetDefaultMaterial()
 		s_DefaultMaterial->AddTexture(texture, 0);
 	}
 	return s_DefaultMaterial;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+Ref<Material> Material::GetMissingMaterial()
+{
+	if (!s_MissingMaterial)
+	{
+		s_MissingMaterial = CreateRef<Material>();
+		s_MissingMaterial->AddTexture(Texture2D::GetMissingTexture(), 0);
+	}
+	return s_MissingMaterial;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void Material::MakeMissing(const std::filesystem::path& filepath)
+{
+	Asset::MakeMissing(filepath);
+	m_Shader = "Standard";
+	m_Tint = Colours::WHITE;
+	m_Textures.clear();
+	AddTexture(Texture2D::GetMissingTexture(), 0);
 }
 
 bool Material::LoadXML(tinyxml2::XMLDocument* doc)
