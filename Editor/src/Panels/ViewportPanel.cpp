@@ -224,7 +224,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		// Debug render pass - draws gizmo overlays on top of the scene already rendered into
 		// m_Framebuffer above, so this must load (not clear) the existing attachment contents.
 		m_Framebuffer->Bind();
-		RenderCommand::StartRenderPass(false);
+		RenderCommand::StartRenderPass();
 		Renderer::BeginScene(m_CameraController.GetTransformMatrix(), m_CameraController.GetCamera()->GetProjectionMatrix());
 
 		if (selectedEntity && selectedEntity.HasComponent<TransformComponent>())
@@ -576,7 +576,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 	{
 		m_TilemapEditor->Hide();
 		m_Framebuffer->Bind();
-		RenderCommand::StartRenderPass(false);
+		RenderCommand::StartRenderPass();
 		Renderer2D::BeginScene();
 		SceneManager::CurrentScene()->GetRegistry().view<LuaScriptComponent>().each([](auto entity, auto& luaScriptComp)
 			{
@@ -590,7 +590,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 	{
 		m_TilemapEditor->Hide();
 		m_Framebuffer->Bind();
-		RenderCommand::StartRenderPass(false);
+		RenderCommand::StartRenderPass();
 		Matrix4x4 view;
 		Matrix4x4 projection;
 		if (Entity cameraEntity = SceneManager::CurrentScene()->GetPrimaryCameraEntity())

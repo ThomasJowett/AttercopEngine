@@ -201,8 +201,8 @@ void MaterialView::OnUpdate(float deltaTime)
 	}
 
 	m_Framebuffer->Bind();
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 
 	Renderer::BeginScene(Matrix4x4::Translate(Vector3f(0.0f, 0.0f, 1.5f)), m_Camera.GetProjectionMatrix());
 

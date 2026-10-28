@@ -17,14 +17,17 @@ public:
 	// Sets the area of the screen that will be rendered to
 	inline static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) { return s_RendererAPI->SetViewport(x, y, width, height); }
 
-	// Resets the pixels of the screen back to the clear colour
+	// Resets the bound target's colour and depth; call before StartRenderPass
 	inline static void Clear() { s_RendererAPI->Clear(); }
 
+	// Resets the bound target's colour to the clear colour; call before StartRenderPass
 	inline static void ClearColour() { s_RendererAPI->ClearColour(); }
 
+	// Resets the bound target's depth; call before StartRenderPass
 	inline static void ClearDepth() { s_RendererAPI->ClearDepth(); }
 
-	inline static void StartRenderPass(bool clear = true) { s_RendererAPI->StartRenderPass(clear); }
+	// Starts drawing to the bound target; its contents are kept unless one of the clears above was called
+	inline static void StartRenderPass() { s_RendererAPI->StartRenderPass(); }
 
 	inline static void EndRenderPass() { s_RendererAPI->EndRenderPass(); }
 

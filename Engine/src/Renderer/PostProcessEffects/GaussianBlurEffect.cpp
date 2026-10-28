@@ -39,8 +39,8 @@ void GaussianBlurEffect::Apply(Ref<Texture> colourTexture, Ref<Texture> depthTex
 	postProcessBuffer->SetData(&data, sizeof(PostProcessData));
 
 	scratch->Bind();
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 	m_Pipeline->Bind();
 	m_Pipeline->SetTexture(colourTexture, 0);
 	m_Pipeline->SetUniformBuffer(postProcessBuffer, 3);
@@ -57,8 +57,8 @@ void GaussianBlurEffect::Apply(Ref<Texture> colourTexture, Ref<Texture> depthTex
 	postProcessBuffer->SetData(&data, sizeof(PostProcessData));
 
 	pong->Bind();
-	RenderCommand::StartRenderPass();
 	RenderCommand::Clear();
+	RenderCommand::StartRenderPass();
 	m_Pipeline->Bind();
 	m_Pipeline->SetTexture(scratch->GetColourAttachment(0), 0);
 	m_Pipeline->SetUniformBuffer(postProcessBuffer, 3);

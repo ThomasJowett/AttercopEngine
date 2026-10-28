@@ -15,7 +15,7 @@ public:
 	virtual void ClearColour() override;
 	virtual void ClearDepth() override;
 
-	virtual void StartRenderPass(bool clear = true) override;
+	virtual void StartRenderPass() override;
 	virtual void EndRenderPass() override;
 
 	// A minimal render pass targeting exactly one explicit colour view, bypassing
@@ -37,7 +37,13 @@ public:
 	void ReleaseAfterSubmit(wgpu::BindGroup bindGroup) { m_PassBindGroups.push_back(bindGroup); }
 
 private:
+	// Clears are applied as the load operation of the next pass on the same target
+	void RequestClear(bool colour, bool depth);
+
 	Colour m_ClearColour = Colours::GREY;
+	bool m_PendingClearColour = false;
+	bool m_PendingClearDepth = false;
+	const void* m_PendingClearTarget = nullptr;
 	wgpu::RenderPassEncoder m_RenderPass;
 	wgpu::CommandEncoder m_CommandEncoder;
 	std::vector<wgpu::BindGroup> m_PassBindGroups;

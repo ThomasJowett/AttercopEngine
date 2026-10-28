@@ -19,7 +19,6 @@ void RuntimeLayer::OnAttach()
 
 void RuntimeLayer::OnUpdate(float deltaTime)
 {
-	RenderCommand::Clear();
 	Renderer2D::ResetStats();
 	Renderer::RenderScene(SceneManager::CurrentScene());
 

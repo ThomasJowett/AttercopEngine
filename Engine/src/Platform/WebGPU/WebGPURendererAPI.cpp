@@ -44,25 +44,51 @@ void WebGPURendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint
 	}
 }
 
-void WebGPURendererAPI::Clear() {}
+void WebGPURendererAPI::Clear() { RequestClear(true, true); }
 
-void WebGPURendererAPI::ClearColour() {}
+void WebGPURendererAPI::ClearColour() { RequestClear(true, false); }
 
-void WebGPURendererAPI::ClearDepth() {}
+void WebGPURendererAPI::ClearDepth() { RequestClear(false, true); }
 
-void WebGPURendererAPI::StartRenderPass(bool clear)
+void WebGPURendererAPI::RequestClear(bool colour, bool depth)
+{
+	const void* target = WebGPUFrameBuffer::GetCurrent();
+	if (target != m_PendingClearTarget)
+	{
+		m_PendingClearColour = false;
+		m_PendingClearDepth = false;
+	}
+	m_PendingClearTarget = target;
+	m_PendingClearColour |= colour;
+	m_PendingClearDepth |= depth;
+
+	// A pass can only clear as it starts, so a clear inside one restarts it
+	if (m_RenderPass)
+	{
+		EndRenderPass();
+		StartRenderPass();
+	}
+}
+
+void WebGPURendererAPI::StartRenderPass()
 {
 	PROFILE_FUNCTION();
 	ENGINE_TRACE("WebGPURendererAPI: StartRenderPass");
 
-	wgpu::LoadOp loadOp = clear ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
+	// A clear requested for a different target doesn't carry over to this one
+	WebGPUFrameBuffer* currentFrameBuffer = WebGPUFrameBuffer::GetCurrent();
+	bool sameTarget = m_PendingClearTarget == currentFrameBuffer;
+	wgpu::LoadOp loadOp = sameTarget && m_PendingClearColour ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
+	wgpu::LoadOp depthLoadOp = sameTarget && m_PendingClearDepth ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
+	m_PendingClearColour = false;
+	m_PendingClearDepth = false;
+	m_PendingClearTarget = nullptr;
 
 	wgpu::RenderPassDescriptor renderPassDesc = {};
 
 	std::vector<wgpu::RenderPassColorAttachment> colourAttachments;
 	wgpu::RenderPassDepthStencilAttachment depthAttachment = {};
 
-	WebGPUFrameBuffer* currentFrameBuffer = WebGPUFrameBuffer::GetCurrent();
 	bool hasDepth = false;
 	bool targetingSwapchain = false;
 
@@ -122,11 +148,11 @@ void WebGPURendererAPI::StartRenderPass(bool clear)
 		{
 			hasDepth = true;
 			depthAttachment.view = depthView;
-			depthAttachment.depthLoadOp = loadOp;
+			depthAttachment.depthLoadOp = depthLoadOp;
 			depthAttachment.depthStoreOp = wgpu::StoreOp::Store;
 			depthAttachment.depthClearValue = 1.0f;
 
-			depthAttachment.stencilLoadOp = loadOp;
+			depthAttachment.stencilLoadOp = depthLoadOp;
 			depthAttachment.stencilStoreOp = wgpu::StoreOp::Discard;
 			depthAttachment.stencilClearValue = 0;
 		}
