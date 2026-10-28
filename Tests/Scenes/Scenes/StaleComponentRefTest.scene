@@ -7,7 +7,7 @@
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
         <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="0" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="45"/>
+            <SceneCamera ProjectionType="0" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
         </Camera>
     </Entity>
     <Entity Name="Title" ID="8052216940376329471-1902735306649857512">
