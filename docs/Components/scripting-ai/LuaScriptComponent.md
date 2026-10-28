@@ -11,7 +11,7 @@ The script can define any of these functions, and the engine calls the ones it f
 | `OnFixedUpdate()` | every fixed physics step (100 times a second by default) |
 | `OnDestroy()` | when the entity is destroyed or the game stops |
 | `OnDebugRender()` | every frame, for `Debug.Draw*` calls |
-| `OnBeginContact(other, normal, point)` / `OnEndContact(other)` | when a collider on this entity starts or stops touching another |
+| `OnBeginContact(other, normal, point)` / `OnEndContact(other)` | when a collider on this entity starts or stops touching another. `normal` points from this entity towards `other`, and `point` is where they touch, both in world space (both are zero for triggers) |
 | `OnPressed()` / `OnReleased()` / `OnHovered()` / `OnUnHovered()` | on a UI [Button](../ui/ButtonComponent.md) |
 | `OnInputAction(actionName, phase)` | when an input action from the project's input mappings fires |
 | `OnAnimationEvent(eventName, animationName)` | when this entity's [Animated Sprite](../rendering/AnimatedSpriteComponent.md) reaches a frame with an event on it |

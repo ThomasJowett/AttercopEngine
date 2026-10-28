@@ -816,7 +816,9 @@ void Scene::OnFixedUpdate()
 						// Only begin for an entity that still exists, and only end what began, so scripts get matched pairs
 						if (!beginReported && m_Registry.valid(other))
 						{
-							luaScriptComp.OnBeginContact(Entity(other, this), contact.localNormal, contact.localPoint);
+							// The normal points from this entity towards the other
+							Vector2f normal = ownsA ? contact.normal : contact.normal * -1.0f;
+							luaScriptComp.OnBeginContact(Entity(other, this), normal, contact.point);
 							beginReported = true;
 						}
 

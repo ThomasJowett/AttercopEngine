@@ -19,8 +19,9 @@ struct Contact2D
 	bool triggeredB = false;
 	bool old = false;
 
-	Vector2f localNormal;
-	Vector2f localPoint;
+	// World space; the normal points from A towards B, and the point is the average of the contact points
+	Vector2f normal;
+	Vector2f point;
 
 	Contact2D(b2Fixture* A, b2Fixture* B)
 		:fixtureA(A), fixtureB(B),
@@ -45,6 +46,7 @@ public:
 	virtual void BeginContact(b2Contact* contact) override
 	{
 		m_Contacts.push_back(Contact2D(contact->GetFixtureA(), contact->GetFixtureB()));
+		UpdateWorldManifold(m_Contacts.back(), contact);
 	}
 	virtual void EndContact(b2Contact* contact) override
 	{
@@ -58,10 +60,23 @@ public:
 	{
 		auto currentContact = std::find(m_Contacts.begin(), m_Contacts.end(), Contact2D(contact->GetFixtureA(), contact->GetFixtureB()));
 		if (currentContact != m_Contacts.end())
-		{
-			currentContact->localNormal = Vector2f(oldManifold->localNormal.x, oldManifold->localNormal.y);
-			currentContact->localPoint = Vector2f(oldManifold->localPoint.x, oldManifold->localPoint.y);
-		}
+			UpdateWorldManifold(*currentContact, contact);
+	}
+
+	static void UpdateWorldManifold(Contact2D& contact2D, b2Contact* contact)
+	{
+		int32 pointCount = contact->GetManifold()->pointCount;
+		if (pointCount == 0)
+			return;
+
+		b2WorldManifold worldManifold;
+		contact->GetWorldManifold(&worldManifold);
+		contact2D.normal = Vector2f(worldManifold.normal.x, worldManifold.normal.y);
+
+		b2Vec2 point = worldManifold.points[0];
+		if (pointCount > 1)
+			point = 0.5f * (worldManifold.points[0] + worldManifold.points[1]);
+		contact2D.point = Vector2f(point.x, point.y);
 	}
 
 	// Call before destroying a body: ends its contacts and forgets its fixtures before they are freed
