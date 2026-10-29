@@ -2,6 +2,7 @@
 
 #include "Core/Settings.h"
 #include "Core/Application.h"
+#include "Renderer/RendererAPI.h"
 
 #include "imgui/imgui.h"
 
@@ -111,6 +112,21 @@ void EditorPreferencesPanel::OnImGuiRender()
 				Settings::SetBool("Display", "V-Sync", m_VSnyc);
 				Application::GetWindow()->SetVSync(m_VSnyc);
 			}
+
+			// Saved now, used the next time the editor starts
+			const char* apis[] = { "OpenGL", "WebGPU" };
+			std::string selectedApi = Settings::GetValue("Renderer", "API");
+			int selected = selectedApi == "WebGPU" ? 1 : 0;
+			if (ImGui::Combo("Graphics API", &selected, apis, IM_ARRAYSIZE(apis)))
+				Settings::SetValue("Renderer", "API", apis[selected]);
+			if (std::string(apis[selected]) != RendererAPI::GetAPIName())
+				ImGui::TextDisabled("Restart the editor to switch from %s", RendererAPI::GetAPIName());
+#ifdef  __APPLE__
+			if (std::string(apis[selected]) == "OpenGL") {
+				// Red text to indicate an error
+				ImGui::TextColored({ 245,0,0,255 }, ICON_FA_TRIANGLE_EXCLAMATION " Required OpenGL version 4.6 isn't available on macOS!");
+			}
+#endif
 #endif
 			ImGui::TreePop();
 		}

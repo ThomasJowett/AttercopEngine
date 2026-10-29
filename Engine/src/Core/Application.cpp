@@ -210,7 +210,7 @@ Window* Application::CreateDesktopWindowImpl(const WindowProps& props)
 	Settings::SetDefaultBool(windowStr, "Window_Maximized", props.maximized);
 
 	m_Window = CreateScope<Window>(props);
-	if (m_Window) {
+	if (m_Window && m_Window->GetNativeWindow()) {
 		m_Window->SetEventCallback(BIND_EVENT_FN(Application::OnEvent));
 
 		if (Settings::GetBool(windowStr, "Window_Maximized"))
@@ -230,7 +230,7 @@ Window* Application::CreateDesktopWindowImpl(const WindowProps& props)
 		return m_Window.get();
 	}
 	else
-		ENGINE_ERROR("Could not create window");
+		ENGINE_ERROR("Could not create window `{0}`", props.title);
 	return nullptr;
 }
 
