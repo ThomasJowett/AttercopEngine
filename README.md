@@ -22,6 +22,7 @@
 </p>
 
 <p align="center">
+  <a href="https://thomasjowett.github.io/AttercopEngine/editor/"><b>Try it in your browser</b></a> ·
   <a href="https://thomasjowett.github.io/AttercopEngine/"><b>Documentation</b></a> ·
   <a href="https://thomasjowett.github.io/AttercopEngine/getting-started/"><b>Getting Started</b></a> ·
   <a href="https://github.com/ThomasJowett/ExampleGameProjects"><b>Example Projects</b></a> ·

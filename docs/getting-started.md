@@ -16,6 +16,9 @@ There are three ways to get the Editor:
   [repo README](https://github.com/ThomasJowett/AttercopEngine#getting-started) for the
   prerequisites and build steps.
 
+[Open the Editor in your browser](https://thomasjowett.github.io/AttercopEngine/editor/){ .md-button .md-button--primary }
+[Download](https://github.com/ThomasJowett/AttercopEngine/releases){ .md-button }
+
 !!! note
     The downloads aren't code signed, so Windows and macOS warn about them the first time you open them:
 
@@ -32,6 +35,14 @@ to open an existing one.
 A project is a folder on disk containing a `.proj` file, your scenes, and your assets (sprites,
 meshes, materials, scripts, and so on) - there's no separate "import" step that copies files
 elsewhere, you work directly with the folder.
+
+## Trying an example project
+
+To see a finished game before making your own, download one from
+[ExampleGameProjects](https://github.com/ThomasJowett/ExampleGameProjects) (**Code > Download ZIP**,
+then unzip it). On the start screen, choose **Browse Local** and pick the folder of the example you
+want: the one that holds its `.proj` file. The **Example Projects** button on the start screen
+opens the same page.
 
 ## Building a scene
 
