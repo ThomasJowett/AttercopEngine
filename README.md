@@ -101,7 +101,7 @@ with WebGPU, such as Chrome or Edge). Builds for Windows, macOS, Linux and the w
 > [!NOTE]
 > The desktop builds aren't code signed, so Windows and macOS warn about them the first time:
 > - **Windows:** on "Windows protected your PC", choose **More info → Run anyway**.
-> - **macOS** (Apple silicon): open the app once, then choose **Open Anyway** in
+> - **macOS:** open the app once, then choose **Open Anyway** in
 >   **System Settings → Privacy & Security**. Or download it from a terminal, which skips the warning:
 >   `curl -L <link to the macOS zip> -o Attercop.zip && ditto -x -k Attercop.zip /Applications`
 

@@ -9,7 +9,7 @@ There are three ways to get the Editor:
   Edge. It works on a project folder on your computer and exports games for the web; in Chrome
   and Edge it saves straight to that folder, and in other browsers you keep your changes with
   **File > Download Project**.
-- **Download it:** builds for Windows, macOS (Apple silicon) and Linux are on the
+- **Download it:** builds for Windows (x64), macOS and Linux (x64 and arm64) are on the
   [Releases](https://github.com/ThomasJowett/AttercopEngine/releases) page. Unzip the build and
   run the Editor from the folder.
 - **Build it from source:** see the

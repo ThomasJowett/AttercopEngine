@@ -21,14 +21,14 @@ jobs:
 
     strategy:
       fail-fast: false
+      # There's no Windows arm64 build of the wgpu-native version we use; Windows on Arm runs the x64 build
       matrix:
         include:
-          - os: windows-latest
-            platform: Windows
-          - os: macos-latest
-            platform: macOS
-          - os: ubuntu-latest
-            platform: Linux
+          - { os: windows-latest, platform: Windows, arch: x64 }
+          - { os: macos-latest, platform: macOS, arch: arm64 }
+          - { os: macos-15-intel, platform: macOS, arch: x64 }
+          - { os: ubuntu-latest, platform: Linux, arch: x64 }
+          - { os: ubuntu-24.04-arm, platform: Linux, arch: arm64 }
 
     steps:
       - uses: actions/checkout@v7
@@ -56,7 +56,7 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          name="Attercop-${GITHUB_REF_NAME#v}-${{ matrix.platform }}"
+          name="Attercop-${GITHUB_REF_NAME#v}-${{ matrix.platform }}-${{ matrix.arch }}"
           mkdir -p dist
           echo "PACKAGE=$name.zip" >> "$GITHUB_ENV"
           case "${{ matrix.platform }}" in

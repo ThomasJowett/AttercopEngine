@@ -17,14 +17,21 @@ env:
 
 jobs:
   build:
+    name: build (${{ matrix.platform }} ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
 
+    # There's no Windows arm64 build of the wgpu-native version we use; Windows on Arm runs the x64 build
     strategy:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         build_type: [Release]
+        include:
+          - { os: windows-latest, platform: Windows, arch: x64 }
+          - { os: macos-latest, platform: macOS, arch: arm64 }
+          - { os: macos-15-intel, platform: macOS, arch: x64 }
+          - { os: ubuntu-latest, platform: Linux, arch: x64 }
+          - { os: ubuntu-24.04-arm, platform: Linux, arch: arm64 }
 
     steps:
       - uses: actions/checkout@v7
@@ -38,7 +45,7 @@ jobs:
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.platform == 'Linux'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --fix-missing libx11-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev libxcursor-dev mesa-common-dev
@@ -57,7 +64,7 @@ jobs:
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure -j 4 -L scene
 
-  # The Release web Editor and Runtime, uploaded ready to serve with any static web server
+  # The web Editor and Runtime, uploaded ready to serve with any static web server
   web:
     runs-on: ubuntu-latest
 
@@ -73,11 +80,11 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build_web -DCMAKE_BUILD_TYPE=Release -S .
+        run: emcmake cmake -B build_web -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }}
 
       # Building Editor builds Runtime too, and copies it next to the Editor for Export Game
       - name: Build
-        run: cmake --build build_web --target Editor --parallel 4
+        run: cmake --build build_web --config ${{ matrix.build_type }} --target Editor --parallel 4
 
       - name: Collect output
         run: |
