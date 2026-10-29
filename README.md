@@ -51,7 +51,9 @@ The same editor and the same projects, on every platform.
 - Play, pause and simulate your scene without leaving the editor
 - Asset pipeline for textures, meshes, materials, tilesets, sprite sheets and audio
 - Tilemap editor and a visual behaviour tree editor for AI
-- Export a standalone build of your game from `File > Export Game`
+- Export a standalone build of your game from `File > Export Game`, for desktop or the web
+  (web exports run on itch.io and similar sites)
+- The editor also runs in the browser, and can make and export web games
 
 **🎨 Rendering**
 - OpenGL and WebGPU backends behind one renderer API
@@ -60,8 +62,9 @@ The same editor and the same projects, on every platform.
 
 **⚙️ Gameplay**
 - Entity-component system scene model, backed by [EnTT](https://github.com/skypjack/entt)
-- 2D physics and particles via Box2D/[LiquidFun](https://github.com/google/liquidfun)
-- In-game UI widgets and layouts
+- 2D physics via Box2D, using the [LiquidFun](https://github.com/google/liquidfun) fork
+- In-game UI widgets and layouts (experimental: still being designed, expect changes)
+- Gamepad support on desktop and in the browser
 - Audio playback with [miniaudio](https://github.com/mackron/miniaudio)
 
 **📜 Lua scripting**
@@ -86,6 +89,21 @@ end
 Components and engine systems are bound to Lua. See the
 [Lua scripting guide](https://thomasjowett.github.io/AttercopEngine/lua-scripting/) and the
 [Lua API reference](https://thomasjowett.github.io/AttercopEngine/LuaAPI/Entity/) for what's available.
+
+## Download
+
+Attercop is in **alpha**: expect missing features and file format changes between releases.
+To try it without installing anything, open the
+[Editor in your browser](https://thomasjowett.github.io/AttercopEngine/editor/) (needs a browser
+with WebGPU, such as Chrome or Edge). Builds for Windows, macOS, Linux and the web are on the
+[Releases](https://github.com/ThomasJowett/AttercopEngine/releases) page.
+
+> [!NOTE]
+> The desktop builds aren't code signed, so Windows and macOS warn about them the first time:
+> - **Windows:** on "Windows protected your PC", choose **More info → Run anyway**.
+> - **macOS** (Apple silicon): open the app once, then choose **Open Anyway** in
+>   **System Settings → Privacy & Security**. Or download it from a terminal, which skips the warning:
+>   `curl -L <link to the macOS zip> -o Attercop.zip && ditto -x -k Attercop.zip /Applications`
 
 ## Getting Started
 
@@ -113,7 +131,9 @@ Components and engine systems are bound to Lua. See the
 ```bash
 sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev libxcursor-dev mesa-common-dev g++ make
 ```
-Then generate Makefiles with CMake and build with `make`.
+Then generate build files with CMake and build. Use a multi-config generator such as
+`cmake -G "Ninja Multi-Config"` (install `ninja-build`), so the Runtime is built next to the Editor
+where `File > Export Game` looks for it.
 
 #### Build options
 
