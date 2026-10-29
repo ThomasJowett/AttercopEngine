@@ -21,6 +21,9 @@ Attercop is a cross-platform game engine written in C++, supporting OpenGL and W
 
 ![Engine architecture overview](assets/architecture.svg)
 
+[Try the Editor in your browser](https://thomasjowett.github.io/AttercopEngine/editor/) - no
+install needed, just a browser with WebGPU, such as Chrome or Edge.
+
 ## Where to go next
 
 - [Getting Started](getting-started.md) - creating a project and exporting a game with the Editor

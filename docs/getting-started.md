@@ -1,10 +1,27 @@
 # Getting Started
 
-This page assumes you already have the Editor - either downloaded from the
-[Releases](https://github.com/ThomasJowett/AttercopEngine/releases) page, or built
-from source. If you're building from source instead, see the
-[repo README](https://github.com/ThomasJowett/AttercopEngine#getting-started) for
-prerequisites and build instructions.
+## Getting the Editor
+
+There are three ways to get the Editor:
+
+- **In your browser:** open the [web Editor](https://thomasjowett.github.io/AttercopEngine/editor/)
+  to use Attercop without installing anything. It needs a browser with WebGPU, such as Chrome or
+  Edge. It works on a project folder on your computer and exports games for the web; in Chrome
+  and Edge it saves straight to that folder, and in other browsers you keep your changes with
+  **File > Download Project**.
+- **Download it:** builds for Windows, macOS (Apple silicon) and Linux are on the
+  [Releases](https://github.com/ThomasJowett/AttercopEngine/releases) page. Unzip the build and
+  run the Editor from the folder.
+- **Build it from source:** see the
+  [repo README](https://github.com/ThomasJowett/AttercopEngine#getting-started) for the
+  prerequisites and build steps.
+
+!!! note
+    The downloads aren't code signed, so Windows and macOS warn about them the first time you open them:
+
+    - **Windows:** on "Windows protected your PC", choose **More info**, then **Run anyway**.
+    - **macOS:** open the app once, then choose **Open Anyway** in
+      **System Settings > Privacy & Security**.
 
 ## Creating a project
 
