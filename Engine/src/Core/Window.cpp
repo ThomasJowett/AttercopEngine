@@ -48,6 +48,8 @@ EM_JS(void, Window_ReleaseMouse, (), {
 #include "Core/Settings.h"
 #include "imgui.h"
 
+#include <algorithm>
+
 static uint8_t s_GLFWWindowCount = 0;
 
 static void	GLFWErrorCallback(int error, const char* description)
@@ -295,6 +297,42 @@ void Window::SetCursorPosition(double xpos, double ypos)
 	glfwSetCursorPos(m_Window, xpos, ypos);
 }
 
+#ifndef __EMSCRIPTEN__
+// Moves a window that wouldn't be visible on any connected monitor, e.g. one that has been unplugged,
+// to the middle of the primary monitor, shrinking it to fit
+static void KeepOnScreen(const std::string& title, unsigned int& posX, unsigned int& posY, unsigned int& width, unsigned int& height)
+{
+	int count = 0;
+	GLFWmonitor** monitors = glfwGetMonitors(&count);
+	if (count == 0)
+		return;
+
+	int x = (int)posX, y = (int)posY, w = (int)width, h = (int)height;
+	int neededWidth = std::min(w, 100), neededHeight = std::min(h, 50);
+	for (int i = 0; i < count; i++)
+	{
+		int areaX, areaY, areaWidth, areaHeight;
+		glfwGetMonitorWorkarea(monitors[i], &areaX, &areaY, &areaWidth, &areaHeight);
+		int overlapWidth = std::min(x + w, areaX + areaWidth) - std::max(x, areaX);
+		int overlapHeight = std::min(y + h, areaY + areaHeight) - std::max(y, areaY);
+		if (overlapWidth >= neededWidth && overlapHeight >= neededHeight)
+			return;
+	}
+
+	int areaX, areaY, areaWidth, areaHeight;
+	glfwGetMonitorWorkarea(glfwGetPrimaryMonitor(), &areaX, &areaY, &areaWidth, &areaHeight);
+	w = std::min(w, areaWidth * 9 / 10);
+	h = std::min(h, areaHeight * 9 / 10);
+	width = (unsigned int)w;
+	height = (unsigned int)h;
+	posX = (unsigned int)(areaX + (areaWidth - w) / 2);
+	posY = (unsigned int)(areaY + (areaHeight - h) / 2);
+	ENGINE_INFO("Window {0} was off screen, moved to the primary monitor", title);
+}
+#endif
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
 bool Window::Init(const WindowProps& props)
 {
 	PROFILE_FUNCTION();
@@ -327,6 +365,10 @@ bool Window::Init(const WindowProps& props)
 		CORE_ASSERT(success == GLFW_TRUE, "Could not initialize GLFW!");
 		glfwSetErrorCallback(GLFWErrorCallback);
 	}
+
+#ifndef __EMSCRIPTEN__
+	KeepOnScreen(m_Data.title, m_Data.posX, m_Data.posY, m_Data.width, m_Data.height);
+#endif
 
 	// No monitor is reported while no display is online (e.g. the screen is locked), so fall back to the window's size
 	const GLFWvidmode* videoMode = nullptr;
