@@ -5,7 +5,7 @@
 // The minor version
 #define VERSION_MINOR 0
 // The patch version
-#define VERSION_PATCH 1
+#define VERSION_PATCH 2
 
 // The full version as a single number
 #define VERSION (VERSION_MAJOR * 10000 \

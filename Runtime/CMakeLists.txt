@@ -19,6 +19,9 @@ if(APPLE)
         BUNDLE True
         MACOSX_BUNDLE_BUNDLE_NAME "Runtime"
         MACOSX_BUNDLE_EXECUTABLE_NAME "Runtime"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.Jowett.Thomas.Runtime"
+        MACOSX_BUNDLE_BUNDLE_VERSION "0.0.2"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.0.2"
         BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_RPATH "@executable_path"
     )
