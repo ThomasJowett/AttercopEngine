@@ -142,7 +142,8 @@ bool Font::Load(const std::filesystem::path& filepath)
 	msdfgen::deinitializeFreetype(ftHandle);
 
 	// Cache the texture to png file
-	msdfgen::savePng(bitmap, absoluteCachePath.string().c_str());
+	if (!msdfgen::savePng(bitmap, absoluteCachePath.string().c_str()))
+		ENGINE_ERROR("Could not save the font atlas: {0}", absoluteCachePath.string());
 
 	m_TextureAtlas = AssetManager::GetTexture(cachePath);
 

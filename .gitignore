@@ -84,7 +84,6 @@ CMakeScripts/
 cmake_install.cmake
 CTestTestfile.cmake
 
-Editor/data/Fonts/Manrope-Medium.png
 build
 build_*
 .cache
