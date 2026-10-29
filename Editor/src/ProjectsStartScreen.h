@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <filesystem>
+#include <string>
 
 #include "Core/Layer.h"
 
@@ -23,6 +24,9 @@ private:
 	bool m_CanGoBack;
 
 	std::vector<std::filesystem::path> m_RecentProjects;
+
+	// Why the last project couldn't be opened, shown on the start screen
+	std::string m_Error;
 #ifdef __EMSCRIPTEN__
 	// Project folders kept by the browser, which only exist on disk until reopened
 	std::vector<std::string> m_RecentWebProjects;

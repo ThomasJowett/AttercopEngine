@@ -9,6 +9,7 @@
 
 #include "FileSystem/FileDialog.h"
 #include "FileSystem/WebProject.h"
+#include "FileSystem/Webpage.h"
 
 #include "ProjectData.h"
 #include "ProjectSerializer.h"
@@ -97,6 +98,10 @@ void ProjectsStartScreen::OnImGuiRender()
 				if (fileToOpen.has_value())
 					OpenProject(fileToOpen.value());
 			}
+			if (ImGui::Button(ICON_FA_GLOBE" Example Projects"))
+				Webpage::OpenWebpage(L"https://github.com/ThomasJowett/ExampleGameProjects");
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Download a finished example project, then open its folder with Browse Local");
 #ifdef __EMSCRIPTEN__
 			if (!WebProject::CanWriteToDisk())
 			{
@@ -153,7 +158,7 @@ void ProjectsStartScreen::OnImGuiRender()
 
 				if (std::filesystem::exists(projectPath))
 				{
-					CLIENT_ERROR("Project already exist, Please choose a different location.");
+					m_Error = "There's already a project at " + projectPath.filename().string() + ", choose a different location.";
 				}
 				else
 				{
@@ -177,8 +182,18 @@ void ProjectsStartScreen::OnImGuiRender()
 						WebProject::Sync();
 						OpenProject(projectPath);
 					}
+					else
+						m_Error = "Couldn't create the project file " + projectPath.string();
 				}
 			}
+		}
+
+		if (!m_Error.empty())
+		{
+			ImGui::Spacing();
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+			ImGui::TextWrapped("%s", m_Error.c_str());
+			ImGui::PopStyleColor();
 		}
 		ImGui::EndPopup();
 	}
@@ -211,8 +226,19 @@ void ProjectsStartScreen::OnDetach()
 
 void ProjectsStartScreen::OpenProject(const std::filesystem::path& projectPath)
 {
-	if(Application::SetOpenDocument(projectPath)){
+	if (projectPath.extension() != ".proj")
+	{
+		m_Error = "There's no .proj file in " + projectPath.filename().string()
+			+ ". Choose the folder that holds the project's .proj file, or use New Project to start one in an empty folder.";
+		return;
+	}
+
+	if (Application::SetOpenDocument(projectPath))
+	{
+		m_Error.clear();
 		ImGui::CloseCurrentPopup();
 		Application::GetLayerStack().RemoveOverlay(shared_from_this());
 	}
+	else
+		m_Error = "Couldn't open " + projectPath.filename().string();
 }

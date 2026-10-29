@@ -216,19 +216,19 @@ var AttercopWeb = {
 		this.handles[root] = handle;
 		this.records[root] = this.walk(root);
 		this.currentRoot = root;
-		await this.rememberProject(handle);
-		return this.findProjectFile(root);
+		const projectFile = this.findProjectFile(root);
+		if (projectFile)
+			await this.rememberProject(handle);
+		return projectFile || root;
 	},
 
-	// Lets the user pick a project folder and copies it in; returns the .proj path, or '' if cancelled
+	// Lets the user pick a project folder and copies it in; returns the .proj path, the folder if it has
+	// no .proj file, or '' if cancelled
 	async openProjectFolder() {
 		try {
 			if (this.canWriteToDisk()) {
 				const handle = await window.showDirectoryPicker({ id: 'attercop-project', mode: 'readwrite' });
-				const projectFile = await this.openHandle(handle);
-				if (!projectFile)
-					console.error('No .proj file found in ' + handle.name);
-				return projectFile;
+				return await this.openHandle(handle);
 			}
 			return await this.openReadOnlyFolder();
 		} catch (err) {
@@ -255,7 +255,7 @@ var AttercopWeb = {
 				await this.copyFileList(files, root);
 				this.records[root] = this.walk(root);
 				this.currentRoot = root;
-				resolve(this.findProjectFile(root));
+				resolve(this.findProjectFile(root) || root);
 			});
 			input.addEventListener('cancel', () => resolve(''));
 			input.click();
