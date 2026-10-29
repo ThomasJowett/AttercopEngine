@@ -58,7 +58,7 @@ public:
 	// Get the directory that the application was launched from
 	static const std::filesystem::path& GetWorkingDirectory();
 
-	// Get the directory that settings, layout and styles are saved to
+	// Get the per-user directory that settings, layout, styles and the log are saved to
 	static const std::filesystem::path& GetSettingsDirectory();
 
 	// Absolute path of the running executable, resolved before the working directory changes
@@ -108,8 +108,9 @@ private:
 	Window* CreateDesktopWindowImpl(const WindowProps& props);
 	void Tick();
 	void Run();
-	int Init(int argc, char* argv[]);
-	int Init(const InputParser& inputParser);
+	// Settings and the log go in a per-user folder named userFolderName, or after the executable when empty
+	int Init(int argc, char* argv[], const std::string& userFolderName = {});
+	int Init(const InputParser& inputParser, const std::string& userFolderName = {});
 	void OnEvent(Event& e);
 	bool OnWindowClose(WindowCloseEvent& e);
 	bool OnWindowResize(WindowResizeEvent& e);

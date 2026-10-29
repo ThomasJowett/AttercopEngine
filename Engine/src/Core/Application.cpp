@@ -26,6 +26,7 @@
 #endif
 
 #include <chrono>
+#include <cstdlib>
 
 #ifndef DEBUG
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -42,6 +43,34 @@
 Application* Application::s_Instance = nullptr;
 
 Application::EventCallbackFn Application::s_EventCallback;
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+// The per-user folder for an application's settings and log, or empty if it can't be found
+static std::filesystem::path UserDataDirectory(const std::string& name)
+{
+#if defined(_WIN32)
+	wchar_t* appData = nullptr;
+	size_t length = 0;
+	std::filesystem::path directory;
+	if (_wdupenv_s(&appData, &length, L"APPDATA") == 0 && appData && *appData)
+		directory = std::filesystem::path(appData) / name;
+	free(appData);
+	return directory;
+#elif defined(__APPLE__)
+	const char* home = std::getenv("HOME");
+	if (home && *home)
+		return std::filesystem::path(home) / "Library" / "Application Support" / name;
+#elif !defined(__EMSCRIPTEN__)
+	const char* config = std::getenv("XDG_CONFIG_HOME");
+	if (config && *config)
+		return std::filesystem::path(config) / name;
+	const char* home = std::getenv("HOME");
+	if (home && *home)
+		return std::filesystem::path(home) / ".config" / name;
+#endif
+	return {};
+}
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
@@ -79,13 +108,13 @@ Application::~Application()
 	LuaManager::Shutdown();
 }
 
-int Application::Init(int argc, char* argv[])
+int Application::Init(int argc, char* argv[], const std::string& userFolderName)
 {
 	InputParser input(argc, argv);
-	return Init(input);
+	return Init(input, userFolderName);
 }
 
-int Application::Init(const InputParser& inputParser)
+int Application::Init(const InputParser& inputParser, const std::string& userFolderName)
 {
 	const InputParser& input = inputParser;
 
@@ -108,11 +137,29 @@ int Application::Init(const InputParser& inputParser)
 #endif
 	std::filesystem::current_path(m_WorkingDirectory);
 
+	// Scripted/headless testing flags - see the matching getters in Application.h.
+	m_Headless = input.CmdOptionExists("--headless");
+
 	m_SettingsDirectory = m_WorkingDirectory;
 #ifdef __EMSCRIPTEN__
 	// The web Editor's page mounts IndexedDB storage here, so settings survive a reload
 	if (std::filesystem::is_directory("/persistent"))
 		m_SettingsDirectory = "/persistent";
+#else
+	// Named after the .app on macOS and the executable elsewhere, so each exported game gets its own folder
+	std::string folderName = userFolderName;
+	if (folderName.empty())
+		folderName = (m_ExecutablePath.parent_path().filename() == "MacOS"
+			? m_ExecutablePath.parent_path().parent_path().parent_path() : m_ExecutablePath).stem().string();
+
+	// Headless runs don't use settings, so they don't create a folder
+	std::filesystem::path userDirectory = m_Headless ? std::filesystem::path() : UserDataDirectory(folderName);
+	std::error_code error;
+	if (!userDirectory.empty() && (std::filesystem::create_directories(userDirectory, error) || std::filesystem::is_directory(userDirectory, error)))
+		m_SettingsDirectory = userDirectory;
+
+	if (logPath.empty())
+		logPath = m_SettingsDirectory / "Log.txt";
 #endif
 	Logger::Init(logPath);
 
@@ -142,8 +189,6 @@ int Application::Init(const InputParser& inputParser)
 	{
 	}
 
-	// Scripted/headless testing flags - see the matching getters in Application.h.
-	m_Headless = input.CmdOptionExists("--headless");
 	m_FixedStep = input.CmdOptionExists("--fixed-step");
 
 	if (input.CmdOptionExists("--exit-after"))

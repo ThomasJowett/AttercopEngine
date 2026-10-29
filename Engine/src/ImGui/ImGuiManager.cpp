@@ -43,6 +43,11 @@ void ImGuiManager::Init()
 
 	io.IniFilename = m_IniFile.c_str();
 
+	// The first run starts from the layout shipped next to the executable
+	std::filesystem::path defaultIni = Application::GetWorkingDirectory() / "imgui.ini";
+	if (!std::filesystem::exists(m_IniFile) && std::filesystem::exists(defaultIni))
+		ImGui::LoadIniSettingsFromDisk(defaultIni.string().c_str());
+
 	// Setup Platform/Renderer bindings
 	if (api == RendererAPI::API::OpenGL)
 	{

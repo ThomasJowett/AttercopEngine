@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	int rCode = app->Init(inputParser);
+	int rCode = app->Init(inputParser, "Attercop");
 	if (rCode != -1)
 		return rCode;
 

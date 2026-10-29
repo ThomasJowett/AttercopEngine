@@ -7,6 +7,7 @@
 #include "imgui/imgui.h"
 
 #include "FileSystem/FileDialog.h"
+#include "FileSystem/ExternalEditor.h"
 
 #include "Styles/EditorStyles.h"
 
@@ -85,6 +86,14 @@ void EditorPreferencesPanel::OnImGuiRender()
 					std::optional<std::wstring> stylePath = FileDialog::SaveAs(L"Save style as...", { {L"Style Files", L"*.style"}, {L"Any File", L"*.*"} });
 					if (stylePath)
 						ImGui::SaveStyle(stylePath.value(), m_Style);
+				}
+
+				if (ExternalEditor::IsSupported())
+				{
+					ImGui::Separator();
+					if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN" Open Settings Folder"))
+						ExternalEditor::OpenFile(Application::GetSettingsDirectory());
+					ImGui::Tooltip("Settings, layout, styles and Log.txt:\n" + Application::GetSettingsDirectory().string());
 				}
 				ImGui::EndMenu();
 			}
