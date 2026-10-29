@@ -58,6 +58,7 @@ jobs:
         run: |
           name="Attercop-${GITHUB_REF_NAME#v}-${{ matrix.platform }}"
           mkdir -p dist
+          echo "PACKAGE=$name.zip" >> "$GITHUB_ENV"
           case "${{ matrix.platform }}" in
             Windows)
               cp -r build/Editor/Release "dist/$name"
@@ -68,17 +69,16 @@ jobs:
               ;;
             Linux)
               cp -r build/Editor/Release "dist/$name"
-              tar -czf "dist/$name.tar.gz" -C dist "$name"
+              (cd dist && zip -qry "$name.zip" "$name")
               ;;
           esac
           ls -l dist
 
-      - uses: actions/upload-artifact@v4
+      # Uploaded as is, so the download isn't a zip inside a zip; the zip keeps the executables' permissions
+      - uses: actions/upload-artifact@v7
         with:
-          name: release-${{ matrix.platform }}
-          path: |
-            dist/*.zip
-            dist/*.tar.gz
+          path: dist/${{ env.PACKAGE }}
+          archive: false
 
   web:
     runs-on: ubuntu-latest
@@ -104,15 +104,16 @@ jobs:
       - name: Package
         run: |
           name="Attercop-${GITHUB_REF_NAME#v}-Web"
+          echo "PACKAGE=$name.zip" >> "$GITHUB_ENV"
           mkdir -p "dist/$name"
           cp build_web/Editor/Editor.{html,js,wasm,data} build_web/Editor/Runtime.{html,js,wasm,data} build_web/Editor/favicon.png "dist/$name/"
           (cd dist && zip -r "$name.zip" "$name" > /dev/null)
           ls -l dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: release-Web
-          path: dist/*.zip
+          path: dist/${{ env.PACKAGE }}
+          archive: false
 
   release:
     needs: [desktop, web]
@@ -120,11 +121,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      # skip-decompress keeps each zip as it was uploaded
+      - uses: actions/download-artifact@v8
         with:
-          pattern: release-*
+          pattern: Attercop-*
           path: dist
           merge-multiple: true
+          skip-decompress: true
 
       # A draft, so the release notes can be added before publishing
       - name: Create draft release
