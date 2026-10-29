@@ -14,6 +14,9 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/documentation.yml"
+  # Publishing a release puts its web Editor on the site
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -55,6 +58,23 @@ jobs:
 
       - name: Build site
         run: mkdocs build --strict --site-dir site
+
+      # Every deploy replaces the whole site, so the web Editor from the newest release (pre-releases
+      # included) is added each time, at /editor/
+      - name: Add the web Editor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')
+          if ! gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*-Web.zip' --dir web; then
+            echo "::warning::No web build in release $tag, so the site has no web Editor"
+            exit 0
+          fi
+          unzip -q web/*-Web.zip -d web
+          mkdir -p site/editor
+          cp web/*-Web/* site/editor/
+          mv site/editor/Editor.html site/editor/index.html
+          ls -l site/editor
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
