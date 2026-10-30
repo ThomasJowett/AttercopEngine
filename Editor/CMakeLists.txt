@@ -157,6 +157,11 @@ endif()
 add_dependencies(Editor Runtime)
 target_copy_webgpu_binaries(Editor)
 
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+    # Finds libwgpu_native.so next to the executable rather than in the build machine's folders
+    set_target_properties(Editor PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
+endif()
+
 if(APPLE)
     # Signing must be the last POST_BUILD step, after every copy into the bundle
     add_custom_command(TARGET Editor POST_BUILD

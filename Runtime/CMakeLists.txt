@@ -38,6 +38,11 @@ source_group("Data" FILES ${DATA_FILES})
 target_link_libraries(Runtime PRIVATE Engine)
 target_copy_webgpu_binaries(Runtime)
 
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+    # Finds libwgpu_native.so next to the executable, including in exported games
+    set_target_properties(Runtime PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
+endif()
+
 if(APPLE AND NOT EMSCRIPTEN)
     set_target_properties(Runtime PROPERTIES INSTALL_RPATH "@executable_path")
     add_custom_command(TARGET Runtime POST_BUILD
