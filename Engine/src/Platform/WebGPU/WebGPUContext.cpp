@@ -17,7 +17,7 @@ WebGPUContext::WebGPUContext(GLFWwindow* windowHandle) : m_WindowHandle(windowHa
 	m_SurfaceConfig.presentMode = wgpu::PresentMode::Fifo;
 }
 
-void WebGPUContext::Init()
+bool WebGPUContext::Init()
 {
 	PROFILE_FUNCTION();
 
@@ -83,8 +83,14 @@ void WebGPUContext::Init()
 	{
 		emscripten_sleep(10);
 	}
+	return m_Device != nullptr;
 #else
 	m_Adapter = m_Instance.requestAdapter(adapterOpts);
+	if (!m_Adapter)
+	{
+		ENGINE_CRITICAL("No WebGPU adapter: this machine has no graphics driver WebGPU can use");
+		return false;
+	}
 
 	wgpu::AdapterProperties properties = {};
 	m_Adapter.getProperties(&properties);
@@ -100,6 +106,11 @@ void WebGPUContext::Init()
 	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /*pUserData*/) { ENGINE_CRITICAL("Device lost: Reason: {0} Message: {1}", (int)reason, message); };
 
 	m_Device = m_Adapter.requestDevice(deviceDesc);
+	if (!m_Device)
+	{
+		ENGINE_CRITICAL("Could not create a WebGPU device");
+		return false;
+	}
 
 	auto onDeviceError = [](wgpu::ErrorType type, char const* message)
 	{
@@ -112,6 +123,7 @@ void WebGPUContext::Init()
 	m_Queue = m_Device.getQueue();
 
 	SetupSurface();
+	return true;
 #endif
 }
 

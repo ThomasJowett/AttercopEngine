@@ -422,7 +422,15 @@ bool Window::Init(const WindowProps& props)
 		m_Context = CreateRef<WebGPUContext>(m_Window);
 	}
 
-	m_Context->Init();
+	if (!m_Context->Init())
+	{
+		ENGINE_CRITICAL("Could not start graphics API {0}", RendererAPI::GetAPIName());
+		m_Context.reset();
+		// Shutdown still lowers the window count
+		glfwDestroyWindow(m_Window);
+		m_Window = nullptr;
+		return false;
+	}
 
 	m_OldWindowedParams.width = m_Data.width;
 	m_OldWindowedParams.Height = m_Data.height;

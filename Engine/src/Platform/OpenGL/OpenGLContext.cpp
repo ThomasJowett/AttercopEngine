@@ -12,13 +12,16 @@ OpenGLContext::OpenGLContext(GLFWwindow* windowHandle)
 	CORE_ASSERT(windowHandle, "Window Handle is null")
 }
 
-void OpenGLContext::Init()
+bool OpenGLContext::Init()
 {
 	PROFILE_FUNCTION();
 	glfwMakeContextCurrent(m_windowHandle);
 
-	int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-	CORE_ASSERT(status, "Failed to initialize GLAD");
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		ENGINE_CRITICAL("Failed to load the OpenGL functions");
+		return false;
+	}
 
 	const char* version = (const char*)glGetString(GL_VERSION);
 	ENGINE_INFO("Graphics Card: {0} {1}", (const char*)glGetString(GL_VENDOR), (const char*)glGetString(GL_RENDERER));
@@ -27,6 +30,7 @@ void OpenGLContext::Init()
 	int major, minor;
 	sscanf(version, "%d.%d", &major, &minor);
 	s_Version = major * 100 + minor * 10;
+	return true;
 }
 
 void OpenGLContext::SwapBuffers()
