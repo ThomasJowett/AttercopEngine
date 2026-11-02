@@ -52,6 +52,7 @@ private:
 
 	float m_DisplayScale;
 	bool m_AllowScrollingToBottom;
+	bool m_MessageHovered = false;
 
 	Level m_LevelFilter;
 	ImGuiTextFilter* m_TextFilter;
