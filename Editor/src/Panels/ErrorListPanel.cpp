@@ -56,6 +56,9 @@ void ErrorListPanel::OnImGuiRender()
 		if (ImGui::IsWindowFocused())
 		{
 			MainDockSpace::SetFocussedWindow(this);
+
+			if (m_NumberSelected > 0 && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_C))
+				CopyErrors(true);
 		}
 
 		ImGuiTableFlags table_flags = 
@@ -126,6 +129,21 @@ void ErrorListPanel::OnImGuiRender()
 					}
 				}
 
+				if (ImGui::BeginPopupContextItem("ErrorContext"))
+				{
+					if (!selected)
+					{
+						for (auto&& [_, s] : m_ErrorList)
+							s = false;
+						selected = true;
+						m_NumberSelected = 1;
+					}
+					if (ImGui::MenuItem(m_NumberSelected > 1 ? "Copy Errors" : "Copy Error"))
+						CopyErrors(true);
+					if (ImGui::MenuItem("Copy All Errors"))
+						CopyErrors(false);
+					ImGui::EndPopup();
+				}
 
 				if (m_NewestError == i && m_ScrollToNewest)
 				{
@@ -192,4 +210,16 @@ void ErrorListPanel::ClearAllErrors()
 	m_ErrorList.clear();
 	m_NumberSelected = 0;
 	m_NewestError.reset();
+}
+
+void ErrorListPanel::CopyErrors(bool selectedOnly)
+{
+	std::string text;
+	for (auto&& [error, selected] : m_ErrorList)
+	{
+		if (selectedOnly && !selected)
+			continue;
+		text += error.filepath.filename().string() + ":" + std::to_string(error.lineNumber) + ": " + error.message + "\n";
+	}
+	ImGui::SetClipboardText(text.c_str());
 }
