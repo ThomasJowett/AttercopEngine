@@ -40,8 +40,8 @@ public:
 	virtual void SaveAs() override;
 	virtual bool NeedsSaving() override { return m_TextEditor.NeedsSaving(); }
 
-	// Lines start at 1
-	void GoToLine(int line) { m_GoToLine = line; }
+	// Lines start at 1; a message also marks the line as an error
+	void GoToLine(int line, const std::string& errorMessage = {}) { m_GoToLine = line; m_GoToLineError = errorMessage; }
 private:
 	TextEditor::LanguageDefinition DetermineLanguageDefinition();
 	void ParseLuaScript();
@@ -60,4 +60,5 @@ private:
 	bool m_ShowSearch = false;
 	bool m_FocusSearch = false;
 	int m_GoToLine = 0;
+	std::string m_GoToLineError;
 };

@@ -45,8 +45,8 @@ class ViewerManager
 public:
 
 	static void OpenViewer(const std::filesystem::path& assetPath);
-	// Opens a text file with the cursor on the given line, starting at 1
-	static void OpenViewer(const std::filesystem::path& assetPath, int line);
+	// Opens a text file with the cursor on the given line, starting at 1, marked as an error if there's a message
+	static void OpenViewer(const std::filesystem::path& assetPath, int line, const std::string& errorMessage = {});
 	static void CloseViewer(const std::filesystem::path& assetPath);
 	static void CloseAll();
 
