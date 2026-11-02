@@ -101,7 +101,7 @@ void ErrorListPanel::OnImGuiRender()
 					{
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 						{
-							ViewerManager::OpenViewer(error.filepath, error.lineNumber);
+							ViewerManager::OpenViewer(error.filepath, error.lineNumber, error.message);
 						}
 
 						for (auto&& [_, s] : m_ErrorList)
@@ -123,7 +123,7 @@ void ErrorListPanel::OnImGuiRender()
 							for (auto&& [e, s] : m_ErrorList)
 							{
 								if (s)
-									ViewerManager::OpenViewer(e.filepath, e.lineNumber);
+									ViewerManager::OpenViewer(e.filepath, e.lineNumber, e.message);
 							}
 						}
 					}

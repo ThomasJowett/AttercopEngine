@@ -256,6 +256,8 @@ void ScriptView::OnImGuiRender()
 			int line = std::min(m_GoToLine, m_TextEditor.GetTotalLines()) - 1;
 			m_TextEditor.SetSelection(TextEditor::Coordinates(line, 0), TextEditor::Coordinates(line + 1, 0));
 			m_TextEditor.SetCursorPosition(TextEditor::Coordinates(line, 0));
+			if (!m_GoToLineError.empty())
+				m_TextEditor.SetErrorMarkers({ { line + 1, m_GoToLineError } });
 			m_GoToLine = 0;
 		}
 		m_TextEditor.Render("TextEditor");

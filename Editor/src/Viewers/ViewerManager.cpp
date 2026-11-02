@@ -113,7 +113,7 @@ void ViewerManager::OpenViewer(const std::filesystem::path& assetPath)
 	}
 }
 
-void ViewerManager::OpenViewer(const std::filesystem::path& assetPath, int line)
+void ViewerManager::OpenViewer(const std::filesystem::path& assetPath, int line, const std::string& errorMessage)
 {
 	OpenViewer(assetPath);
 
@@ -121,7 +121,7 @@ void ViewerManager::OpenViewer(const std::filesystem::path& assetPath, int line)
 	if (line > 0 && it != s_AssetViewers.end())
 	{
 		if (Ref<ScriptView> scriptView = std::dynamic_pointer_cast<ScriptView>(it->second.first))
-			scriptView->GoToLine(line);
+			scriptView->GoToLine(line, errorMessage);
 	}
 }
 
