@@ -36,6 +36,9 @@ private:
 	void ImGuiRenderSettings();
 	void ImGuiRenderMessages();
 	void RenderMessage(const InternalConsole::Message& message, size_t id);
+	template<typename Func>
+	static void ForEachMessage(Func func);
+	static void CopyAll();
 
 	Level GetMessageLevel(spdlog::level::level_enum level);
 

@@ -154,21 +154,48 @@ void ConsolePanel::ImGuiRenderMessages()
 	{
 		ImGui::SetWindowFontScale(m_DisplayScale);
 
-		auto messageStart = InternalConsole::s_MessageBuffer.begin() + InternalConsole::s_MessageBufferBegin;
 		size_t msgId = 0;
-		if (InternalConsole::s_MessageBufferBegin == 0)// If contains old message here
-			for (auto message : InternalConsole::s_MessageBuffer)
-				RenderMessage(message, msgId++);
-		if (InternalConsole::s_MessageBufferBegin != 0) // Skipped first message in vector
-			for (auto message = InternalConsole::s_MessageBuffer.begin(); message != messageStart; message++)
-				RenderMessage(*message, msgId++);
+		ForEachMessage([this, &msgId](const InternalConsole::Message& message) { RenderMessage(message, msgId++); });
 
 		if (m_AllowScrollingToBottom && (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() || ImGui::GetScrollMaxY() == 0))
 		{
 			ImGui::SetScrollHereY(1.0f);
 		}
+
+		if (ImGui::BeginPopupContextWindow("ConsoleContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+		{
+			if (ImGui::MenuItem("Copy Console"))
+				CopyAll();
+			ImGui::EndPopup();
+		}
 	}
 	ImGui::EndChild();
+}
+
+// Oldest first; the buffer is circular and s_MessageBufferBegin is where the next message goes
+template<typename Func>
+void ConsolePanel::ForEachMessage(Func func)
+{
+	auto& buffer = InternalConsole::s_MessageBuffer;
+	auto split = buffer.begin() + InternalConsole::s_MessageBufferBegin;
+	for (auto message = split; message != buffer.end(); message++)
+		if (!message->first.empty())
+			func(*message);
+	for (auto message = buffer.begin(); message != split; message++)
+		if (!message->first.empty())
+			func(*message);
+}
+
+void ConsolePanel::CopyAll()
+{
+	std::string text;
+	ForEachMessage([&text](const InternalConsole::Message& message)
+		{
+			text += message.first;
+			if (text.back() != '\n')
+				text += '\n';
+		});
+	ImGui::SetClipboardText(text.c_str());
 }
 
 std::vector<ConsolePanel::Level> ConsolePanel::s_Levels
@@ -199,6 +226,8 @@ void ConsolePanel::RenderMessage(const InternalConsole::Message& message, size_t
 			{
 				ImGui::SetClipboardText(message.first.c_str());
 			}
+			if (ImGui::MenuItem("Copy Console"))
+				CopyAll();
 			ImGui::EndPopup();
 		}
 		ImGui::PopID();
