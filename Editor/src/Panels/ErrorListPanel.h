@@ -30,6 +30,9 @@ public:
 	bool AddError(Error& error);
 	void ClearAllErrors();
 private:
+	void CopyErrors(bool selectedOnly);
+
+private:
 	bool* m_Show;
 
 	std::vector<std::pair<Error, bool>> m_ErrorList;
