@@ -113,6 +113,18 @@ void ViewerManager::OpenViewer(const std::filesystem::path& assetPath)
 	}
 }
 
+void ViewerManager::OpenViewer(const std::filesystem::path& assetPath, int line)
+{
+	OpenViewer(assetPath);
+
+	auto it = s_AssetViewers.find(assetPath);
+	if (line > 0 && it != s_AssetViewers.end())
+	{
+		if (Ref<ScriptView> scriptView = std::dynamic_pointer_cast<ScriptView>(it->second.first))
+			scriptView->GoToLine(line);
+	}
+}
+
 void ViewerManager::CloseViewer(const std::filesystem::path& assetPath)
 {
 	Application::GetLayerStack().RemoveOverlay(s_AssetViewers.at(assetPath).first);

@@ -251,6 +251,13 @@ void ScriptView::OnImGuiRender()
 		}
 
 		ImGui::PushFont(Fonts::Consolas);
+		if (m_GoToLine > 0 && m_TextEditor.GetTotalLines() > 0)
+		{
+			int line = std::min(m_GoToLine, m_TextEditor.GetTotalLines()) - 1;
+			m_TextEditor.SetSelection(TextEditor::Coordinates(line, 0), TextEditor::Coordinates(line + 1, 0));
+			m_TextEditor.SetCursorPosition(TextEditor::Coordinates(line, 0));
+			m_GoToLine = 0;
+		}
 		m_TextEditor.Render("TextEditor");
 		ImGui::PopFont();
 

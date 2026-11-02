@@ -39,6 +39,9 @@ public:
 	virtual void Save() override;
 	virtual void SaveAs() override;
 	virtual bool NeedsSaving() override { return m_TextEditor.NeedsSaving(); }
+
+	// Lines start at 1
+	void GoToLine(int line) { m_GoToLine = line; }
 private:
 	TextEditor::LanguageDefinition DetermineLanguageDefinition();
 	void ParseLuaScript();
@@ -56,4 +59,5 @@ private:
 	char m_SearchBuffer[256] = {0};
 	bool m_ShowSearch = false;
 	bool m_FocusSearch = false;
+	int m_GoToLine = 0;
 };
