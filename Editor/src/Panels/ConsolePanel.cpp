@@ -155,6 +155,7 @@ void ConsolePanel::ImGuiRenderMessages()
 		ImGui::SetWindowFontScale(m_DisplayScale);
 
 		size_t msgId = 0;
+		m_MessageHovered = false;
 		ForEachMessage([this, &msgId](const InternalConsole::Message& message) { RenderMessage(message, msgId++); });
 
 		if (m_AllowScrollingToBottom && (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() || ImGui::GetScrollMaxY() == 0))
@@ -162,7 +163,10 @@ void ConsolePanel::ImGuiRenderMessages()
 			ImGui::SetScrollHereY(1.0f);
 		}
 
-		if (ImGui::BeginPopupContextWindow("ConsoleContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+		// Right-clicking a message opens that message's menu instead
+		if (!m_MessageHovered && ImGui::IsWindowHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+			ImGui::OpenPopup("ConsoleContext");
+		if (ImGui::BeginPopup("ConsoleContext"))
 		{
 			if (ImGui::MenuItem("Copy Console"))
 				CopyAll();
@@ -219,6 +223,7 @@ void ConsolePanel::RenderMessage(const InternalConsole::Message& message, size_t
 		ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::GetContentRegionAvail().x);
 		ImGui::TextColored({ colour.r, colour.g, colour.b, colour.a }, "%s", message.first.c_str());
 		ImGui::PopTextWrapPos();
+		m_MessageHovered |= ImGui::IsItemHovered();
 
 		if (ImGui::BeginPopupContextItem("MessageContext"))
 		{
