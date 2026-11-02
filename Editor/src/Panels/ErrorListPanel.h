@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include "Core/Layer.h"
 
 struct Error
@@ -26,11 +27,17 @@ public:
 
 	void OnEvent(Event& event) override;
 
-	void AddError(Error& error);
+	bool AddError(Error& error);
 	void ClearAllErrors();
 private:
 	bool* m_Show;
 
 	std::vector<std::pair<Error, bool>> m_ErrorList;
 	uint32_t m_NumberSelected = 0;
+
+	// Index of the most recent error, highlighted until a row is clicked
+	std::optional<size_t> m_NewestError;
+	double m_NewestErrorTime = 0.0;
+	bool m_ScrollToNewest = false;
+	bool m_FocusRequested = false;
 };

@@ -28,6 +28,14 @@ void ErrorListPanel::OnImGuiRender()
 {
 	PROFILE_FUNCTION();
 
+
+	if (m_FocusRequested)
+	{
+		m_FocusRequested = false;
+		*m_Show = true;
+		ImGui::SetNextWindowFocus();
+	}
+
 	if (!*m_Show)
 		return;
 
@@ -66,8 +74,17 @@ void ErrorListPanel::OnImGuiRender()
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 
+				if (m_NewestError == i)
+				{
+					// Pulses for the first few seconds, then stays tinted
+					float t = (float)(ImGui::GetTime() - m_NewestErrorTime);
+					float alpha = t < 3.0f ? 0.35f + 0.25f * cosf(t * 6.0f) : 0.35f;
+					ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImGui::GetColorU32(ImVec4(0.9f, 0.1f, 0.1f, alpha)));
+				}
+
 				if (ImGui::Selectable(error.message.c_str(), selected, selectable_flags))
 				{
+					m_NewestError.reset();
 					if (!ImGui::GetIO().KeyCtrl)
 					{
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
@@ -100,6 +117,13 @@ void ErrorListPanel::OnImGuiRender()
 					}
 				}
 
+
+				if (m_NewestError == i && m_ScrollToNewest)
+				{
+					ImGui::SetScrollHereY();
+					m_ScrollToNewest = false;
+				}
+
 				ImGui::TableSetColumnIndex(1);
 				ImGui::TextUnformatted(error.filepath.filename().string().c_str());
 				ImGui::TableSetColumnIndex(2);
@@ -119,7 +143,11 @@ void ErrorListPanel::OnEvent(Event& event)
 	dispatcher.Dispatch<LuaErrorEvent>([this](LuaErrorEvent& luaErrorEvent)
 		{
 			auto error = Error(luaErrorEvent.GetFile(), luaErrorEvent.GetLine(), luaErrorEvent.GetErrorMessage());
-			AddError(error);
+			if (AddError(error))
+			{
+				m_FocusRequested = true;
+				SceneState state = SceneManager::GetSceneState();
+			}
 			return false;
 		});
 	dispatcher.Dispatch<SceneStateChangedEvent>([this](SceneStateChangedEvent& sceneStateChangedEvent)
@@ -133,16 +161,23 @@ void ErrorListPanel::OnEvent(Event& event)
 		});
 }
 
-void ErrorListPanel::AddError(Error& error)
+bool ErrorListPanel::AddError(Error& error)
 {
 	auto it = std::find_if(m_ErrorList.begin(), m_ErrorList.end(),
 		[&error](const std::pair<Error, bool>& e) { return e.first.filepath == error.filepath && e.first.lineNumber == error.lineNumber; });
-	if (it == m_ErrorList.end())
-		m_ErrorList.push_back(std::make_pair(error, false));
+	if (it != m_ErrorList.end())
+		return false;
+
+	m_ErrorList.push_back(std::make_pair(error, false));
+	m_NewestError = m_ErrorList.size() - 1;
+	m_NewestErrorTime = ImGui::GetCurrentContext() ? ImGui::GetTime() : 0.0;
+	m_ScrollToNewest = true;
+	return true;
 }
 
 void ErrorListPanel::ClearAllErrors()
 {
 	m_ErrorList.clear();
 	m_NumberSelected = 0;
+	m_NewestError.reset();
 }
