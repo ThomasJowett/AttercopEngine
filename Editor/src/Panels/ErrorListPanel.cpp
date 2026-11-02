@@ -6,6 +6,7 @@
 #include "Scene/SceneManager.h"
 #include "Scene/Components.h"
 #include "Logging/Instrumentor.h"
+#include "Core/Settings.h"
 
 #include "MainDockSpace.h"
 #include "Viewers/ViewerManager.h"
@@ -28,6 +29,14 @@ void ErrorListPanel::OnImGuiRender()
 {
 	PROFILE_FUNCTION();
 
+	if (m_PauseRequested)
+	{
+		m_PauseRequested = false;
+		if (SceneManager::GetSceneState() == SceneState::Play)
+			SceneManager::ChangeSceneState(SceneState::Pause);
+		else if (SceneManager::GetSceneState() == SceneState::Simulate)
+			SceneManager::ChangeSceneState(SceneState::SimulatePause);
+	}
 
 	if (m_FocusRequested)
 	{
@@ -147,6 +156,9 @@ void ErrorListPanel::OnEvent(Event& event)
 			{
 				m_FocusRequested = true;
 				SceneState state = SceneManager::GetSceneState();
+				if ((state == SceneState::Play || state == SceneState::Simulate)
+					&& Settings::GetBool("Editor", "Pause_On_Script_Error"))
+					m_PauseRequested = true;
 			}
 			return false;
 		});

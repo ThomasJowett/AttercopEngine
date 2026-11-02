@@ -24,6 +24,7 @@ EditorPreferencesPanel::EditorPreferencesPanel(bool* show)
 
 	Settings::SetDefaultValue("Editor", "Theme", EditorStyles::DefaultTheme);
 	Settings::SetDefaultBool("Editor", "Lock_Cursor_When_Looking", false);
+	Settings::SetDefaultBool("Editor", "Pause_On_Script_Error", true);
 
 	m_StyleFilename = (Application::GetSettingsDirectory() / "styles" / "Editor.style").string();
 }
@@ -137,6 +138,14 @@ void EditorPreferencesPanel::OnImGuiRender()
 			}
 #endif
 #endif
+			ImGui::TreePop();
+		}
+		if (ImGui::TreeNode("Play"))
+		{
+			bool pauseOnError = Settings::GetBool("Editor", "Pause_On_Script_Error");
+			if (ImGui::Checkbox("Pause on script error", &pauseOnError))
+				Settings::SetBool("Editor", "Pause_On_Script_Error", pauseOnError);
+			ImGui::Tooltip("Pauses play when a Lua script has a new error, and shows it in the Error List");
 			ImGui::TreePop();
 		}
 	}

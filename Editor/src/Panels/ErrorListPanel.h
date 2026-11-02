@@ -40,4 +40,5 @@ private:
 	double m_NewestErrorTime = 0.0;
 	bool m_ScrollToNewest = false;
 	bool m_FocusRequested = false;
+	bool m_PauseRequested = false;
 };
