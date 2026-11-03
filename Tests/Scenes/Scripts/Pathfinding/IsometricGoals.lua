@@ -19,3 +19,7 @@ end
 function OnUpdate(deltaTime)
 	test:Update()
 end
+
+function OnDebugRender()
+	test:DrawPath()
+end
