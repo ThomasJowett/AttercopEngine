@@ -2,6 +2,7 @@
 -- Update() is called every frame. For each goal, in order, it asks Pathfinding.FindPath for a route from the agent's
 -- current position, checks a route exists exactly when the goal says so, then drives the agent along it and checks
 -- it arrives. A goal is { name, column, row, reachable } for a tile, or { name, x, y, reachable } for a world position.
+-- DrawPath(), from OnDebugRender, draws the rest of the route as a poly line.
 -- The agent needs a dynamic RigidBody2D with gravity scale 0 and a CircleCollider2D.
 
 local Speed = 5.0
@@ -9,6 +10,9 @@ local WaypointRadius = 0.1
 local SlowdownRadius = 0.5
 local ArrivalRadius = 0.3
 local MaxFramesPerGoal = 3000
+local PathColour = Colour.new(1, 0.5, 0, 1)
+local PathWidth = 4 -- pixels
+local PathZ = 0.05 -- above the tilemap, below the agent
 
 function CreatePathfindingTest(level, agent, goals)
 	local test = { index = 0, path = {}, nextPoint = 1, frames = 0, goal = nil }
@@ -96,6 +100,21 @@ function CreatePathfindingTest(level, agent, goals)
 			speed = Speed * math.min(1.0, distance / SlowdownRadius)
 		end
 		agent:GetRigidBody2DComponent():SetLinearVelocity(Vec2.new(dx / distance * speed, dy / distance * speed))
+	end
+
+	function test:DrawPath()
+		if self.path[self.nextPoint] == nil then
+			return
+		end
+
+		local x, y = Position()
+		local points = { Vec3.new(x, y, PathZ) }
+		for i = self.nextPoint, #self.path do
+			points[#points + 1] = Vec3.new(self.path[i].x, self.path[i].y, PathZ)
+		end
+		local goalX, goalY = GoalPosition(self.goal)
+		points[#points + 1] = Vec3.new(goalX, goalY, PathZ)
+		Debug.DrawPolyline(points, PathWidth, PathColour)
 	end
 
 	return test
