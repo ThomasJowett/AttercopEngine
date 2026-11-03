@@ -83,6 +83,7 @@ group_files_by_directory("HEADERS")
 source_group("Data" FILES ${DATA_FILES})
 
 target_link_libraries(Editor PRIVATE Engine)
+attercop_target_shaders(Editor)
 
 target_include_directories(Editor PUBLIC
                             ${CMAKE_CURRENT_SOURCE_DIR}/src

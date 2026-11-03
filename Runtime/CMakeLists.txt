@@ -36,6 +36,7 @@ endif()
 source_group("Data" FILES ${DATA_FILES})
 
 target_link_libraries(Runtime PRIVATE Engine)
+attercop_target_shaders(Runtime)
 target_copy_webgpu_binaries(Runtime)
 
 if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)

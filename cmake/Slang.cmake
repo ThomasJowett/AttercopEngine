@@ -1,23 +1,20 @@
-# Compiles the Slang shaders in Engine/shaders into the GLSL and WGSL files in Editor/data/Shaders.
-# slangc is downloaded from the pinned Slang release, so nothing has to be installed.
+# Compiles the Slang shaders in Engine/shaders into GLSL and WGSL in the build folder, and copies them into
+# each target's data/Shaders. slangc is downloaded from the pinned Slang release, so nothing has to be installed.
 #
 # Usage, from Engine/shaders/CMakeLists.txt:
 #   attercop_add_shader(<name> TARGETS glsl wgsl)
 #   attercop_add_shader_target()
+# and for every executable that loads shaders:
+#   attercop_target_shaders(<target>)
 
-if (EMSCRIPTEN)
-	set(ATTERCOP_COMPILE_SHADERS_DEFAULT OFF)
-else()
-	set(ATTERCOP_COMPILE_SHADERS_DEFAULT ON)
-endif()
-option(ATTERCOP_COMPILE_SHADERS "Regenerate the GLSL/WGSL shaders from Engine/shaders" ${ATTERCOP_COMPILE_SHADERS_DEFAULT})
 set(SLANGC "" CACHE FILEPATH "slangc to use instead of the downloaded release")
 
 set(ATTERCOP_SLANG_VERSION "2026.20")
 set(ATTERCOP_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/Engine/shaders")
-set(ATTERCOP_SHADER_OUTPUT_DIR "${PROJECT_SOURCE_DIR}/Editor/data/Shaders")
+set(ATTERCOP_SHADER_OUTPUT_DIR "${PROJECT_BINARY_DIR}/Shaders")
+file(MAKE_DIRECTORY "${ATTERCOP_SHADER_OUTPUT_DIR}")
 
-if (ATTERCOP_COMPILE_SHADERS AND NOT SLANGC)
+if (NOT SLANGC)
 	set(_slangUrl "https://github.com/shader-slang/slang/releases/download/v${ATTERCOP_SLANG_VERSION}/slang-${ATTERCOP_SLANG_VERSION}")
 	if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
 		set(_slangArchive "macos-aarch64.tar.gz")
@@ -52,7 +49,7 @@ if (ATTERCOP_COMPILE_SHADERS AND NOT SLANGC)
 			set(SLANGC "${slang_SOURCE_DIR}/bin/slangc" CACHE FILEPATH "" FORCE)
 		endif()
 	else()
-		message(WARNING "No Slang release for ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}: shaders won't be regenerated. Set SLANGC to a local slangc to compile them.")
+		message(FATAL_ERROR "No Slang release for ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}: set SLANGC to a local slangc")
 	endif()
 endif()
 
@@ -80,9 +77,6 @@ endfunction()
 
 function(attercop_add_shader name)
 	cmake_parse_arguments(ARG "" "" "TARGETS" ${ARGN})
-	if (NOT ATTERCOP_COMPILE_SHADERS OR NOT SLANGC)
-		return()
-	endif()
 	foreach(target ${ARG_TARGETS})
 		if (target STREQUAL "glsl")
 			_attercop_compile_shader(${name} "${name}.vert" -target glsl -profile glsl_450 -DTARGET_GLSL -entry vs_main -stage vertex)
@@ -97,12 +91,36 @@ endfunction()
 
 function(attercop_add_shader_target)
 	get_property(outputs GLOBAL PROPERTY ATTERCOP_SHADER_OUTPUTS)
-	if (NOT outputs)
-		return()
-	endif()
 	get_property(sources GLOBAL PROPERTY ATTERCOP_SHADER_SOURCES)
 	list(REMOVE_DUPLICATES sources)
 	add_custom_target(AttercopShaders DEPENDS ${outputs} SOURCES ${sources} ${_shaderModules})
 	set_target_properties(AttercopShaders PROPERTIES FOLDER Engine)
 	add_dependencies(Engine AttercopShaders)
+endfunction()
+
+# Puts the generated shaders in <target>'s data/Shaders: in the bundle on macOS, preloaded on the web,
+# otherwise copied next to the executable
+function(attercop_target_shaders target)
+	get_property(outputs GLOBAL PROPERTY ATTERCOP_SHADER_OUTPUTS)
+	set_source_files_properties(${outputs} PROPERTIES GENERATED TRUE)
+	add_dependencies(${target} AttercopShaders)
+	get_target_property(isBundle ${target} MACOSX_BUNDLE)
+
+	if (EMSCRIPTEN)
+		# SHELL: keeps CMake from de-duplicating the second --preload-file
+		target_link_options(${target} PRIVATE "SHELL:--preload-file \"${ATTERCOP_SHADER_OUTPUT_DIR}@/data/Shaders\"")
+		set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${outputs})
+	elseif (APPLE AND isBundle)
+		set_source_files_properties(${outputs} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/data/Shaders")
+		target_sources(${target} PRIVATE ${outputs})
+		source_group("Data/Shaders" FILES ${outputs})
+	else()
+		# LINK_DEPENDS relinks, and so recopies, when a shader changes (Makefiles and Ninja only)
+		add_custom_command(TARGET ${target} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/data/Shaders"
+			COMMAND ${CMAKE_COMMAND} -E copy_directory "${ATTERCOP_SHADER_OUTPUT_DIR}" "$<TARGET_FILE_DIR:${target}>/data/Shaders"
+			COMMENT "Copying shaders to ${target}"
+		)
+		set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS ${outputs})
+	endif()
 endfunction()
