@@ -174,15 +174,6 @@ void RenderCommandForQueue(const std::vector<Command>& renderQueue)
 		s_SceneData.modelBuffer.entityId = command.entityId;
 		modelUniformBuffer->SetData(&s_SceneData.modelBuffer, sizeof(SceneData::ModelBuffer));
 
-		s_RendererData.whiteTexture->Bind(0);
-		s_RendererData.normalTexture->Bind(1);
-		s_RendererData.mixMapTexture->Bind(2);
-
-		command.material->BindTextures();
-
-		// Texture::Bind() above only does anything on OpenGL (WebGPU has no global texture-unit
-		// binding - it's always relative to a specific pipeline's bind group), so WebGPU also needs
-		// this explicit, pipeline-scoped equivalent.
 		Ref<Texture> albedo = command.material->GetTexture(0);
 		if (albedo)
 		{
