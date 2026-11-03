@@ -32,7 +32,6 @@ public:
 
 	const std::string& GetShader() const { return m_Shader; }
 	void SetShader(const std::string& shader) { m_Shader = shader; }
-	void BindTextures() const;
 	Ref<Texture2D> GetTexture(uint32_t slot);
 
 	void AddTexture(Ref<Texture2D>, uint32_t slot);

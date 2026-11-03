@@ -1,5 +1,4 @@
 #include "Material.h"
-#include "Renderer/Sampler.h"
 
 #include "TinyXml2/tinyxml2.h"
 #include "Utilities/SerializationUtils.h"
@@ -28,16 +27,6 @@ Material::Material(const std::string& shader, Colour tint)
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
-
-void Material::BindTextures() const
-{
-	for (auto&& [slot, texture] : m_Textures)
-	{
-		texture->Bind(slot);
-		const TextureSampling& sampling = m_TextureSampling.count(slot) ? m_TextureSampling.at(slot) : TextureSampling();
-		Sampler::Get(sampling.filterMethod, sampling.wrapMethod)->Bind(slot);
-	}
-}
 
 Ref<Texture2D> Material::GetTexture(uint32_t slot)
 {
