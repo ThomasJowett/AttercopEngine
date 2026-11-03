@@ -591,21 +591,14 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		m_TilemapEditor->Hide();
 		m_Framebuffer->Bind();
 		RenderCommand::StartRenderPass();
-		Matrix4x4 view;
-		Matrix4x4 projection;
-		if (Entity cameraEntity = SceneManager::CurrentScene()->GetPrimaryCameraEntity())
-		{
-			auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-			view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.rotation));
-			projection = cameraComp.camera.GetProjectionMatrix();
-		}
-
-		Renderer2D::BeginScene();
+		// The scene camera, not the in-game UI's
+		auto [view, projection] = SceneManager::CurrentScene()->GetPrimaryCameraViewProjection();
+		Renderer::BeginScene(view, projection);
 		SceneManager::CurrentScene()->GetRegistry().view<LuaScriptComponent>().each([](auto entity, auto& luaScriptComp)
 			{
 				luaScriptComp.OnDebugRender();
 			});
-		Renderer2D::EndScene();
+		Renderer::EndScene();
 		RenderCommand::EndRenderPass();
 		m_Framebuffer->UnBind();
 	}
