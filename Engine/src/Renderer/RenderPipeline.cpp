@@ -5,6 +5,7 @@
 #include "FrameBuffer.h"
 #include "Renderer/Renderer.h"
 #include "Pipeline.h"
+#include "ShaderBindings.h"
 
 #include "PostProcessEffects/GaussianBlurEffect.h"
 #include "Renderer2D.h"
@@ -134,14 +135,14 @@ void RenderPipeline::Render(Scene* scene, const Matrix4x4& view, const Matrix4x4
 	{
 		m_FinalPassPipeline->Bind();
 		m_FinalPassShader->Bind();
-		m_FinalPassPipeline->SetTexture(outputTexture, 0);
-		m_FinalPassPipeline->SetTexture(entityIdTexture, 2);
+		m_FinalPassPipeline->SetTexture(outputTexture, BINDING_INPUT_TEXTURE);
+		m_FinalPassPipeline->SetTexture(entityIdTexture, BINDING_ENTITY_ID);
 	}
 	else
 	{
 		m_FinalPassPipelineSwapchain->Bind();
 		m_FinalPassShaderSwapchain->Bind();
-		m_FinalPassPipelineSwapchain->SetTexture(outputTexture, 0);
+		m_FinalPassPipelineSwapchain->SetTexture(outputTexture, BINDING_INPUT_TEXTURE);
 	}
 
 	m_FullscreenQuad->GetVertexBuffer()->Bind();

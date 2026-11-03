@@ -10,6 +10,7 @@
 #include "RenderCommand.h"
 #include "UniformBuffer.h"
 #include "Sampler.h"
+#include "ShaderBindings.h"
 #include "Asset/Asset.h"
 
 #include "Renderer/UI/MSDFData.h"
@@ -87,7 +88,7 @@ struct Renderer2DData
 	const uint32_t maxIndices = maxQuads * 6;
 	uint32_t targetSamples = 1;
 	// Max simultaneous font atlases per text batch (see fontAtlasSlots below).
-	static const size_t maxTexturesSlots = 8;
+	static const size_t maxTexturesSlots = TEXTURE_SLOT_COUNT;
 
 	const uint32_t maxLines = 10000;
 	const uint32_t maxLineVertices = maxLines * 4;
@@ -496,10 +497,10 @@ void Renderer2D::FlushQuads()
 	vertexBuffer->SetData(s_Data.quadVertexBufferBase, dataSize);
 
 	// Binding 0 is Camera below, so textures start at 1
-	s_Data.quadPipeline->SetTextureArray({ s_Data.quadTextureSlots.begin(), s_Data.quadTextureSlots.end() }, 1, s_Data.quadSampler);
+	s_Data.quadPipeline->SetTextureArray({ s_Data.quadTextureSlots.begin(), s_Data.quadTextureSlots.end() }, BINDING_TEXTURE_SLOTS, s_Data.quadSampler);
 
 	s_Data.quadPipeline->Bind();
-	s_Data.quadPipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, 0);
+	s_Data.quadPipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
 	vertexBuffer->Bind();
 	s_Data.quadIndexBuffer->Bind();
@@ -521,7 +522,7 @@ void Renderer2D::FlushCircles()
 	s_Data.circleVertexBuffer->SetData(s_Data.circleVertexBufferBase, dataSize);
 
 	s_Data.circlePipeline->Bind();
-	s_Data.circlePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, 0);
+	s_Data.circlePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
 	s_Data.circleVertexBuffer->Bind();
 	// Circles use the same 4-vertex/6-index-per-quad topology as quads, so they share quadIndexBuffer
@@ -546,7 +547,7 @@ void Renderer2D::FlushLines()
 	s_Data.lineVertexBuffer->SetData(s_Data.lineVertexBufferBase, dataSize);
 
 	s_Data.linePipeline->Bind();
-	s_Data.linePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, 0);
+	s_Data.linePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
 	s_Data.lineVertexBuffer->Bind();
 	s_Data.lineIndexBuffer->Bind();
@@ -568,7 +569,7 @@ void Renderer2D::FlushHairLines()
 	vertexBuffer->SetData(s_Data.hairLineVertexBufferBase, dataSize);
 
 	s_Data.hairLinePipeline->Bind();
-	s_Data.hairLinePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, 0);
+	s_Data.hairLinePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
 	vertexBuffer->Bind();
 	RenderCommand::DrawLines(s_Data.hairLineVertexCount);
@@ -589,10 +590,10 @@ void Renderer2D::FlushText()
 	// as the sampler source over whiteTexture (Nearest) when one is active.
 	Ref<Texture> samplerSource = s_Data.fontAtlasSlotIndex > 1 ? s_Data.fontAtlasSlots[1] : s_Data.fontAtlasSlots[0];
 	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), samplerSource->GetWrapMethod());
-	s_Data.textPipeline->SetTextureArray({ s_Data.fontAtlasSlots.begin(), s_Data.fontAtlasSlots.end() }, 1, sampler);
+	s_Data.textPipeline->SetTextureArray({ s_Data.fontAtlasSlots.begin(), s_Data.fontAtlasSlots.end() }, BINDING_TEXTURE_SLOTS, sampler);
 
 	s_Data.textPipeline->Bind();
-	s_Data.textPipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, 0);
+	s_Data.textPipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
 	s_Data.textVertexBuffer->Bind();
 	s_Data.textIndexBuffer->Bind();

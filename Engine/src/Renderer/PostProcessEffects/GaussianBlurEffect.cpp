@@ -1,6 +1,7 @@
 #include "GaussianBlurEffect.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/RenderCommand.h"
+#include "Renderer/ShaderBindings.h"
 
 GaussianBlurEffect::GaussianBlurEffect(float strength)
 {
@@ -42,8 +43,8 @@ void GaussianBlurEffect::Apply(Ref<Texture> colourTexture, Ref<Texture> depthTex
 	RenderCommand::Clear();
 	RenderCommand::StartRenderPass();
 	m_Pipeline->Bind();
-	m_Pipeline->SetTexture(colourTexture, 0);
-	m_Pipeline->SetUniformBuffer(postProcessBuffer, 3);
+	m_Pipeline->SetTexture(colourTexture, BINDING_INPUT_TEXTURE);
+	m_Pipeline->SetUniformBuffer(postProcessBuffer, BINDING_POST_PROCESS);
 	fullscreenQuad->GetVertexBuffer()->Bind();
 	fullscreenQuad->GetIndexBuffer()->Bind();
 	RenderCommand::DrawIndexed(fullscreenQuad->GetIndexCount());
@@ -60,8 +61,8 @@ void GaussianBlurEffect::Apply(Ref<Texture> colourTexture, Ref<Texture> depthTex
 	RenderCommand::Clear();
 	RenderCommand::StartRenderPass();
 	m_Pipeline->Bind();
-	m_Pipeline->SetTexture(scratch->GetColourAttachment(0), 0);
-	m_Pipeline->SetUniformBuffer(postProcessBuffer, 3);
+	m_Pipeline->SetTexture(scratch->GetColourAttachment(0), BINDING_INPUT_TEXTURE);
+	m_Pipeline->SetUniformBuffer(postProcessBuffer, BINDING_POST_PROCESS);
 	fullscreenQuad->GetVertexBuffer()->Bind();
 	fullscreenQuad->GetIndexBuffer()->Bind();
 	RenderCommand::DrawIndexed(fullscreenQuad->GetIndexCount());

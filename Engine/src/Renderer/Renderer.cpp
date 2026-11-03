@@ -8,6 +8,7 @@
 
 #include "FrameBuffer.h"
 #include "UniformBuffer.h"
+#include "ShaderBindings.h"
 #include "Asset/Texture.h"
 #include "Scene/Entity.h"
 #include "Scene/Components/CameraComponent.h"
@@ -90,7 +91,7 @@ std::vector<Command> s_TransparentRenderQueue;
 static Ref<UniformBuffer> NextModelUniformBuffer()
 {
 	if (s_SceneData.modelUniformBufferPoolIndex >= s_SceneData.modelUniformBufferPool.size())
-		s_SceneData.modelUniformBufferPool.push_back(UniformBuffer::Create(sizeof(SceneData::ModelBuffer), 1));
+		s_SceneData.modelUniformBufferPool.push_back(UniformBuffer::Create(sizeof(SceneData::ModelBuffer), BINDING_MODEL));
 
 	return s_SceneData.modelUniformBufferPool[s_SceneData.modelUniformBufferPoolIndex++];
 }
@@ -160,8 +161,8 @@ void RenderCommandForQueue(const std::vector<Command>& renderQueue)
 		Ref<UniformBuffer> modelUniformBuffer = NextModelUniformBuffer();
 
 		pipeline->Bind();
-		pipeline->SetUniformBuffer(s_SceneData.constantUniformBuffer, 0);
-		pipeline->SetUniformBuffer(modelUniformBuffer, 1);
+		pipeline->SetUniformBuffer(s_SceneData.constantUniformBuffer, BINDING_CAMERA);
+		pipeline->SetUniformBuffer(modelUniformBuffer, BINDING_MODEL);
 
 		s_SceneData.modelBuffer.modelMatrix = command.transform.GetTranspose();
 		s_SceneData.modelBuffer.colour = command.material->GetTint();
@@ -183,10 +184,10 @@ void RenderCommandForQueue(const std::vector<Command>& renderQueue)
 		if (albedo)
 		{
 			const Material::TextureSampling& sampling = command.material->GetTextureSampling(0);
-			pipeline->SetTexture(albedo, 2, Sampler::Get(sampling.filterMethod, sampling.wrapMethod));
+			pipeline->SetTexture(albedo, BINDING_ALBEDO, Sampler::Get(sampling.filterMethod, sampling.wrapMethod));
 		}
 		else
-			pipeline->SetTexture(s_RendererData.whiteTexture, 2);
+			pipeline->SetTexture(s_RendererData.whiteTexture, BINDING_ALBEDO);
 
 		command.mesh->GetVertexBuffer()->Bind();
 		command.mesh->GetIndexBuffer()->Bind();
@@ -203,7 +204,7 @@ void RenderCommandForQueue(const std::vector<Command>& renderQueue)
 
 bool Renderer::Init()
 {
-	s_SceneData.constantUniformBuffer = UniformBuffer::Create(sizeof(SceneData::ConstantBuffer), 0);
+	s_SceneData.constantUniformBuffer = UniformBuffer::Create(sizeof(SceneData::ConstantBuffer), BINDING_CAMERA);
 
 	uint32_t whiteTextureData = Colour(Colours::WHITE).HexValue();
 	s_RendererData.whiteTexture = Texture2D::Create(1, 1, Texture2D::Format::RGBA, 1u, &whiteTextureData);
