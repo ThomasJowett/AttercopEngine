@@ -4,6 +4,7 @@
 #include "Logging/Instrumentor.h"
 
 #include "Renderer/Pipeline.h"
+#include "Renderer/ShaderBindings.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/RenderCommand.h"
 #include "Renderer/Mesh.h"
@@ -163,7 +164,7 @@ void WebGPUFrameBuffer::BlitDepthTo(Ref<FrameBuffer> target)
 		target->GetSpecification().width, target->GetSpecification().height);
 
 	m_DepthBlitPipeline->Bind();
-	m_DepthBlitPipeline->SetTexture(m_DepthAttachment, 0);
+	m_DepthBlitPipeline->SetTexture(m_DepthAttachment, BINDING_INPUT_TEXTURE);
 
 	m_DepthBlitFullscreenQuad->GetVertexBuffer()->Bind();
 	m_DepthBlitFullscreenQuad->GetIndexBuffer()->Bind();
@@ -241,7 +242,7 @@ void WebGPUFrameBuffer::ResolveTo(Ref<FrameBuffer> target)
 		target->GetSpecification().width, target->GetSpecification().height);
 
 	m_EntityIdResolvePipeline->Bind();
-	m_EntityIdResolvePipeline->SetTexture(multisampledEntityId, 0);
+	m_EntityIdResolvePipeline->SetTexture(multisampledEntityId, BINDING_INPUT_TEXTURE);
 
 	m_ResolveFullscreenQuad->GetVertexBuffer()->Bind();
 	m_ResolveFullscreenQuad->GetIndexBuffer()->Bind();

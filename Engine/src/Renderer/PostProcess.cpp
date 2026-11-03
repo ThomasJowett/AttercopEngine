@@ -1,10 +1,11 @@
 #include "PostProcess.h"
 #include "Logging/Instrumentor.h"
+#include "ShaderBindings.h"
 
 PostProcessStack::PostProcessStack()
 {
 	PROFILE_FUNCTION();
-	m_PostProcessUniformBuffer = UniformBuffer::Create(sizeof(PostProcessData), 3);
+	m_PostProcessUniformBuffer = UniformBuffer::Create(sizeof(PostProcessData), BINDING_POST_PROCESS);
 }
 
 void PostProcessStack::AddEffect(const Ref<PostProcessEffect> effect)
