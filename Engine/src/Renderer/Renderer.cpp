@@ -407,9 +407,9 @@ void Renderer::RenderScene(Scene* scene, const Matrix4x4& view, const Matrix4x4&
 	s_RenderPipeline->Render(scene, view, projection, finalOutputTarget);
 }
 
-Ref<Shader> Renderer::GetShader(const std::string& name, bool postProcess)
+Ref<Shader> Renderer::GetShader(const std::string& name)
 {
-	return s_ShaderLibrary.Load(name, postProcess);
+	return s_ShaderLibrary.Load(name);
 }
 
 void Renderer::AddPostProcessEffect(const Ref<PostProcessEffect>& effect)

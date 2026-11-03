@@ -145,7 +145,7 @@ void WebGPUFrameBuffer::BlitDepthTo(Ref<FrameBuffer> target)
 
 	if (!m_DepthBlitPipeline)
 	{
-		Ref<Shader> shader = Renderer::GetShader("DepthBlit", true);
+		Ref<Shader> shader = Renderer::GetShader("DepthBlit");
 		m_DepthBlitFullscreenQuad = GeometryGenerator::CreateFullScreenQuad();
 
 		Pipeline::Spec spec;
@@ -216,7 +216,7 @@ void WebGPUFrameBuffer::ResolveTo(Ref<FrameBuffer> target)
 
 	if (!m_EntityIdResolvePipeline)
 	{
-		Ref<Shader> shader = Renderer::GetShader("EntityIdResolve", true);
+		Ref<Shader> shader = Renderer::GetShader("EntityIdResolve");
 		m_ResolveFullscreenQuad = GeometryGenerator::CreateFullScreenQuad();
 
 		Pipeline::Spec spec;
