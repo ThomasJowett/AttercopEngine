@@ -73,11 +73,17 @@ public:
 	static void DrawCircle(const Matrix4x4& transform, const Colour& colour, float thickness = 1.0f, float fade = 0.005f, int entityId = -1);
 	static void DrawCircle(const Matrix4x4& transform, const CircleRendererComponent& circleComp, int entityId = -1);
 
-	// Line
-	static void DrawLine(const Vector2f& start, const Vector2f& end, const float& thickness = 1.0f, const Colour& colour = Colours::WHITE);
-
-	// Poly-line
-	static void DrawPolyline(const std::vector<Vector2f>& points, const float& thickness = 1.0f, const Colour& colour = Colours::WHITE);
+	// Lines, with round caps and joins
+	enum class LineWidth
+	{
+		Pixels, // the same on screen at any zoom
+		World   // in world units, scales with the camera
+	};
+	static void DrawLine(const Vector3f& start, const Vector3f& end, float width = 1.0f, const Colour& colour = Colours::WHITE, LineWidth widthUnits = LineWidth::Pixels, int entityId = -1);
+	// closed joins the last point back to the first
+	static void DrawPolyline(const std::vector<Vector3f>& points, float width = 1.0f, const Colour& colour = Colours::WHITE, bool closed = false, LineWidth widthUnits = LineWidth::Pixels, int entityId = -1);
+	// The texture runs along the line, repeating every textureLength world units, and its height fits the width
+	static void DrawPolyline(const std::vector<Vector3f>& points, float width, const Ref<Texture2D>& texture, float textureLength, const Colour& tint = Colours::WHITE, bool closed = false, LineWidth widthUnits = LineWidth::World, int entityId = -1);
 
 	// Hair Lines
 	static void DrawHairLine(const Vector3f& start, const Vector3f& end, const Colour& colour = Colours::WHITE, int entityId = -1);
@@ -115,6 +121,9 @@ public:
 
 private:
 	static float AssignQuadTextureSlot(const Ref<Texture>& texture);
+	static float AssignLineTextureSlot(const Ref<Texture>& texture);
+	static void AddLineSegment(const Vector3f& start, const Vector3f& end, const Vector3f* previous, const Vector3f* next, float width, const Colour& colour,
+		bool widthInPixels, float texIndex, float textureStart, float texturePerWorld, int entityId);
 	// Requests the sampler for the next textured quads, it's only switched to once a visible one is drawn
 	static void UseQuadSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod);
 	static void ApplyQuadSampler();

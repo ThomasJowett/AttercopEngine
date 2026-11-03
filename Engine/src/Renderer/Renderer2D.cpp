@@ -44,13 +44,28 @@ struct CircleVertex
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
+// Must match the flags in Renderer2D_Line.slang
+enum LineFlags
+{
+	LineWidthInPixels = 1,
+	LineHasPrevious = 2,
+	LineHasNext = 4
+};
+
+// Every vertex of a segment holds both ends and its neighbours, the shader widens it around them (Renderer2D_Line.slang)
 struct LineVertex
 {
-	Vector3f clipCoord;
+	Vector3f start;
+	Vector3f end;
+	Vector3f previous;
+	Vector3f next;
+	Vector2f corner;
 	Colour colour;
-	Vector2f texCoords;
 	float width;
-	float length;
+	int flags;
+	float texIndex;
+	float textureStart;
+	float texturePerWorld;
 
 	// Editor only
 	int EntityId;
@@ -161,17 +176,21 @@ struct Renderer2DData
 	std::vector<Ref<VertexBuffer>> hairLineVertexBufferPool;
 	size_t hairLineVertexBufferPoolIndex = 0;
 
+	std::vector<Ref<VertexBuffer>> lineVertexBufferPool;
+	size_t lineVertexBufferPoolIndex = 0;
+
 	std::array<Ref<Texture>, maxTexturesSlots> fontAtlasSlots;
 	uint32_t fontAtlasSlotIndex = 1;
 
 	std::array<Ref<Texture>, maxTexturesSlots> quadTextureSlots;
 	uint32_t quadTextureSlotIndex = 1;
 
+	std::array<Ref<Texture>, maxTexturesSlots> lineTextureSlots;
+	uint32_t lineTextureSlotIndex = 1;
+
 	Vector3f quadVertexPositions[4];
 
 	Frustum frustum;
-
-	uint32_t screenWidth = 1920, screenHeight = 1080;
 
 	Ref<SpriteAtlas> activeAtlas;
 
@@ -258,11 +277,17 @@ bool Renderer2D::Init()
 	s_Data.lineVertexBuffer = VertexBuffer::Create(s_Data.maxLineVertices * sizeof(LineVertex));
 
 	s_Data.lineVertexBuffer->SetLayout({
-		{ShaderDataType::Float3, "a_clipCoord"},
-		{ShaderDataType::Float4, "a_colour"},
-		{ShaderDataType::Float2, "a_texcoord"},
-		{ShaderDataType::Float, "a_width"},
-		{ShaderDataType::Float, "a_height"},
+		{ShaderDataType::Float3, "a_Start"},
+		{ShaderDataType::Float3, "a_End"},
+		{ShaderDataType::Float3, "a_Previous"},
+		{ShaderDataType::Float3, "a_Next"},
+		{ShaderDataType::Float2, "a_Corner"},
+		{ShaderDataType::Float4, "a_Colour"},
+		{ShaderDataType::Float, "a_Width"},
+		{ShaderDataType::Int,   "a_Flags"},
+		{ShaderDataType::Float, "a_TexIndex"},
+		{ShaderDataType::Float, "a_TextureStart"},
+		{ShaderDataType::Float, "a_TexturePerWorld"},
 		{ShaderDataType::Int,   "a_EntityID"}
 		});
 	s_Data.lineVertexBufferBase = new LineVertex[s_Data.maxLineVertices];
@@ -364,6 +389,7 @@ bool Renderer2D::Init()
 	lineSpec.targetFormats = targetFormats;
 	lineSpec.backFaceCulling = false;
 	lineSpec.samples = s_Data.targetSamples;
+	lineSpec.transparencyEnabled = true;
 	s_Data.linePipeline = Pipeline::Create(lineSpec);
 
 	Pipeline::Spec hairLineSpec;
@@ -388,6 +414,7 @@ bool Renderer2D::Init()
 	s_Data.quadVertexPositions[3] = { -0.5f,  0.5f, 0.0f };
 
 	s_Data.quadTextureSlots[0] = s_Data.whiteTexture;
+	s_Data.lineTextureSlots[0] = s_Data.whiteTexture;
 	s_Data.fontAtlasSlots[0] = s_Data.whiteTexture;
 
 	s_Data.cameraUniformBuffer = Renderer::GetConstantUniformBuffer();
@@ -432,6 +459,7 @@ void Renderer2D::BeginScene()
 
 	s_Data.quadVertexBufferPoolIndex = 0;
 	s_Data.hairLineVertexBufferPoolIndex = 0;
+	s_Data.lineVertexBufferPoolIndex = 0;
 
 	// Reset atlas slots each frame; unused slots default to whiteTexture so SetTextureArray
 	// always has a valid texture for every binding.
@@ -483,6 +511,18 @@ static Ref<VertexBuffer> NextHairLineVertexBuffer()
 	}
 
 	return s_Data.hairLineVertexBufferPool[s_Data.hairLineVertexBufferPoolIndex++];
+}
+
+static Ref<VertexBuffer> NextLineVertexBuffer()
+{
+	if (s_Data.lineVertexBufferPoolIndex >= s_Data.lineVertexBufferPool.size())
+	{
+		Ref<VertexBuffer> buffer = VertexBuffer::Create(s_Data.maxLineVertices * sizeof(LineVertex));
+		buffer->SetLayout(s_Data.lineVertexBuffer->GetLayout());
+		s_Data.lineVertexBufferPool.push_back(buffer);
+	}
+
+	return s_Data.lineVertexBufferPool[s_Data.lineVertexBufferPoolIndex++];
 }
 
 void Renderer2D::FlushQuads()
@@ -544,16 +584,23 @@ void Renderer2D::FlushLines()
 
 	ENGINE_TRACE("Renderer2D: Flushing {0} lines", s_Data.lineIndexCount / 6);
 	uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.lineVertexBufferPtr - (uint8_t*)s_Data.lineVertexBufferBase);
-	s_Data.lineVertexBuffer->SetData(s_Data.lineVertexBufferBase, dataSize);
+
+	Ref<VertexBuffer> vertexBuffer = NextLineVertexBuffer();
+	vertexBuffer->SetData(s_Data.lineVertexBufferBase, dataSize);
+
+	// Textures repeat along the line, with the filtering of the batch's first texture
+	Ref<Texture> samplerSource = s_Data.lineTextureSlots[s_Data.lineTextureSlotIndex > 1 ? 1 : 0];
+	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), Texture::WrapMethod::Repeat);
+	s_Data.linePipeline->SetTextureArray({ s_Data.lineTextureSlots.begin(), s_Data.lineTextureSlots.end() }, BINDING_TEXTURE_SLOTS, sampler);
 
 	s_Data.linePipeline->Bind();
 	s_Data.linePipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
-	s_Data.lineVertexBuffer->Bind();
+	vertexBuffer->Bind();
 	s_Data.lineIndexBuffer->Bind();
 
 	RenderCommand::DrawIndexed(s_Data.lineIndexCount);
-	s_Data.lineVertexBuffer->UnBind();
+	vertexBuffer->UnBind();
 	s_Data.lineIndexBuffer->UnBind();
 	s_Data.statistics.drawCalls++;
 }
@@ -624,6 +671,9 @@ void Renderer2D::StartLinesBatch()
 {
 	s_Data.lineIndexCount = 0;
 	s_Data.lineVertexBufferPtr = s_Data.lineVertexBufferBase;
+
+	s_Data.lineTextureSlotIndex = 1;
+	std::fill(s_Data.lineTextureSlots.begin(), s_Data.lineTextureSlots.end(), s_Data.whiteTexture);
 }
 
 void Renderer2D::StartTextBatch()
@@ -1053,89 +1103,123 @@ void Renderer2D::DrawCircle(const Matrix4x4& transform, const CircleRendererComp
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void Renderer2D::DrawLine(const Vector2f& start, const Vector2f& end, const float& thickness, const Colour& colour)
+void Renderer2D::DrawLine(const Vector3f& start, const Vector3f& end, float width, const Colour& colour, LineWidth widthUnits, int entityId)
 {
 	PROFILE_FUNCTION();
 	if (IsDrawingDisabled())
 		return;
-	if (s_Data.lineIndexCount >= s_Data.maxLineIndices)
+
+	AddLineSegment(start, end, nullptr, nullptr, width, colour, widthUnits == LineWidth::Pixels, 0.0f, 0.0f, 0.0f, entityId);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void Renderer2D::DrawPolyline(const std::vector<Vector3f>& points, float width, const Colour& colour, bool closed, LineWidth widthUnits, int entityId)
+{
+	DrawPolyline(points, width, nullptr, 1.0f, colour, closed, widthUnits, entityId);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void Renderer2D::DrawPolyline(const std::vector<Vector3f>& points, float width, const Ref<Texture2D>& texture, float textureLength, const Colour& tint, bool closed, LineWidth widthUnits, int entityId)
+{
+	PROFILE_FUNCTION();
+	if (IsDrawingDisabled())
+		return;
+
+	// Repeated points would give segments with no direction
+	std::vector<Vector3f> line;
+	line.reserve(points.size() + 1);
+	for (const Vector3f& point : points)
+	{
+		if (line.empty() || (point - line.back()).SqrMagnitude() > 1e-12f)
+			line.push_back(point);
+	}
+	if (line.size() < 2)
+		return;
+
+	closed = closed && line.size() > 2;
+	if (closed && (line.front() - line.back()).SqrMagnitude() <= 1e-12f)
+		line.pop_back();
+	if (closed)
+		line.push_back(line.front());
+
+	float texturePerWorld = textureLength > 0.0f ? 1.0f / textureLength : 0.0f;
+	float textureStart = 0.0f;
+	size_t segments = line.size() - 1;
+	for (size_t i = 0; i < segments; i++)
+	{
+		const Vector3f* previous = i > 0 ? &line[i - 1] : (closed ? &line[segments - 1] : nullptr);
+		const Vector3f* next = i + 1 < segments ? &line[i + 2] : (closed ? &line[1] : nullptr);
+
+		// Assigned per segment, as a new batch can start partway along
+		float texIndex = AssignLineTextureSlot(texture);
+		AddLineSegment(line[i], line[i + 1], previous, next, width, tint, widthUnits == LineWidth::Pixels, texIndex, textureStart, texturePerWorld, entityId);
+		textureStart += (line[i + 1] - line[i]).Magnitude() * texturePerWorld;
+	}
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+float Renderer2D::AssignLineTextureSlot(const Ref<Texture>& texture)
+{
+	if (!texture || texture == s_Data.whiteTexture)
+		return 0.0f;
+
+	for (uint32_t i = 1; i < s_Data.lineTextureSlotIndex; i++)
+	{
+		if (s_Data.lineTextureSlots[i] == texture)
+			return (float)i;
+	}
+
+	if (s_Data.lineTextureSlotIndex >= Renderer2DData::maxTexturesSlots)
 		NextLinesBatch();
 
-	//world to clip
-	Vector3f clipI;//s_Data.cameraBuffer.viewProjectionMatrix * Vector3f(start.x, start.y, 0.0f);
-	Vector3f clipJ;//s_Data.cameraBuffer.viewProjectionMatrix * Vector3f(end.x, end.x, 0.0f);
+	float index = (float)s_Data.lineTextureSlotIndex;
+	s_Data.lineTextureSlots[s_Data.lineTextureSlotIndex] = texture;
+	s_Data.lineTextureSlotIndex++;
+	return index;
+}
 
-	//clip to pixel
-	Vector2f pixelStart, pixelEnd;
-	pixelStart.x = 0.5f * (float)s_Data.screenWidth * (clipI.x / 1.0f + 1.0f);
-	pixelStart.y = 0.5f * (float)s_Data.screenHeight * (1.0f - clipI.y / 1.0f);
-	pixelEnd.x = 0.5f * (float)s_Data.screenWidth * (clipJ.x / 1.0f + 1.0f);
-	pixelEnd.y = 0.5f * (float)s_Data.screenHeight * (1.0f - clipJ.y / 1.0f);
+/* ------------------------------------------------------------------------------------------------------------------ */
 
-	Vector2f direction = pixelEnd - pixelStart;
-	float lineLength = direction.Magnitude();
+void Renderer2D::AddLineSegment(const Vector3f& start, const Vector3f& end, const Vector3f* previous, const Vector3f* next, float width, const Colour& colour,
+	bool widthInPixels, float texIndex, float textureStart, float texturePerWorld, int entityId)
+{
+	if (s_Data.lineIndexCount >= s_Data.maxLineIndices)
+	{
+		// The new batch has no textures yet
+		Ref<Texture> texture = s_Data.lineTextureSlots[(size_t)texIndex];
+		NextLinesBatch();
+		texIndex = AssignLineTextureSlot(texture);
+	}
 
-	if (lineLength < 1e-10) return;
+	int flags = (widthInPixels ? LineWidthInPixels : 0) | (previous ? LineHasPrevious : 0) | (next ? LineHasNext : 0);
 
-	direction = direction / lineLength;
-	Vector2f normal(-direction.y, +direction.x);
-
-	float d = 0.5f * thickness;
-
-	float dOverWidth = d / (float)s_Data.screenWidth;
-	float dOverHeight = d / (float)s_Data.screenHeight;
-
-	Vector3f offset;
-
-	offset.x = (-direction.x + normal.x) * dOverWidth;
-	offset.y = (+direction.y + normal.y) * dOverHeight;
-	s_Data.lineVertexBufferPtr->clipCoord = clipI + offset;
-	s_Data.lineVertexBufferPtr->colour = colour;
-	s_Data.lineVertexBufferPtr->texCoords = { -d, +d };
-	s_Data.lineVertexBufferPtr->width = 2 * d;
-	s_Data.lineVertexBufferPtr->length = lineLength;
-	s_Data.lineVertexBufferPtr++;
-
-	offset.x = (+direction.x + normal.x) * dOverWidth;
-	offset.y = (-direction.y - normal.y) * dOverHeight;
-	s_Data.lineVertexBufferPtr->clipCoord = clipI + offset;
-	s_Data.lineVertexBufferPtr->colour = colour;
-	s_Data.lineVertexBufferPtr->texCoords = { lineLength + d, +d };
-	s_Data.lineVertexBufferPtr->width = 2 * d;
-	s_Data.lineVertexBufferPtr->length = lineLength;
-	s_Data.lineVertexBufferPtr++;
-
-	offset.x = (+direction.x - normal.x) * dOverWidth;
-	offset.y = (-direction.y + normal.y) * dOverHeight;
-	s_Data.lineVertexBufferPtr->clipCoord = clipI + offset;
-	s_Data.lineVertexBufferPtr->colour = colour;
-	s_Data.lineVertexBufferPtr->texCoords = { lineLength + d, -d };
-	s_Data.lineVertexBufferPtr->width = 2 * d;
-	s_Data.lineVertexBufferPtr->length = lineLength;
-	s_Data.lineVertexBufferPtr++;
-
-	offset.x = (-direction.x - normal.x) * dOverWidth;
-	offset.y = (+direction.y + normal.y) * dOverHeight;
-	s_Data.lineVertexBufferPtr->clipCoord = clipI + offset;
-	s_Data.lineVertexBufferPtr->colour = colour;
-	s_Data.lineVertexBufferPtr->texCoords = { -d, -d };
-	s_Data.lineVertexBufferPtr->width = 2 * d;
-	s_Data.lineVertexBufferPtr->length = lineLength;
-	s_Data.lineVertexBufferPtr++;
-
-	offset.x = (-direction.x + normal.x) * dOverWidth;
-	offset.y = (+direction.y + normal.y) * dOverHeight;
-	s_Data.lineVertexBufferPtr->clipCoord = clipI + offset;
-	s_Data.lineVertexBufferPtr->colour = colour;
-	s_Data.lineVertexBufferPtr->texCoords = { -d, +d };
-	s_Data.lineVertexBufferPtr->width = 2 * d;
-	s_Data.lineVertexBufferPtr->length = lineLength;
-	s_Data.lineVertexBufferPtr++;
+	static const Vector2f corners[4] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+	for (const Vector2f& corner : corners)
+	{
+		s_Data.lineVertexBufferPtr->start = start;
+		s_Data.lineVertexBufferPtr->end = end;
+		s_Data.lineVertexBufferPtr->previous = previous ? *previous : start;
+		s_Data.lineVertexBufferPtr->next = next ? *next : end;
+		s_Data.lineVertexBufferPtr->corner = corner;
+		s_Data.lineVertexBufferPtr->colour = colour;
+		s_Data.lineVertexBufferPtr->width = width;
+		s_Data.lineVertexBufferPtr->flags = flags;
+		s_Data.lineVertexBufferPtr->texIndex = texIndex;
+		s_Data.lineVertexBufferPtr->textureStart = textureStart;
+		s_Data.lineVertexBufferPtr->texturePerWorld = texturePerWorld;
+		s_Data.lineVertexBufferPtr->EntityId = entityId;
+		s_Data.lineVertexBufferPtr++;
+	}
 
 	s_Data.lineIndexCount += 6;
 
 	s_Data.statistics.lineCount++;
 }
+
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 void Renderer2D::DrawHairLine(const Vector3f& start, const Vector3f& end, const Colour& colour, int entityId)
 {
@@ -1440,13 +1524,6 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 
 		s_Data.statistics.quadCount++;
 	}
-}
-
-/* ------------------------------------------------------------------------------------------------------------------ */
-
-void Renderer2D::DrawPolyline(const std::vector<Vector2f>& points, const float& thickness, const Colour& colour)
-{
-	//TODO draw polyline
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

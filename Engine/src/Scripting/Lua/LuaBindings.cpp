@@ -317,6 +317,15 @@ void BindCommonTypes(sol::state& state)
 
 //--------------------------------------------------------------------------------------------------------------
 
+static std::vector<Vector3f> ToPoints(const sol::table& table)
+{
+	std::vector<Vector3f> points;
+	points.reserve(table.size());
+	for (size_t i = 1; i <= table.size(); i++)
+		points.push_back(table.get<Vector3f>(i));
+	return points;
+}
+
 void BindDebug(sol::state& state)
 {
 	PROFILE_FUNCTION();
@@ -330,6 +339,14 @@ void BindDebug(sol::state& state)
 		{ Renderer2D::DrawHairLineCircle(position, radius, segments, colour); });
 	SetFunction(debug, "Debug", "DrawRect", "DrawRect(position, size, colour): a rectangle outline; size is a Vec2", [](const Vector3f& position, const Vector2f& size, const Colour& colour)
 		{ Renderer2D::DrawHairLineRect(position, size, colour); });
+	SetFunction(debug, "Debug", "DrawPolyline", "DrawPolyline(points, width, colour, closed): a line through a table of Vec3 points, width in pixels", [](sol::table points, float width, const Colour& colour, sol::optional<bool> closed)
+		{
+			Renderer2D::DrawPolyline(ToPoints(points), width, colour, closed.value_or(false));
+		});
+	SetFunction(debug, "Debug", "DrawTexturedPolyline", "DrawTexturedPolyline(points, width, texture, textureLength, closed): a textured line through a table of Vec3 points, width in world units; the texture repeats every textureLength", [](sol::table points, float width, Ref<Texture2D> texture, float textureLength, sol::optional<bool> closed)
+		{
+			Renderer2D::DrawPolyline(ToPoints(points), width, texture, textureLength, Colours::WHITE, closed.value_or(false));
+		});
 }
 
 //--------------------------------------------------------------------------------------------------------------
