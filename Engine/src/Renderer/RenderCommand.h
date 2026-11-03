@@ -16,6 +16,7 @@ public:
 
 	// Sets the area of the screen that will be rendered to
 	inline static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) { return s_RendererAPI->SetViewport(x, y, width, height); }
+	inline static Vector2f GetViewportSize() { return s_RendererAPI->GetViewportSize(); }
 
 	// Resets the bound target's colour and depth; call before StartRenderPass
 	inline static void Clear() { s_RendererAPI->Clear(); }

@@ -47,7 +47,10 @@ struct SceneData
 	{
 		Matrix4x4 viewProjectionMatrix;
 		Vector3f eyePosition;
+		float padding; // std140 starts viewportSize at the next 8 bytes
+		Vector2f viewportSize;
 	}ConstantBuffer;
+	static_assert(offsetof(ConstantBuffer, viewportSize) == 80, "Must match Camera in Engine/shaders/Common/Camera.slang");
 
 	typedef struct ALIGNED_(16) tagSTRUCTALIGNED16
 	{
@@ -254,6 +257,7 @@ void Renderer::BeginScene(const Matrix4x4& transform, const Matrix4x4& projectio
 	Matrix4x4 view = Matrix4x4::Inverse(transform);
 	s_SceneData.constantBuffer.viewProjectionMatrix = (correctedProjection * view).GetTranspose();
 	s_SceneData.constantBuffer.eyePosition = transform.ExtractTranslation();
+	s_SceneData.constantBuffer.viewportSize = RenderCommand::GetViewportSize();
 
 	s_SceneData.constantUniformBuffer->SetData(&s_SceneData.constantBuffer, sizeof(SceneData::ConstantBuffer));
 

@@ -52,6 +52,13 @@ void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint
 	glViewport(x, y, width, height);
 }
 
+Vector2f OpenGLRendererAPI::GetViewportSize()
+{
+	GLint viewport[4];
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	return Vector2f((float)viewport[2], (float)viewport[3]);
+}
+
 void OpenGLRendererAPI::Clear()
 {
 	glDepthMask(GL_TRUE);

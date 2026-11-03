@@ -44,6 +44,13 @@ void WebGPURendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint
 	}
 }
 
+Vector2f WebGPURendererAPI::GetViewportSize()
+{
+	if (const WebGPUFrameBuffer* frameBuffer = WebGPUFrameBuffer::GetCurrent())
+		return Vector2f((float)frameBuffer->GetSpecification().width, (float)frameBuffer->GetSpecification().height);
+	return Vector2f((float)m_WebGPUContext->GetSurfaceConfig().width, (float)m_WebGPUContext->GetSurfaceConfig().height);
+}
+
 void WebGPURendererAPI::Clear() { RequestClear(true, true); }
 
 void WebGPURendererAPI::ClearColour() { RequestClear(true, false); }
