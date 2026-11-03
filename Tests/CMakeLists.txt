@@ -9,6 +9,7 @@ file(GLOB_RECURSE DATA_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Editor/data/
 
 add_executable(SceneTest ${SCENE_TEST_SOURCES} ${DATA_FILES})
 target_link_libraries(SceneTest PRIVATE Engine)
+attercop_target_shaders(SceneTest)
 target_copy_webgpu_binaries(SceneTest)
 
 add_custom_command(
