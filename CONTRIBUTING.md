@@ -68,6 +68,13 @@ Use the provided spdlog-based macros for all logging:
 - Platform-specific implementations reside in `Engine/src/Platform/OpenGL` and `Engine/src/Platform/WebGPU`.
 - Use `Renderer2D` for sprite, text, and primitive rendering.
 
+### Shaders
+- Shaders are written once in Slang in `Engine/shaders` (shared modules in `Engine/shaders/Common`) and listed in `Engine/shaders/CMakeLists.txt` with the backends they're built for.
+- The build compiles them into GLSL (`.vert`/`.frag`) and WGSL in `<build>/Shaders` and copies them into each executable's `data/Shaders`. They aren't committed. An executable that loads shaders calls `attercop_target_shaders(<target>)`.
+- `slangc` is downloaded by CMake at configure time, nothing has to be installed. Set `SLANGC` to use a different one.
+- Binding numbers live in `Engine/src/Renderer/ShaderBindings.h`, shared by the shaders and the C++ that binds to them. A texture at binding N has its sampler at N+1 on WebGPU; on OpenGL, N is the texture unit.
+- Use combined samplers (`Sampler2D`). Only vertex and fragment (and later compute) stages, since WGSL has no geometry or tessellation shaders.
+
 ### Scripting
 - Component bindings are declared in the component's own header with the `REFLECT_LUA_*` macros (see `Engine/src/Scripting/Lua/LuaBindings.h`); global tables are bound in `Engine/src/Scripting/Lua/`.
 - Components registered in `EnTT` should also be registered in Lua if they need to be accessible from scripts.
