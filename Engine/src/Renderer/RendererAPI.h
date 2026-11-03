@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Colour.h"
+#include "math/Vector2f.h"
 
 class RendererAPI
 {
@@ -18,6 +19,8 @@ public:
 	virtual bool Init() = 0;
 	virtual void SetClearColour(const Colour& colour) = 0;
 	virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
+	// Size in pixels of the bound target
+	virtual Vector2f GetViewportSize() = 0;
 	// Clear the bound target; call before StartRenderPass, as WebGPU clears when a pass starts
 	virtual void Clear() = 0;
 	virtual void ClearColour() = 0;
