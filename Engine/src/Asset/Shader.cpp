@@ -4,16 +4,16 @@
 #include "Platform/OpenGL/OpenGLShader.h"
 #include "Platform/WebGPU/WebGPUShader.h"
 
-Ref<Shader> Shader::Create(const std::string& name, const std::filesystem::path& fileDirectory, bool postProcess)
+Ref<Shader> Shader::Create(const std::string& name, const std::filesystem::path& fileDirectory)
 {
 	switch (Renderer::GetAPI())
 	{
 	case RendererAPI::API::None:
 		break;
 	case RendererAPI::API::OpenGL:
-		return CreateRef<OpenGLShader>(name, fileDirectory, postProcess);
+		return CreateRef<OpenGLShader>(name, fileDirectory);
 	case RendererAPI::API::WebGPU:
-		return CreateRef<WebGPUShader>(name, fileDirectory, postProcess);
+		return CreateRef<WebGPUShader>(name, fileDirectory);
 	default:
 		break;
 	}
@@ -32,12 +32,12 @@ void ShaderLibrary::Add(const Ref<Shader>& shader)
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-Ref<Shader> ShaderLibrary::Load(const std::string& name, bool postProcess, const std::filesystem::path& fileDirectory)
+Ref<Shader> ShaderLibrary::Load(const std::string& name, const std::filesystem::path& fileDirectory)
 {
 	if (Exists(name))
 		return m_Shaders[name];
 
-	Ref<Shader> shader = Shader::Create(name, fileDirectory, postProcess);
+	Ref<Shader> shader = Shader::Create(name, fileDirectory);
 	// Null when headless
 	if (shader)
 		Add(shader);

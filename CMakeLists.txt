@@ -121,6 +121,8 @@ add_subdirectory(Engine/vendor/WebGPU-distribution)
 add_subdirectory(Engine/vendor/miniz)
 
 add_subdirectory(Engine)
+include(cmake/Slang.cmake)
+add_subdirectory(Engine/shaders)
 add_subdirectory(Editor)
 add_subdirectory(Runtime)
 

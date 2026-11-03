@@ -38,17 +38,17 @@ void OpenGLPipeline::SetTexture(Ref<Texture> texture, uint32_t binding, Ref<Samp
 	}
 }
 
-// TODO(texture-array-cleanup): GLSL's sampler2D[8] already dynamically indexes fine - this would
-// only need to change if SetTextureArray moves to a true array texture (see the WebGPU TODO).
+// TODO(texture-array-cleanup): see the WebGPU TODO on SetTextureArray.
 void OpenGLPipeline::SetTextureArray(const std::vector<Ref<Texture>>& textures, uint32_t firstBinding, Ref<Sampler> sampler, uint32_t set)
 {
 	for (size_t i = 0; i < textures.size(); i++)
 	{
 		if (!textures[i])
 			continue;
-		textures[i]->Bind(firstBinding + (uint32_t)i);
+		uint32_t unit = firstBinding + 2 * (uint32_t)i;
+		textures[i]->Bind(unit);
 		if (sampler)
-			sampler->Bind(firstBinding + (uint32_t)i);
+			sampler->Bind(unit);
 	}
 }
 

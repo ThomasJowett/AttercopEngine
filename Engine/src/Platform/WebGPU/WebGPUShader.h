@@ -7,7 +7,7 @@
 class WebGPUShader : public Shader
 {
 public:
-	WebGPUShader(const std::string& name, const std::filesystem::path& fileDirectory, bool postProcess);
+	WebGPUShader(const std::string& name, const std::filesystem::path& fileDirectory);
 	~WebGPUShader();
 
 	virtual void Bind() const override;

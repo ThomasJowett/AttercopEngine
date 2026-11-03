@@ -6,7 +6,7 @@
 GaussianBlurEffect::GaussianBlurEffect(float strength)
 {
 	PROFILE_FUNCTION();
-	m_Shader = Renderer::GetShader("BlurEffect", true);
+	m_Shader = Renderer::GetShader("BlurEffect");
 
 	m_Strength = strength;
 }

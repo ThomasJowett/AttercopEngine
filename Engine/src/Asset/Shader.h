@@ -19,7 +19,7 @@ public:
 	virtual std::string GetName() const = 0;
 
 	// Create Shader from file
-	static Ref<Shader> Create(const std::string& name, const std::filesystem::path& fileDirectory = SHADER_DIRECTORY, bool postProcess = false);
+	static Ref<Shader> Create(const std::string& name, const std::filesystem::path& fileDirectory = SHADER_DIRECTORY);
 
 	enum class ShaderTypes
 	{
@@ -36,7 +36,7 @@ class ShaderLibrary
 {
 public:
 	void Add(const Ref<Shader>& shader);
-	Ref<Shader> Load(const std::string& name, bool postProcess = false, const std::filesystem::path& fileDirectory = SHADER_DIRECTORY);
+	Ref<Shader> Load(const std::string& name, const std::filesystem::path& fileDirectory = SHADER_DIRECTORY);
 	Ref<Shader> Get(const std::string& name);
 
 	bool Exists(const std::string& name) const;

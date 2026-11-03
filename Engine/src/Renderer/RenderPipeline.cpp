@@ -50,7 +50,7 @@ RenderPipeline::RenderPipeline()
 	m_PingFrameBuffer = FrameBuffer::Create(pingPongSpec);
 	m_PongFrameBuffer = FrameBuffer::Create(pingPongSpec);
 
-	m_FinalPassShader = Renderer::GetShader("FinalPass", true);
+	m_FinalPassShader = Renderer::GetShader("FinalPass");
 
 	Pipeline::Spec finalPassSpec;
 	finalPassSpec.shader = m_FinalPassShader;
@@ -63,7 +63,7 @@ RenderPipeline::RenderPipeline()
 	finalPassSpec.depthTest = false;
 	m_FinalPassPipeline = Pipeline::Create(finalPassSpec);
 
-	m_FinalPassShaderSwapchain = Renderer::GetShader("FinalPassSwapchain", true);
+	m_FinalPassShaderSwapchain = Renderer::GetShader("FinalPassSwapchain");
 
 	Pipeline::Spec finalPassSwapchainSpec;
 	finalPassSwapchainSpec.shader = m_FinalPassShaderSwapchain;

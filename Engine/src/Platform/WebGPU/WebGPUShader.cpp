@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <fstream>
 
-WebGPUShader::WebGPUShader(const std::string& name, const std::filesystem::path& fileDirectory, bool postProcess) : m_Name(name)
+WebGPUShader::WebGPUShader(const std::string& name, const std::filesystem::path& fileDirectory) : m_Name(name)
 {
 	PROFILE_FUNCTION();
 	if (!LoadShaderFromDisk(fileDirectory / name))
