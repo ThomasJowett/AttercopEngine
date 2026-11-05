@@ -311,7 +311,7 @@ void MainDockSpace::OnImGuiRender()
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem(ICON_FA_FOLDER_PLUS" New Project", "Ctrl + Shift + N"))
+			if (ImGui::MenuItem(ICON_FA_FOLDER_PLUS" New Project", "Ctrl + Shift + N", false, ProjectsStartScreen::CanCreateProjects()))
 			{
 				Application::GetLayerStack().AddOverlay(CreateRef<ProjectsStartScreen>(true));
 			}
@@ -593,7 +593,7 @@ void MainDockSpace::HandleKeyBoardInputs()
 	{
 		m_ContentExplorer->CreateNewScene();
 	}
-	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_N))
+	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_N) && ProjectsStartScreen::CanCreateProjects())
 	{
 		Application::GetLayerStack().AddOverlay(CreateRef<ProjectsStartScreen>(true));
 	}

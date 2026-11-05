@@ -17,6 +17,9 @@ public:
 	void OnAttach() override;
 	void OnDetach() override;
 
+	// False in browsers that can't create folders on disk
+	static bool CanCreateProjects();
+
 private:
 	void OpenProject(const std::filesystem::path& projectPath);
 private:

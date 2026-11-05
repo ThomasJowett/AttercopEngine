@@ -23,6 +23,15 @@ ProjectsStartScreen::ProjectsStartScreen(bool createProject)
 	m_CanGoBack = !createProject;
 }
 
+bool ProjectsStartScreen::CanCreateProjects()
+{
+#ifdef __EMSCRIPTEN__
+	return WebProject::CanWriteToDisk();
+#else
+	return true;
+#endif
+}
+
 void ProjectsStartScreen::OnImGuiRender()
 {
 	ImGui::OpenPopup("##StartScreen");
@@ -87,7 +96,8 @@ void ProjectsStartScreen::OnImGuiRender()
 			}
 
 			ImGui::NextColumn();
-			m_CreateProject = ImGui::Button(ICON_FA_FOLDER_PLUS" New Project");
+			if (CanCreateProjects())
+				m_CreateProject = ImGui::Button(ICON_FA_FOLDER_PLUS" New Project");
 			if (ImGui::Button(ICON_FA_FOLDER_OPEN" Browse Local"))
 			{
 #ifdef __EMSCRIPTEN__
@@ -106,7 +116,7 @@ void ProjectsStartScreen::OnImGuiRender()
 			if (!WebProject::CanWriteToDisk())
 			{
 				ImGui::Spacing();
-				ImGui::TextWrapped("This browser can only read project folders. Use File > Download Project to keep your changes, or open the Editor in Chrome or Edge to save straight to disk.");
+				ImGui::TextWrapped(ICON_FA_EXCLAMATION_TRIANGLE" This browser can only open existing projects, so use Browse Local to upload a project folder and File > Download Project to keep your changes. To create new projects and save straight to disk, open the Editor in Chrome or Edge.");
 			}
 #endif
 		}
