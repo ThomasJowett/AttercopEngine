@@ -479,11 +479,12 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
+							Ref<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateRef<EditComponentCommand<TransformComponent>>(entity);
 							transformcomp->SetScale(Vector3f((float)sprite.texture->GetWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
 								(float)sprite.texture->GetHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
+							HistoryManager::AddHistoryRecord(pixelPerfectCommand);
 						}
 					}
-					m_EditSpriteCommand.first = true;
 					SceneManager::CurrentScene()->MakeDirty();
 				}
 				ImGui::Tooltip("Set Scale to pixel perfect scaling");
@@ -543,11 +544,12 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
+							Ref<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateRef<EditComponentCommand<TransformComponent>>(entity);
 							transformcomp->SetScale(Vector3f((float)sprite.spriteSheet->GetSubTexture()->GetSpriteWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
 								(float)sprite.spriteSheet->GetSubTexture()->GetSpriteHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
+							HistoryManager::AddHistoryRecord(pixelPerfectCommand);
 						}
 						SceneManager::CurrentScene()->MakeDirty();
-						m_EditAnimatedSpriteCommand.first = true;
 					}
 				}
 				ImGui::Tooltip("Set Scale to pixel perfect scaling");
