@@ -155,9 +155,9 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 	if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 	{
 		tinyxml2::XMLElement* pTransformElement = pElement->InsertNewChildElement("Transform");
-		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Position"), transformcomp->position);
-		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Rotation"), transformcomp->rotation);
-		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Scale"), transformcomp->scale);
+		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Position"), transformcomp->GetPosition());
+		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Rotation"), transformcomp->GetRotation());
+		SerializationUtils::Encode(pTransformElement->InsertNewChildElement("Scale"), transformcomp->GetScale());
 	}
 
 	if (entity.HasComponent<CameraComponent>())
@@ -723,9 +723,13 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 	if (tinyxml2::XMLElement* pTransformComponentElement = pEntityElement->FirstChildElement("Transform"))
 	{
 		TransformComponent& transformComp = entity.GetOrAddComponent<TransformComponent>();
-		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Position"), transformComp.position);
-		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Rotation"), transformComp.rotation);
-		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Scale"), transformComp.scale);
+		Vector3f position = transformComp.GetPosition(), rotation = transformComp.GetRotation(), scale = transformComp.GetScale();
+		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Position"), position);
+		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Rotation"), rotation);
+		SerializationUtils::Decode(pTransformComponentElement->FirstChildElement("Scale"), scale);
+		transformComp.SetPosition(position);
+		transformComp.SetRotation(rotation);
+		transformComp.SetScale(scale);
 	}
 
 	// Camera -------------------------------------------------------------------------------------------------------------

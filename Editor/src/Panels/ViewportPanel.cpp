@@ -235,11 +235,11 @@ void ViewportPanel::OnUpdate(float deltaTime)
 			{
 				CircleCollider2DComponent& circleComp = selectedEntity.GetComponent<CircleCollider2DComponent>();
 
-				float scale = circleComp.radius * std::max(transformComp.scale.x, transformComp.scale.y);
+				float scale = circleComp.radius * std::max(transformComp.GetScale().x, transformComp.GetScale().y);
 
 				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.position)
-					* Matrix4x4::RotateZ(transformComp.rotation.z)
+					* Matrix4x4::Translate(transformComp.GetPosition())
+					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
 					* Matrix4x4::Translate(Vector3f(circleComp.offset.x, circleComp.offset.y, 0.001f))
 					* Matrix4x4::Scale(Vector3f(scale, scale, 1.0f));
 
@@ -251,10 +251,10 @@ void ViewportPanel::OnUpdate(float deltaTime)
 				BoxCollider2DComponent& boxComp = selectedEntity.GetComponent<BoxCollider2DComponent>();
 
 				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.position)
-					* Matrix4x4::RotateZ(transformComp.rotation.z)
+					* Matrix4x4::Translate(transformComp.GetPosition())
+					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
 					* Matrix4x4::Translate(Vector3f(boxComp.offset.x, boxComp.offset.y, 0.001f))
-					* Matrix4x4::Scale(Vector3f(boxComp.size.x * transformComp.scale.x * 2, boxComp.size.y * transformComp.scale.y * 2, 1.0f));
+					* Matrix4x4::Scale(Vector3f(boxComp.size.x * transformComp.GetScale().x * 2, boxComp.size.y * transformComp.GetScale().y * 2, 1.0f));
 
 				Renderer2D::DrawHairLineRect(transform, Colours::LIME_GREEN, selectedEntity);
 			}
@@ -269,10 +269,10 @@ void ViewportPanel::OnUpdate(float deltaTime)
 				for (Vector2f& vertex : polygonComp.vertices)
 				{
 					Matrix4x4 transform = transformComp.GetParentMatrix()
-						* Matrix4x4::Translate(transformComp.position)
-						* Matrix4x4::RotateZ(transformComp.rotation.z)
-						* Matrix4x4::Translate(Vector3f(polygonComp.offset.x + vertex.x * transformComp.scale.x,
-							polygonComp.offset.y + vertex.y * transformComp.scale.y, 0.001f));
+						* Matrix4x4::Translate(transformComp.GetPosition())
+						* Matrix4x4::RotateZ(transformComp.GetRotation().z)
+						* Matrix4x4::Translate(Vector3f(polygonComp.offset.x + vertex.x * transformComp.GetScale().x,
+							polygonComp.offset.y + vertex.y * transformComp.GetScale().y, 0.001f));
 					vertices.push_back(transform * Vector3f());
 				}
 
@@ -283,21 +283,21 @@ void ViewportPanel::OnUpdate(float deltaTime)
 			{
 				CapsuleCollider2DComponent& capsuleComp = selectedEntity.GetComponent<CapsuleCollider2DComponent>();
 				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.position)
-					* Matrix4x4::RotateZ(transformComp.rotation.z)
+					* Matrix4x4::Translate(transformComp.GetPosition())
+					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
 					* Matrix4x4::Translate(Vector3f(capsuleComp.offset.x, capsuleComp.offset.y, 0.001f));
 				float scaledradius;
 				float halfHeight;
 				if (capsuleComp.direction == CapsuleCollider2DComponent::Direction::Horizontal)
 				{
-					scaledradius = abs(capsuleComp.radius * transformComp.scale.y);
-					halfHeight = abs((capsuleComp.height * transformComp.scale.x) / 2.0f);
+					scaledradius = abs(capsuleComp.radius * transformComp.GetScale().y);
+					halfHeight = abs((capsuleComp.height * transformComp.GetScale().x) / 2.0f);
 					transform = transform * Matrix4x4::RotateZ((float)PIDIV2);
 				}
 				else
 				{
-					scaledradius = abs(capsuleComp.radius * transformComp.scale.x);
-					halfHeight = abs((capsuleComp.height * transformComp.scale.y) / 2.0f);
+					scaledradius = abs(capsuleComp.radius * transformComp.GetScale().x);
+					halfHeight = abs((capsuleComp.height * transformComp.GetScale().y) / 2.0f);
 				}
 
 				if (halfHeight > scaledradius)
@@ -1016,43 +1016,43 @@ void ViewportPanel::OnImGuiRender()
 						if (SceneManager::GetSceneState() != SceneState::Edit && rigidBody2DComp)
 						{
 							rigidBody2DComp->SetTransform(Vector2f(translation[0], translation[1]), rotationRad.z);
-							transformComp->position.z = translation[2];
-							transformComp->rotation.x = rotationRad.x;
-							transformComp->rotation.y = rotationRad.y;
+							const Vector3f& currentPosition = transformComp->GetPosition();
+							const Vector3f& currentRotation = transformComp->GetRotation();
+							transformComp->SetPosition(Vector3f(currentPosition.x, currentPosition.y, translation[2]));
+							transformComp->SetRotation(Vector3f(rotationRad.x, rotationRad.y, currentRotation.z));
 
 							if (SceneManager::GetSceneState() == SceneState::SimulatePause)
 							{
-								Vector2f position;
+								Vector2f bodyPosition;
 								float angle;
 
-								rigidBody2DComp->GetTransform(position, angle);
-								transformComp->position.x = position.x;
-								transformComp->position.y = position.y;
-								transformComp->rotation.z = angle;
+								rigidBody2DComp->GetTransform(bodyPosition, angle);
+								transformComp->SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, translation[2]));
+								transformComp->SetRotation(Vector3f(rotationRad.x, rotationRad.y, angle));
 							}
 						}
 						else
 						{
-							Vector3f deltaRotation = rotationRad - transformComp->rotation;
+							Vector3f deltaRotation = rotationRad - transformComp->GetRotation();
 							if (gizmoOperation == ImGuizmo::OPERATION::TRANSLATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
 								Vector3f translationVec = Vector3f(translation[0], translation[1], translation[2]);
-								if ((translationVec - transformComp->position).SqrMagnitude() >= 0.000001f)
+								if ((translationVec - transformComp->GetPosition()).SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->position = translationVec;
+								transformComp->SetPosition(translationVec);
 							}
 							if (gizmoOperation == ImGuizmo::OPERATION::ROTATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL)
 							{
 								if (deltaRotation.SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->rotation += deltaRotation;
+								transformComp->SetRotation(transformComp->GetRotation() + deltaRotation);
 							}
 							if (gizmoOperation == ImGuizmo::OPERATION::SCALE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
 								Vector3f scaleVec = Vector3f(scale[0], scale[1], scale[2]);
-								if ((scaleVec - transformComp->scale).SqrMagnitude() >= 0.000001f)
+								if ((scaleVec - transformComp->GetScale()).SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->scale = scaleVec;
+								transformComp->SetScale(scaleVec);
 							}
 						}
 					}
@@ -1446,7 +1446,7 @@ BoundingBox ViewportPanel::GetLocalBounds(Entity entity) const
 	if (auto boxColliderComp = entity.TryGetComponent<BoxCollider2DComponent>())
 	{
 		const TransformComponent& transformComp = entity.GetComponent<TransformComponent>();
-		Vector3f offset(boxColliderComp->offset.x / transformComp.scale.x, boxColliderComp->offset.y / transformComp.scale.y, 0.0f);
+		Vector3f offset(boxColliderComp->offset.x / transformComp.GetScale().x, boxColliderComp->offset.y / transformComp.GetScale().y, 0.0f);
 		Vector3f halfSize(boxColliderComp->size.x, boxColliderComp->size.y, 0.0f);
 		return BoundingBox(offset - halfSize, offset + halfSize);
 	}

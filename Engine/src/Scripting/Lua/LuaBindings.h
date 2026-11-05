@@ -22,6 +22,9 @@ namespace Lua
 {
 entt::registry& GetSceneRegistry(Scene* scene);
 
+// Brings the entity's world transform up to date, for bindings that read it straight after a script moves something
+void UpdateWorldTransform(Scene* scene, entt::entity entity);
+
 // The calling script's "chunk:line: " prefix, so errors raised from C++ report the Lua line in the error panel
 std::string ScriptLocation(lua_State* state);
 

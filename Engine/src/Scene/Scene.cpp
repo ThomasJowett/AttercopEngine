@@ -109,7 +109,7 @@ Entity Scene::InstantiateEntity(const Entity prefab, const Vector3f& position)
 	Entity newEntity = CloneEntity(prefab);
 
 	if (TransformComponent* transformComp = newEntity.TryGetComponent<TransformComponent>(); transformComp)
-		transformComp->position += position;
+		transformComp->SetPosition(transformComp->GetPosition() + position);
 
 	StartRuntimeState(newEntity);
 	return newEntity;
@@ -199,10 +199,8 @@ Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 	if (parent)
 	{
 		SceneGraph::Reparent(newEntity, parent);
-		// The copy's cached world matrix is only refreshed once a frame, so update it now
+		SceneGraph::UpdateWorldTransform(m_Registry, newEntity);
 		TransformComponent* transformComp = newEntity.TryGetComponent<TransformComponent>();
-		if (TransformComponent* parentTransformComp = parent.TryGetComponent<TransformComponent>(); transformComp && parentTransformComp)
-			transformComp->SetWorldMatrix(parentTransformComp->GetWorldMatrix());
 
 		// While running, physics bodies are unparented, as at runtime start: keep the copy where it is in the world
 		if (m_PhysicsEngine2D && transformComp && m_PhysicsEngine2D->HasPhysicsComponents(newEntity))
@@ -210,9 +208,9 @@ Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 			Vector3f position, rotation, scale;
 			transformComp->GetWorldMatrix().Decompose(position, rotation, scale);
 			SceneGraph::Unparent(newEntity);
-			transformComp->position = position;
-			transformComp->rotation = rotation;
-			transformComp->scale = scale;
+			transformComp->SetPosition(position);
+			transformComp->SetRotation(rotation);
+			transformComp->SetScale(scale);
 		}
 	}
 
@@ -431,7 +429,7 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		// The entity's own rotation applies on top, e.g. 180 degrees around Y to show its back
 		bool upright = billboardComp.orientation == BillboardComponent::Orientation::WorldUp;
 		Matrix4x4 facing = pointAtCamera(position, cameraTransform, upright);
-		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.rotation));
+		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.GetRotation()));
 		transformComp.OverrideWorldMatrix(Matrix4x4::Translate(position) * facing * localRotation * Matrix4x4::Scale(transformComp.GetWorldMatrix().ExtractScale()));
 	}
 
@@ -775,7 +773,7 @@ void Scene::OnUpdate(float deltaTime)
 	if (primaryListenerEntity)
 	{
 		auto [transformComp, audioListenerComp] = primaryListenerEntity.GetComponents<TransformComponent, AudioListenerComponent>();
-		ma_engine_listener_set_position(m_AudioEngine.get(), 0, transformComp.position.x, transformComp.position.y, transformComp.position.z);
+		ma_engine_listener_set_position(m_AudioEngine.get(), 0, transformComp.GetPosition().x, transformComp.GetPosition().y, transformComp.GetPosition().z);
 
 		if (RigidBody2DComponent* rigidBody2DComp = primaryListenerEntity.TryGetComponent<RigidBody2DComponent>()) {
 			Vector2f velocity = rigidBody2DComp->GetLinearVelocity();
@@ -810,6 +808,7 @@ void Scene::OnFixedUpdate()
 
 	// Physics
 	m_PhysicsEngine2D->OnFixedUpdate();
+	SceneGraph::UpdateWorldTransforms(m_Registry);
 
 	m_Registry.view<LuaScriptComponent>(entt::exclude<DestroyMarker>).each([=](auto entity, auto& luaScriptComp)
 		{
@@ -851,37 +850,37 @@ void Scene::OnFixedUpdate()
 			{
 				// Bodies added this step get their Box2D body at the start of the next one
 				if (rigidBodyComp.runtimeBody)
-					rigidBodyComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					rigidBodyComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 
 		m_Registry.view<TransformComponent, BoxCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 
 		m_Registry.view<TransformComponent, CircleCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 
 		m_Registry.view<TransformComponent, PolygonCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 
 		m_Registry.view<TransformComponent, CapsuleCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 
 		m_Registry.view<TransformComponent, TilemapComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.position.x, transformComp.position.y), transformComp.rotation.z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
 			});
 	}
 

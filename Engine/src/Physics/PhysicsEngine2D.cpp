@@ -86,21 +86,6 @@ static b2Body* FindBody(entt::registry& registry, entt::entity entity)
 	return nullptr;
 }
 
-// Worked out from the hierarchy, as the cached world matrix is only refreshed when the scene renders
-static Matrix4x4 ComputeWorldMatrix(entt::registry& registry, entt::entity entity)
-{
-	Matrix4x4 matrix = registry.get<TransformComponent>(entity).GetLocalMatrix();
-	HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
-	while (hierarchyComp && hierarchyComp->parent != entt::null)
-	{
-		entt::entity parent = hierarchyComp->parent;
-		if (TransformComponent* parentTransformComp = registry.try_get<TransformComponent>(parent))
-			matrix = parentTransformComp->GetLocalMatrix() * matrix;
-		hierarchyComp = registry.try_get<HierarchyComponent>(parent);
-	}
-	return matrix;
-}
-
 struct Pose2D
 {
 	Vector3f position;
@@ -111,7 +96,8 @@ struct Pose2D
 // A mirrored transform keeps its flip on x rather than turning half way
 static Pose2D GetWorldPose(entt::registry& registry, entt::entity entity)
 {
-	Matrix4x4 world = ComputeWorldMatrix(registry, entity);
+	SceneGraph::UpdateWorldTransform(registry, entity);
+	const Matrix4x4& world = registry.get<TransformComponent>(entity).GetWorldMatrix();
 	float a = world(0, 0), b = world(1, 0), c = world(0, 1), d = world(1, 1);
 	float scaleX = std::sqrt(a * a + b * b);
 	float scaleY = std::sqrt(c * c + d * d);
@@ -264,9 +250,9 @@ void PhysicsEngine2D::OnFixedUpdate()
 				}
 			}
 			const b2Vec2& position = rigidBodyComp.runtimeBody->GetPosition();
-			transformComp.position.x = position.x;
-			transformComp.position.y = position.y;
-			transformComp.rotation.z = (float)rigidBodyComp.runtimeBody->GetAngle();
+			const Vector3f& rotation = transformComp.GetRotation();
+			transformComp.SetPosition(Vector3f(position.x, position.y, transformComp.GetPosition().z));
+			transformComp.SetRotation(Vector3f(rotation.x, rotation.y, (float)rigidBodyComp.runtimeBody->GetAngle()));
 		});
 }
 
@@ -316,18 +302,18 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 	{
 		Pose2D pose = GetWorldPose(registry, entity.GetHandle());
 		SceneGraph::Unparent(entity);
-		transformComp.position = pose.position;
-		transformComp.rotation.z = pose.angle;
-		transformComp.scale.x = pose.scale.x;
-		transformComp.scale.y = pose.scale.y;
+		const Vector3f& rotation = transformComp.GetRotation();
+		transformComp.SetPosition(pose.position);
+		transformComp.SetRotation(Vector3f(rotation.x, rotation.y, pose.angle));
+		transformComp.SetScale(Vector3f(pose.scale.x, pose.scale.y, transformComp.GetScale().z));
 	}
 
 	if (RigidBody2DComponent* rigidBodyComp = entity.TryGetComponent<RigidBody2DComponent>())
 	{
 		b2BodyDef bodyDef;
 		bodyDef.type = (b2BodyType)GetRigidBodyBox2DType(rigidBodyComp->type);
-		bodyDef.position = b2Vec2(transformComp.position.x, transformComp.position.y);
-		bodyDef.angle = (float)transformComp.rotation.z;
+		bodyDef.position = b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y);
+		bodyDef.angle = (float)transformComp.GetRotation().z;
 
 		if (rigidBodyComp->type == RigidBody2DComponent::BodyType::DYNAMIC)
 		{
@@ -351,8 +337,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 
 		b2BodyDef bodyDef;
 		bodyDef.type = b2BodyType::b2_kinematicBody;
-		bodyDef.position = b2Vec2(transformComp.position.x, transformComp.position.y);
-		bodyDef.angle = (float)transformComp.rotation.z;
+		bodyDef.position = b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y);
+		bodyDef.angle = (float)transformComp.GetRotation().z;
 		body = m_Box2DWorld->CreateBody(&bodyDef);
 	}
 	else
@@ -377,7 +363,7 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 			boxColliderComp.size.y = MinBoxSize;
 
 		b2PolygonShape boxShape;
-		boxShape.SetAsBox(abs(boxColliderComp.size.x * transformComp.scale.x), abs(boxColliderComp.size.y * transformComp.scale.y),
+		boxShape.SetAsBox(abs(boxColliderComp.size.x * transformComp.GetScale().x), abs(boxColliderComp.size.y * transformComp.GetScale().y),
 			b2Vec2(boxColliderComp.offset.x, boxColliderComp.offset.y),
 			0.0f);
 
@@ -401,7 +387,7 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		auto& circleColliderComp = entity.GetComponent<CircleCollider2DComponent>();
 
 		b2CircleShape circleShape;
-		circleShape.m_radius = abs(circleColliderComp.radius * std::max(transformComp.scale.x, transformComp.scale.y));
+		circleShape.m_radius = abs(circleColliderComp.radius * std::max(transformComp.GetScale().x, transformComp.GetScale().y));
 		circleShape.m_p.Set(circleColliderComp.offset.x, circleColliderComp.offset.y);
 
 		b2FixtureDef fixtureDef;
@@ -431,8 +417,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 
 				for (size_t j = 0; j < 3; j++)
 				{
-					vertices[j] = b2Vec2(polygonColliderComp.vertices[polygonIndices[i + j]].x * transformComp.scale.x + polygonColliderComp.offset.x,
-						polygonColliderComp.vertices[polygonIndices[i + j]].y * transformComp.scale.y + polygonColliderComp.offset.y);
+					vertices[j] = b2Vec2(polygonColliderComp.vertices[polygonIndices[i + j]].x * transformComp.GetScale().x + polygonColliderComp.offset.x,
+						polygonColliderComp.vertices[polygonIndices[i + j]].y * transformComp.GetScale().y + polygonColliderComp.offset.y);
 				}
 				polygonShape.Set(vertices, 3);
 
@@ -459,8 +445,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		capsuleColliderComp.runtimeBody = body;
 		if (capsuleColliderComp.direction == CapsuleCollider2DComponent::Direction::Vertical)
 		{
-			float scaledHeight = abs(capsuleColliderComp.height * transformComp.scale.y);
-			float scaledRadius = abs(capsuleColliderComp.radius * transformComp.scale.x);
+			float scaledHeight = abs(capsuleColliderComp.height * transformComp.GetScale().y);
+			float scaledRadius = abs(capsuleColliderComp.radius * transformComp.GetScale().x);
 			float halfHeight = scaledHeight / 2.0f;
 			float diameter = (2.0f * scaledRadius);
 			if (scaledHeight < diameter)
@@ -516,8 +502,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		}
 		else
 		{
-			float scaledHeight = abs(capsuleColliderComp.height * transformComp.scale.x);
-			float scaledRadius = abs(capsuleColliderComp.radius * transformComp.scale.y);
+			float scaledHeight = abs(capsuleColliderComp.height * transformComp.GetScale().x);
+			float scaledRadius = abs(capsuleColliderComp.radius * transformComp.GetScale().y);
 			float halfHeight = scaledHeight / 2.0f;
 			float diameter = (2.0f * scaledRadius);
 			if (scaledHeight < diameter)
@@ -576,8 +562,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 	if (TilemapComponent* tilemapComp = entity.TryGetComponent<TilemapComponent>();
 		tilemapComp && tilemapComp->tileset && tilemapComp->tileset->HasCollision())
 	{
-		const float scaleX = transformComp.scale.x;
-		const float scaleY = transformComp.scale.y;
+		const float scaleX = transformComp.GetScale().x;
+		const float scaleY = transformComp.GetScale().y;
 		const bool isometric = tilemapComp->orientation == TilemapComponent::Orientation::isometric;
 		const bool hexagonal = tilemapComp->orientation == TilemapComponent::Orientation::hexagonal;
 		const Vector2f hexSize = tilemapComp->GetHexSize();
