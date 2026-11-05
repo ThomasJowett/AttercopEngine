@@ -773,7 +773,8 @@ void Scene::OnUpdate(float deltaTime)
 	if (primaryListenerEntity)
 	{
 		auto [transformComp, audioListenerComp] = primaryListenerEntity.GetComponents<TransformComponent, AudioListenerComponent>();
-		ma_engine_listener_set_position(m_AudioEngine.get(), 0, transformComp.GetPosition().x, transformComp.GetPosition().y, transformComp.GetPosition().z);
+		Vector3f listenerPosition = transformComp.GetWorldPosition();
+		ma_engine_listener_set_position(m_AudioEngine.get(), 0, listenerPosition.x, listenerPosition.y, listenerPosition.z);
 
 		if (RigidBody2DComponent* rigidBody2DComp = primaryListenerEntity.TryGetComponent<RigidBody2DComponent>()) {
 			Vector2f velocity = rigidBody2DComp->GetLinearVelocity();
