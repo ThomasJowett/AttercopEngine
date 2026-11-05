@@ -1,6 +1,7 @@
 #include "Pathfinding.h"
 
 #include "Scene/Entity.h"
+#include "Scene/SceneGraph.h"
 #include "Scene/Components/TilemapComponent.h"
 #include "Logging/Logger.h"
 
@@ -16,9 +17,10 @@ namespace
 		Vector2f axisY;
 		float determinant;
 
-		explicit TilemapSpace(const TransformComponent& transform)
+		explicit TilemapSpace(Entity entity)
 		{
-			Matrix4x4 matrix = transform.GetParentMatrix() * transform.GetLocalMatrix();
+			SceneGraph::UpdateWorldTransform(entity.GetScene()->GetRegistry(), entity.GetHandle());
+			const Matrix4x4& matrix = entity.GetComponent<TransformComponent>().GetWorldMatrix();
 			Vector3f o = matrix * Vector3f(0.0f, 0.0f, 0.0f);
 			origin = Vector2f(o.x, o.y);
 			axisX = Vector2f(matrix * Vector3f(1.0f, 0.0f, 0.0f)) - origin;
@@ -64,7 +66,7 @@ std::vector<Vector2f> FindPath(Vector2f start, Vector2f goal, Entity tilemapEnti
 		return path;
 	}
 
-	TilemapSpace space(tilemapEntity.GetComponent<TransformComponent>());
+	TilemapSpace space(tilemapEntity);
 	if (!space.IsValid())
 		return path;
 
@@ -95,7 +97,7 @@ Vector2f GetTileCentre(Entity tilemapEntity, int column, int row)
 		return Vector2f();
 	}
 
-	TilemapSpace space(tilemapEntity.GetComponent<TransformComponent>());
+	TilemapSpace space(tilemapEntity);
 	return space.LocalToWorld(tilemap->CellToLocal(Astar::GridCoord(column, row)));
 }
 }

@@ -1,7 +1,7 @@
 -- A child's world position is its parent's world transform applied to its local position, through any number of
 -- levels. Parent sits at (10, 0), turned a quarter turn and doubled in size, so a child's local (1, 0) lands at
--- (10, 2): the local offset is scaled to (2, 0), then rotated up to (0, 2). Entities are built in frame 1, and the
--- checks run in later frames so a full update has passed since each change.
+-- (10, 2): the local offset is scaled to (2, 0), then rotated up to (0, 2). Entities are built in frame 1; most
+-- checks run in later frames, and the last ones in the same frame as the change.
 
 local Epsilon = 0.01
 local frame = 0
@@ -56,6 +56,12 @@ function OnUpdate(deltaTime)
 		Test.Equal(grandchild:GetParent():GetName(), "Other", "the grandchild's parent is now Other")
 		Near(grandchild, -4, 0, "the grandchild is positioned relative to its new parent")
 		Near(child, 2, 5, "the old parent's child is unaffected by the move")
+
+		-- World positions are up to date as soon as a script changes something, without waiting a frame
+		parent:GetTransformComponent().Position = Vec3.new(1, 1, 0)
+		Near(child, 3, 1, "the child follows its parent in the same frame")
+		child:AddChild(grandchild)
+		Near(grandchild, 5, 1, "a reparented entity is placed under its new parent in the same frame")
 		Test.Pass("WorldTransforms: checked the hierarchy")
 	end
 end

@@ -1,43 +1,88 @@
 #include "SceneGraph.h"
 #include "Components.h"
 
-// Adds or removes the hidden marker, returning whether the entity is hidden
-static bool UpdateHidden(entt::registry& registry, entt::entity entity, bool parentHidden)
+// Whether the entity or any of its ancestors is hidden
+static bool IsHiddenInHierarchy(entt::registry& registry, entt::entity entity)
 {
-	HiddenComponent* hiddenComp = registry.try_get<HiddenComponent>(entity);
-	bool hidden = parentHidden || (hiddenComp != nullptr && hiddenComp->hidden);
-
-	if (hidden != registry.all_of<HiddenInHierarchyMarker>(entity))
+	while (entity != entt::null)
 	{
-		if (hidden)
-			registry.emplace<HiddenInHierarchyMarker>(entity);
-		else
-			registry.remove<HiddenInHierarchyMarker>(entity);
+		if (HiddenComponent* hiddenComp = registry.try_get<HiddenComponent>(entity); hiddenComp && hiddenComp->hidden)
+			return true;
+		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
+		entity = hierarchyComp != nullptr ? hierarchyComp->parent : entt::null;
 	}
-	return hidden;
+	return false;
 }
 
 void SceneGraph::Traverse(entt::registry& registry)
 {
 	PROFILE_FUNCTION();
 
-	auto nonHierarchyView = registry.view<TransformComponent>(entt::exclude<HierarchyComponent>);
+	UpdateHidden(registry);
+	UpdateWorldTransforms(registry);
+}
 
-	for (auto entity : nonHierarchyView)
+void SceneGraph::UpdateHidden(entt::registry& registry)
+{
+	PROFILE_FUNCTION();
+
+	std::vector<entt::entity> entities;
+	for (entt::entity entity : registry.view<HiddenInHierarchyMarker>())
 	{
-		registry.get<TransformComponent>(entity).SetWorldMatrix(Matrix4x4());
-		UpdateHidden(registry, entity, false);
+		if (!IsHiddenInHierarchy(registry, entity))
+			entities.push_back(entity);
+	}
+	registry.remove<HiddenInHierarchyMarker>(entities.begin(), entities.end());
+
+	// Only hidden entities and their descendants are visited
+	entities.clear();
+	for (auto [entity, hiddenComp] : registry.view<HiddenComponent>().each())
+	{
+		if (hiddenComp.hidden)
+			entities.push_back(entity);
 	}
 
-	registry.view<TransformComponent, HierarchyComponent>(/*entt::exclude<CanvasComponent>*/).each(
-		[&](const auto entity, [[maybe_unused]] auto& transformComp, auto& hierarchyComp)
+	while (!entities.empty())
+	{
+		entt::entity entity = entities.back();
+		entities.pop_back();
+
+		if (!registry.all_of<HiddenInHierarchyMarker>(entity))
+			registry.emplace<HiddenInHierarchyMarker>(entity);
+
+		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
+		for (entt::entity child = hierarchyComp != nullptr ? hierarchyComp->firstChild : entt::null; child != entt::null;)
 		{
-			// if the entity is active and a root node
-			if (hierarchyComp.isActive && hierarchyComp.parent == entt::null)
-			{
-				UpdateTransform(entity, registry);
-			}
-		});
+			entities.push_back(child);
+			HierarchyComponent* childHierarchyComp = registry.try_get<HierarchyComponent>(child);
+			child = childHierarchyComp != nullptr ? childHierarchyComp->nextSibling : entt::null;
+		}
+	}
+}
+
+void SceneGraph::UpdateWorldTransforms(entt::registry& registry)
+{
+	PROFILE_FUNCTION();
+
+	std::vector<entt::entity> stack;
+	for (auto [entity, transformComp] : registry.view<TransformComponent>().each())
+	{
+		if (transformComp.IsDirty())
+			UpdateSubtree(registry, FindDirtyRoot(registry, entity), stack);
+	}
+}
+
+void SceneGraph::UpdateWorldTransform(entt::registry& registry, entt::entity entity)
+{
+	if (!registry.valid(entity))
+		return;
+
+	entt::entity root = FindDirtyRoot(registry, entity);
+	if (root != entt::null)
+	{
+		std::vector<entt::entity> stack;
+		UpdateSubtree(registry, root, stack);
+	}
 }
 
 void SceneGraph::TraverseUI(entt::registry& registry, uint32_t viewportWidth, uint32_t viewportHeight)
@@ -197,6 +242,7 @@ void SceneGraph::Reparent(Entity entity, Entity parent)
 			currentHierachyComp->nextSibling = entity.GetHandle();
 		hierarchyComp.previousSibling = previousSibling;
 	}
+	MarkDirty(registry, entity);
 }
 
 void SceneGraph::Unparent(Entity entity)
@@ -209,6 +255,7 @@ void SceneGraph::Unparent(Entity entity)
 	{
 		entt::entity parent = hierachyComp->parent;
 		bool removeParentComponent = false;
+		MarkDirty(registry, entity);
 		HierarchyComponent* parentHierachyComp = registry.try_get<HierarchyComponent>(parent);
 
 		if (parentHierachyComp != nullptr)
@@ -312,6 +359,7 @@ void SceneGraph::MoveBefore(Entity entity, Entity before)
 	}
 
 	beforeHC.previousSibling = entity.GetHandle();
+	MarkDirty(registry, entity);
 }
 
 void SceneGraph::MoveAfter(Entity entity, Entity after)
@@ -338,6 +386,7 @@ void SceneGraph::MoveAfter(Entity entity, Entity after)
 		if (nextHC) nextHC->previousSibling = entity.GetHandle();
 	}
 	afterHC.nextSibling = entity.GetHandle();
+	MarkDirty(registry, entity);
 }
 
 std::vector<Entity> SceneGraph::GetChildren(Entity entity)
@@ -396,40 +445,60 @@ entt::entity SceneGraph::FindEntity(const std::vector<std::string>& path, entt::
 	return entt::null;
 }
 
-void SceneGraph::UpdateTransform(entt::entity root, entt::registry& registry)
+// The highest of the entity and its ancestors with a changed transform, or null if none have changed.
+// An ancestor without a transform ends the search, as its children are placed relative to the world.
+entt::entity SceneGraph::FindDirtyRoot(entt::registry& registry, entt::entity entity)
 {
-	PROFILE_FUNCTION();
-
-	struct PendingNode
+	entt::entity dirtyRoot = entt::null;
+	while (entity != entt::null)
 	{
-		entt::entity entity;
-		bool parentHidden;
-	};
-	std::vector<PendingNode> stack = { { root, false } };
+		TransformComponent* transformComp = registry.try_get<TransformComponent>(entity);
+		if (transformComp == nullptr)
+			break;
+		if (transformComp->IsDirty())
+			dirtyRoot = entity;
+
+		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
+		entity = hierarchyComp != nullptr ? hierarchyComp->parent : entt::null;
+	}
+	return dirtyRoot;
+}
+
+// Recomputes root and everything below it; the root's ancestors must already be up to date
+void SceneGraph::UpdateSubtree(entt::registry& registry, entt::entity root, std::vector<entt::entity>& stack)
+{
+	stack.clear();
+	stack.push_back(root);
 
 	while (!stack.empty())
 	{
-		PendingNode node = stack.back();
+		entt::entity entity = stack.back();
 		stack.pop_back();
 
-		TransformComponent* transformComp = registry.try_get<TransformComponent>(node.entity);
-		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(node.entity);
-		if (transformComp == nullptr || hierarchyComp == nullptr)
-			continue;
-
-		bool hidden = UpdateHidden(registry, node.entity, node.parentHidden);
-
-		TransformComponent* parentTransformComp = hierarchyComp->parent != entt::null
-			? registry.try_get<TransformComponent>(hierarchyComp->parent) : nullptr;
-		transformComp->SetWorldMatrix(parentTransformComp != nullptr ? parentTransformComp->GetWorldMatrix() : Matrix4x4());
-
-		for (entt::entity child = hierarchyComp->firstChild; child != entt::null;)
+		HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
+		if (TransformComponent* transformComp = registry.try_get<TransformComponent>(entity))
 		{
-			stack.push_back({ child, hidden });
+			TransformComponent* parentTransformComp = hierarchyComp != nullptr && hierarchyComp->parent != entt::null
+				? registry.try_get<TransformComponent>(hierarchyComp->parent) : nullptr;
+			if (parentTransformComp != nullptr)
+				transformComp->UpdateWorldMatrix(parentTransformComp->GetWorldMatrix());
+			else
+				transformComp->UpdateWorldMatrix();
+		}
+
+		for (entt::entity child = hierarchyComp != nullptr ? hierarchyComp->firstChild : entt::null; child != entt::null;)
+		{
+			stack.push_back(child);
 			HierarchyComponent* childHierarchyComp = registry.try_get<HierarchyComponent>(child);
 			child = childHierarchyComp != nullptr ? childHierarchyComp->nextSibling : entt::null;
 		}
 	}
+}
+
+void SceneGraph::MarkDirty(entt::registry& registry, entt::entity entity)
+{
+	if (TransformComponent* transformComp = registry.try_get<TransformComponent>(entity))
+		transformComp->m_Dirty = true;
 }
 
 void SceneGraph::UpdateUIWidgetTransform(entt::entity entity, WidgetComponent* widget, HierarchyComponent* hierarchyComp,

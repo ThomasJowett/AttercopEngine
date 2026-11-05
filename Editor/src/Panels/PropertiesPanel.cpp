@@ -216,12 +216,16 @@ void PropertiesPanel::DrawComponents(Entity entity)
 		{
 			if (!m_EditTransformComponent.first)
 				m_EditTransformComponent.second = CreateRef<EditComponentCommand<TransformComponent>>(entity);
-			if (ImGui::Transform(transform.position, transform.rotation, transform.scale))
+			Vector3f position = transform.GetPosition(), rotation = transform.GetRotation(), scale = transform.GetScale();
+			if (ImGui::Transform(position, rotation, scale))
 			{
+				transform.SetPosition(position);
+				transform.SetRotation(rotation);
+				transform.SetScale(scale);
 				m_EditTransformComponent.first = true;
 				if (entity.HasComponent<RigidBody2DComponent>())
 				{
-					entity.GetComponent<RigidBody2DComponent>().SetTransform(transform.position, transform.rotation.z);
+					entity.GetComponent<RigidBody2DComponent>().SetTransform(position, rotation.z);
 				}
 				SceneManager::CurrentScene()->MakeDirty();
 			}
@@ -475,8 +479,8 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
-							transformcomp->scale.x = (float)sprite.texture->GetWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit();
-							transformcomp->scale.y = (float)sprite.texture->GetHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit();
+							transformcomp->SetScale(Vector3f((float)sprite.texture->GetWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
+								(float)sprite.texture->GetHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
 						}
 					}
 					m_EditSpriteCommand.first = true;
@@ -539,8 +543,8 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
-							transformcomp->scale.x = (float)sprite.spriteSheet->GetSubTexture()->GetSpriteWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit();
-							transformcomp->scale.y = (float)sprite.spriteSheet->GetSubTexture()->GetSpriteHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit();
+							transformcomp->SetScale(Vector3f((float)sprite.spriteSheet->GetSubTexture()->GetSpriteWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
+								(float)sprite.spriteSheet->GetSubTexture()->GetSpriteHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
 						}
 						SceneManager::CurrentScene()->MakeDirty();
 						m_EditAnimatedSpriteCommand.first = true;

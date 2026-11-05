@@ -7,6 +7,7 @@
 #include "Scene/Components/SpriteComponent.h"
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Entity.h"
+#include "Scene/SceneGraph.h"
 #include "Scene/Components.h"
 #include "Renderer/Renderer2D.h"
 #include "Physics/HitResult2D.h"
@@ -24,6 +25,12 @@ namespace Lua
 entt::registry& GetSceneRegistry(Scene* scene)
 {
 	return scene->GetRegistry();
+}
+
+void UpdateWorldTransform(Scene* scene, entt::entity entity)
+{
+	if (scene)
+		SceneGraph::UpdateWorldTransform(scene->GetRegistry(), entity);
 }
 
 std::string ScriptLocation(lua_State* state)

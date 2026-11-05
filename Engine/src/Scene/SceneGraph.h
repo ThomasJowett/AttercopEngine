@@ -6,7 +6,15 @@
 class SceneGraph
 {
 public:
+	// Updates hidden markers and the world matrices of changed transforms
 	static void Traverse(entt::registry& registry);
+
+	// Recomputes the world matrix of every changed transform and its descendants
+	static void UpdateWorldTransforms(entt::registry& registry);
+	// Brings one entity's world matrix up to date, only recomputing from its highest changed ancestor
+	static void UpdateWorldTransform(entt::registry& registry, entt::entity entity);
+	static void UpdateHidden(entt::registry& registry);
+
 	static void TraverseUI(entt::registry& registry, uint32_t viewportWidth, uint32_t viewportHeight);
 
 	// Every entity carrying a WidgetComponent, in draw order (Canvas -> firstChild -> nextSibling,
@@ -26,7 +34,9 @@ public:
 	static std::vector<Entity> GetChildren(Entity entity);
 	static entt::entity FindEntity(const std::vector<std::string>& path, entt::registry& registry);
 private:
-	static void UpdateTransform(entt::entity root, entt::registry& registry);
+	static entt::entity FindDirtyRoot(entt::registry& registry, entt::entity entity);
+	static void UpdateSubtree(entt::registry& registry, entt::entity root, std::vector<entt::entity>& stack);
+	static void MarkDirty(entt::registry& registry, entt::entity entity);
 
 	// All position/size/anchor/margin math happens in a single consistent unit - reference-resolution
 	// pixels (WidgetComponent::s_referenceWidth/Height) - all the way down the tree, exactly like
