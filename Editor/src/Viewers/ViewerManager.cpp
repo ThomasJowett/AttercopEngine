@@ -140,6 +140,18 @@ void ViewerManager::CloseAll()
 	}
 }
 
+std::optional<std::string> ViewerManager::GetUnsavedText(const std::filesystem::path& assetPath)
+{
+	auto it = s_AssetViewers.find(assetPath);
+	if (it == s_AssetViewers.end())
+		return std::nullopt;
+
+	if (Ref<ScriptView> scriptView = std::dynamic_pointer_cast<ScriptView>(it->second.first))
+		if (scriptView->NeedsSaving())
+			return scriptView->GetText();
+	return std::nullopt;
+}
+
 FileType ViewerManager::GetFileType(const std::filesystem::path& assetPath)
 {
 	std::string extString = assetPath.extension().string();

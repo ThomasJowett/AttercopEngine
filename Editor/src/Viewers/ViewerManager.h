@@ -8,6 +8,7 @@
 
 #include <map>
 #include <filesystem>
+#include <optional>
 
 #include "Core/Layer.h"
 
@@ -49,6 +50,9 @@ public:
 	static void OpenViewer(const std::filesystem::path& assetPath, int line, const std::string& errorMessage = {});
 	static void CloseViewer(const std::filesystem::path& assetPath);
 	static void CloseAll();
+
+	// The text of an open script with unsaved edits, so searches can match what's on screen
+	static std::optional<std::string> GetUnsavedText(const std::filesystem::path& assetPath);
 
 	static FileType GetFileType(const std::filesystem::path& assetPath);
 	static const char* GetIcon(FileType fileType);
