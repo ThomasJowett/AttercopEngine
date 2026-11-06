@@ -14,6 +14,7 @@
 #include "AI/StateMachineSerializer.h"
 #include "Core/Settings.h"
 #include "Utilities/AssetReferenceUtils.h"
+#include "Panels/FindInFilesPanel.h"
 #include "Utilities/FileUtils.h"
 #include "Scene/AssetManager.h"
 
@@ -782,6 +783,9 @@ void ContentExplorerPanel::ItemContextMenu(size_t index, bool isDirectory, const
 		{
 			m_Renaming = true;
 		}
+
+		if (ImGui::Selectable(ICON_FA_MAGNIFYING_GLASS" Find References"))
+			FindInFilesPanel::RequestFindReferences(FileUtils::RelativePath(m_CurrentSelectedPath, Application::GetOpenDocumentDirectory()));
 
 		ImGui::Separator();
 
