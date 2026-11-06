@@ -116,7 +116,7 @@ void ProjectsStartScreen::OnImGuiRender()
 			if (!WebProject::CanWriteToDisk())
 			{
 				ImGui::Spacing();
-				ImGui::TextWrapped(ICON_FA_EXCLAMATION_TRIANGLE" This browser can only open existing projects, so use Browse Local to upload a project folder and File > Download Project to keep your changes. To create new projects and save straight to disk, open the Editor in Chrome or Edge.");
+				ImGui::TextWrapped(ICON_FA_TRIANGLE_EXCLAMATION" This browser can only open existing projects, so use Browse Local to upload a project folder and File > Download Project to keep your changes. To create new projects and save straight to disk, open the Editor in Chrome or Edge.");
 			}
 #endif
 		}
