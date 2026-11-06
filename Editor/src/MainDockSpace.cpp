@@ -28,6 +28,7 @@
 #include "Panels/PropertiesPanel.h"
 #include "Panels/ConsolePanel.h"
 #include "Panels/ErrorListPanel.h"
+#include "Panels/FindInFilesPanel.h"
 #include "Toolbars/PlayPauseToolbar.h"
 
 #include "Interfaces/ICopyable.h"
@@ -62,6 +63,7 @@ MainDockSpace::MainDockSpace()
 	m_ShowViewport = true;
 	m_ShowConsole = true;
 	m_ShowErrorList = true;
+	m_ShowFindInFiles = false;
 	m_ShowTaskList = false;
 	m_ShowProperties = true;
 	m_ShowHierarchy = true;
@@ -104,6 +106,7 @@ void MainDockSpace::OnAttach()
 	Settings::SetDefaultBool("Windows", "Hierarchy", m_ShowHierarchy);
 	Settings::SetDefaultBool("Windows", "Properties", m_ShowProperties);
 	Settings::SetDefaultBool("Windows", "ErrorList", m_ShowErrorList);
+	Settings::SetDefaultBool("Windows", "FindInFiles", m_ShowFindInFiles);
 	Settings::SetDefaultBool("Windows", "EditorPreferences", m_ShowEditorPreferences);
 	Settings::SetDefaultBool("Windows", "ProjectSettings", m_ShowProjectSettings);
 	Settings::SetDefaultBool("Windows", "InputMappings", m_ShowInputMappings);
@@ -126,6 +129,7 @@ void MainDockSpace::OnAttach()
 	m_ShowErrorList = Settings::GetBool("Windows", "ErrorList");
 	m_ShowProperties = Settings::GetBool("Windows", "Properties");
 	m_ShowHierarchy = Settings::GetBool("Windows", "Hierarchy");
+	m_ShowFindInFiles = Settings::GetBool("Windows", "FindInFiles");
 	m_ShowErrorList = Settings::GetBool("Windows", "ErrorList");
 
 	m_ShowPlayPauseToolbar = Settings::GetBool("Toolbars", "PlayPause");
@@ -141,6 +145,7 @@ void MainDockSpace::OnAttach()
 	Application::GetLayerStack().AddOverlay(m_ContentExplorer);
 	Application::GetLayerStack().AddOverlay(CreateRef<JoystickInfoPanel>(&m_ShowJoystickInfo));
 	Application::GetLayerStack().AddOverlay(CreateRef<ErrorListPanel>(&m_ShowErrorList));
+	Application::GetLayerStack().AddOverlay(CreateRef<FindInFilesPanel>(&m_ShowFindInFiles));
 	Application::GetLayerStack().AddOverlay(CreateRef<ConsolePanel>(&m_ShowConsole));
 	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy);
 	Application::GetLayerStack().AddOverlay(hierarchyPanel);
@@ -184,6 +189,7 @@ void MainDockSpace::OnDetach()
 	Settings::SetBool("Windows", "Hierarchy", m_ShowHierarchy);
 	Settings::SetBool("Windows", "Properties", m_ShowProperties);
 	Settings::SetBool("Windows", "ErrorList", m_ShowErrorList);
+	Settings::SetBool("Windows", "FindInFiles", m_ShowFindInFiles);
 
 #ifdef DEBUG
 	Settings::SetBool("Windows", "ImGuiDemo", m_ShowImGuiDemo);
@@ -294,6 +300,7 @@ void MainDockSpace::OnImGuiRender()
 				ImGui::DockBuilderDockWindow(ICON_FA_FOLDER_OPEN " Content Explorer", dock_id_bottom);
 				ImGui::DockBuilderDockWindow(ICON_FA_TERMINAL" Console", dock_id_bottom);
 				ImGui::DockBuilderDockWindow(ICON_FA_CIRCLE_XMARK" Error List", dock_id_bottom);
+				ImGui::DockBuilderDockWindow(ICON_FA_MAGNIFYING_GLASS" Find in Files", dock_id_bottom);
 				ImGui::DockBuilderDockWindow(ICON_FA_BORDER_ALL" Viewport", dock_main_id);
 
 				ImGui::DockBuilderFinish(dockspace_id);
@@ -425,6 +432,9 @@ void MainDockSpace::OnImGuiRender()
 			ImGui::Separator();//-----------------------------------------------
 			if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select All", "Ctrl + A", nullptr, copyable))
 				iCopy->SelectAll();
+			ImGui::Separator();//-----------------------------------------------
+			if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS" Find in Files", "Ctrl + Shift + F"))
+				FindInFilesPanel::RequestFocus();
 			ImGui::Separator();//-----------------------------------------------
 			ImGui::MenuItem(ICON_FA_GEAR" Preferences", "", &m_ShowEditorPreferences);
 			ImGui::MenuItem(ICON_FA_GEARS" Project Settings", "", &m_ShowProjectSettings);
@@ -596,6 +606,10 @@ void MainDockSpace::HandleKeyBoardInputs()
 	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_N) && ProjectsStartScreen::CanCreateProjects())
 	{
 		Application::GetLayerStack().AddOverlay(CreateRef<ProjectsStartScreen>(true));
+	}
+	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_F))
+	{
+		FindInFilesPanel::RequestFocus();
 	}
 	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_O))
 	{

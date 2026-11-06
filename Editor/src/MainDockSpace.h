@@ -40,6 +40,7 @@ private:
 	bool m_ShowViewport;
 	bool m_ShowConsole;
 	bool m_ShowErrorList;
+	bool m_ShowFindInFiles;
 	bool m_ShowTaskList;
 	bool m_ShowProperties;
 	bool m_ShowHierarchy;
