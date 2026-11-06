@@ -229,6 +229,26 @@ FileType ViewerManager::GetFileType(const std::filesystem::path& assetPath)
 	return FileType::UNKNOWN;
 }
 
+const char* ViewerManager::GetIcon(FileType fileType)
+{
+	switch (fileType)
+	{
+	case FileType::TEXT:			return ICON_FA_FILE_LINES;
+	case FileType::IMAGE:			return ICON_FA_FILE_IMAGE;
+	case FileType::MESH:			return ICON_FA_SHAPES;
+	case FileType::SCENE:			return ICON_FA_IMAGE;
+	case FileType::SCRIPT:			return ICON_FA_FILE_CODE;
+	case FileType::AUDIO:			return ICON_FA_FILE_AUDIO;
+	case FileType::MATERIAL:		return ICON_FA_BOWLING_BALL;
+	case FileType::TILESET:			return ICON_FA_GRIP;
+	case FileType::SPRITESHEET:		return ICON_FA_PHOTO_FILM;
+	case FileType::PHYSICSMATERIAL:	return ICON_FA_VOLLEYBALL;
+	case FileType::FONT:			return ICON_FA_FONT;
+	case FileType::BEHAVIOURTREE:
+	case FileType::STATEMACHINE:	return ICON_FA_DIAGRAM_PROJECT;
+	default:						return ICON_FA_FILE;
+	}
+}
 std::vector<std::string> ViewerManager::GetExtensions(FileType fileType)
 {
 	std::vector<std::string> extensions;

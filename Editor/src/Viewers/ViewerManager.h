@@ -51,6 +51,7 @@ public:
 	static void CloseAll();
 
 	static FileType GetFileType(const std::filesystem::path& assetPath);
+	static const char* GetIcon(FileType fileType);
 
 	static std::vector<std::string> GetExtensions(FileType fileType);
 	static std::vector<std::string> GetAllExtensions();
