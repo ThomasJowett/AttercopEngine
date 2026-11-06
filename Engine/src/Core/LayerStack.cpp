@@ -108,33 +108,24 @@ void LayerStack::PushOverlay(Ref<Layer> overlay)
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
+// Layers sit below m_LayerInsert and overlays above, so either can be removed with either call
 bool LayerStack::PopLayer(Ref<Layer> layer)
 {
 	PROFILE_FUNCTION();
 	auto it = std::find(m_Layers.begin(), m_Layers.end(), layer);
-	if (it != m_Layers.end())
-	{
-		layer->OnDetach();
-		m_Layers.erase(it);
-		layer.reset();
+	if (it == m_Layers.end())
+		return false;
+
+	if ((uint32_t)(it - m_Layers.begin()) < m_LayerInsert)
 		m_LayerInsert--;
-		return true;
-	}
-	return false;
+	layer->OnDetach();
+	m_Layers.erase(it);
+	return true;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 bool LayerStack::PopOverlay(Ref<Layer> overlay)
 {
-	PROFILE_FUNCTION();
-	auto it = std::find(m_Layers.begin(), m_Layers.end(), overlay);
-	if (it != m_Layers.end())
-	{
-		overlay->OnDetach();
-		m_Layers.erase(it);
-		overlay.reset();
-		return true;
-	}
-	return false;
+	return PopLayer(overlay);
 }
