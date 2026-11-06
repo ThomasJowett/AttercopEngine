@@ -1160,6 +1160,7 @@ std::tuple<Matrix4x4, Matrix4x4> Scene::GetPrimaryCameraViewProjection()
 	Entity cameraEntity = GetPrimaryCameraEntity();
 	if (cameraEntity)
 	{
+		SceneGraph::UpdateWorldTransform(m_Registry, cameraEntity);
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
 		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
 		Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();

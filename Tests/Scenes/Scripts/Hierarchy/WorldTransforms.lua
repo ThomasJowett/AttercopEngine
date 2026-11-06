@@ -62,6 +62,16 @@ function OnUpdate(deltaTime)
 		Near(child, 3, 1, "the child follows its parent in the same frame")
 		child:AddChild(grandchild)
 		Near(grandchild, 5, 1, "a reparented entity is placed under its new parent in the same frame")
+
+		-- Moving the camera's parent shifts screen conversions in the same frame too
+		local rig = New("Rig", 0, 0)
+		rig:AddChild(CurrentScene:FindEntity("Main Camera"))
+		local before = CurrentScene:WorldToScreenPoint(Vec3.new(0, 0, 0))
+		rig:GetTransformComponent().Position = Vec3.new(5, 0, 0)
+		local after = CurrentScene:WorldToScreenPoint(Vec3.new(5, 0, 0))
+		Test.Expect(math.abs(after.x - before.x) <= 0.5 and math.abs(after.y - before.y) <= 0.5,
+			"a point moving with the camera stays at the same screen position (was "
+			.. string.format("%.1f, %.1f, now %.1f, %.1f", before.x, before.y, after.x, after.y) .. ")")
 		Test.Pass("WorldTransforms: checked the hierarchy")
 	end
 end
