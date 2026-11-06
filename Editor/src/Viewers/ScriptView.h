@@ -40,6 +40,8 @@ public:
 	virtual void SaveAs() override;
 	virtual bool NeedsSaving() override { return m_TextEditor.NeedsSaving(); }
 
+	std::string GetText() const { return m_TextEditor.GetText(); }
+
 	// Lines start at 1; a message also marks the line as an error
 	void GoToLine(int line, const std::string& errorMessage = {}) { m_GoToLine = line; m_GoToLineError = errorMessage; }
 private:
