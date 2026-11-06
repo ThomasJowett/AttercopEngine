@@ -1,4 +1,5 @@
 #include "Core/core.h"
+#include "IconsFontAwesome6.h"
 
 #include "ViewerManager.h"
 #include "TextureView.h"
@@ -19,7 +20,7 @@ Ref<FileWatcher> s_FileWatcher = nullptr;
 
 static const char* TextExtensions[] =
 {
-  ".txt", ".ini", ".lua", ".cpp", ".h", ".c", ".hlsl", ".fx",
+  ".txt", ".ini", ".cpp", ".h", ".c", ".hlsl", ".fx",
   ".glsl", ".frag", ".vert", ".tesc", ".tese", ".geom", ".comp",
   ".json"
 };
@@ -249,6 +250,28 @@ const char* ViewerManager::GetIcon(FileType fileType)
 	default:						return ICON_FA_FILE;
 	}
 }
+
+const char* ViewerManager::GetTypeName(FileType fileType)
+{
+	switch (fileType)
+	{
+	case FileType::TEXT:			return "Text";
+	case FileType::IMAGE:			return "Image";
+	case FileType::MESH:			return "Mesh";
+	case FileType::SCENE:			return "Scene";
+	case FileType::SCRIPT:			return "Script";
+	case FileType::AUDIO:			return "Audio";
+	case FileType::MATERIAL:		return "Material";
+	case FileType::TILESET:			return "Tileset";
+	case FileType::SPRITESHEET:		return "Sprite Sheet";
+	case FileType::PHYSICSMATERIAL:	return "Physics Material";
+	case FileType::FONT:			return "Font";
+	case FileType::BEHAVIOURTREE:	return "Behaviour Tree";
+	case FileType::STATEMACHINE:	return "State Machine";
+	default:						return "Other";
+	}
+}
+
 std::vector<std::string> ViewerManager::GetExtensions(FileType fileType)
 {
 	std::vector<std::string> extensions;
@@ -353,6 +376,7 @@ std::vector<std::string> ViewerManager::GetAllExtensions()
 	AppendExtensions(result, MeshExtensions);
 	AppendExtensions(result, AudioExtensions);
 	AppendExtensions(result, FontExtensions);
+	result.push_back(".lua");
 	result.push_back(".scene");
 	result.push_back(".material");
 	result.push_back(".physicsmaterial");
