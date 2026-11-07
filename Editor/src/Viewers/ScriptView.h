@@ -1,5 +1,6 @@
 #pragma once
 #include "Asset/LuaScript.h"
+#include "Scripting/Lua/LuaApiEntry.h"
 
 #include "ImGui/ImGuiTextEditor.h"
 
@@ -47,6 +48,8 @@ public:
 private:
 	TextEditor::LanguageDefinition DetermineLanguageDefinition();
 	void ParseLuaScript();
+	bool CompleteLua(const std::string& lineBefore, const std::string& word, std::vector<TextEditor::AutoCompleteItem>& items) const;
+	bool CompleteLuaMember(const std::string& lineBefore, std::vector<TextEditor::AutoCompleteItem>& items) const;
 	void FindNext();
 	void FindPrevious();
 private:
@@ -63,4 +66,9 @@ private:
 	bool m_FocusSearch = false;
 	int m_GoToLine = 0;
 	std::string m_GoToLineError;
+
+	std::unordered_map<std::string, std::vector<LuaApiEntry>> m_LuaMembers;	// by the type or table they belong to
+	std::unordered_map<std::string, std::string> m_LuaGlobalTypes;			// e.g. CurrentScene -> Scene
+	std::vector<TextEditor::AutoCompleteItem> m_LuaGlobalWords;			// keywords and names with no owner, e.g. CurrentEntity
+	std::vector<TextEditor::AutoCompleteItem> m_LuaMemberWords;			// names that only follow a "." or ":"
 };
