@@ -17,6 +17,13 @@
 
 class Scene;
 class Entity;
+class Quaternion;
+class Uuid;
+class Material;
+class PhysicsMaterial;
+class SceneCamera;
+struct HitResult2D;
+namespace BehaviourTree { class BehaviourTree; class Blackboard; }
 
 namespace Lua
 {
@@ -62,7 +69,7 @@ struct ComponentHandle
 namespace Detail
 {
 template<typename... Args> struct TypeList {};
-template<typename T> struct TypeTag {};
+template<typename T> struct TypeTag { using Type = T; };
 
 template<typename Signature> struct MemberSignature;
 template<typename C, typename R, typename... Args>
@@ -125,11 +132,44 @@ struct LuaTypeNameTrait<Ref<T>>
 	static std::string Get() { return LuaTypeNameTrait<T>::Get(); }
 };
 
+template<typename T>
+struct LuaTypeNameTrait<T*>
+{
+	static std::string Get() { return LuaTypeNameTrait<std::remove_cv_t<T>>::Get(); }
+};
+
+template<typename T>
+struct LuaTypeNameTrait<sol::optional<T>>
+{
+	static std::string Get() { return LuaTypeNameTrait<std::decay_t<T>>::Get(); }
+};
+
+template<typename T>
+struct LuaTypeNameTrait<Lua::ComponentHandle<T>>
+{
+	static std::string Get() { return Lua::ComponentHandle<T>::s_LuaName; }
+};
+
 LUA_TYPE_NAME(std::string, "string")
+LUA_TYPE_NAME(std::string_view, "string")
+LUA_TYPE_NAME(const char*, "string")
+LUA_TYPE_NAME(sol::object, "any")
+LUA_TYPE_NAME(sol::table, "table")
+LUA_TYPE_NAME(sol::function, "function")
 LUA_TYPE_NAME(Colour, "Colour")
 LUA_TYPE_NAME(Vector2f, "Vec2")
 LUA_TYPE_NAME(Vector3f, "Vec3")
 LUA_TYPE_NAME(Vector4f, "Vector4f")
+LUA_TYPE_NAME(Quaternion, "Quaternion")
+LUA_TYPE_NAME(Uuid, "UUID")
+LUA_TYPE_NAME(Entity, "Entity")
+LUA_TYPE_NAME(Scene, "Scene")
+LUA_TYPE_NAME(Material, "Material")
+LUA_TYPE_NAME(PhysicsMaterial, "PhysicsMaterial")
+LUA_TYPE_NAME(SceneCamera, "Camera")
+LUA_TYPE_NAME(HitResult2D, "HitResult2D")
+LUA_TYPE_NAME(BehaviourTree::BehaviourTree, "BehaviourTree")
+LUA_TYPE_NAME(BehaviourTree::Blackboard, "Blackboard")
 
 template<typename T>
 std::string LuaTypeName()
@@ -181,15 +221,22 @@ inline std::string LuaPropertyName(const char* member)
 		type[Name] = sol::property(Lua::ResolveOnAccess<Self>(Getter), Lua::ResolveOnAccess<Self>(Setter)); \
 		RegisterLuaApiEntry({ Name, Description, LuaApiEntry::Kind::Property, s_ReflectComponentName, LuaType, true });
 
+// The bound function is moved into sol: given an lvalue, sol keeps a reference to it
 #define REFLECT_LUA_FUNCTION(Method, Description) \
-		type.set_function(#Method, Lua::ResolveOnAccess<Self>(&Self::Method)); \
-		RegisterLuaApiEntry({ #Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, "", true });
+		{ \
+			auto function = Lua::ResolveOnAccess<Self>(&Self::Method); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(#Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true)); \
+			type.set_function(#Method, std::move(function)); \
+		}
 
 // For functions that need a custom lambda rather than a plain &Self::Method pointer
 // (bounds-checked accessors, adapting a different signature, etc).
 #define REFLECT_LUA_FUNCTION_CUSTOM(Name, Description, ...) \
-		type.set_function(Name, Lua::ResolveOnAccess<Self>(__VA_ARGS__)); \
-		RegisterLuaApiEntry({ Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, "", true });
+		{ \
+			auto function = Lua::ResolveOnAccess<Self>(__VA_ARGS__); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true)); \
+			type.set_function(Name, std::move(function)); \
+		}
 
 #define REFLECT_LUA_END() \
 	}
@@ -208,11 +255,81 @@ void BindDebug(sol::state& state);
 void BindSignaling(sol::state& state);
 void BindPathfinding(sol::state& state);
 
-template<typename T, typename... Args>
-void SetFunction(T& type, const std::string& owner, const std::string& name, const std::string& description, Args&&... args)
+namespace Detail
 {
-	type.set_function(name, std::forward<Args>(args)...);
-	RegisterLuaApiEntry({ name, description, LuaApiEntry::Kind::Function, owner, "" });
+// What a bound callable returns and takes; Known is false for overload sets and generic lambdas
+template<typename F, typename = void>
+struct Signature { static constexpr bool Known = false; static constexpr bool IsFunctor = false; using Return = void; using Arguments = TypeList<>; };
+template<typename R, typename... Args>
+struct Signature<R(*)(Args...)> { static constexpr bool Known = true; static constexpr bool IsFunctor = false; using Return = R; using Arguments = TypeList<Args...>; };
+template<typename R, typename... Args>
+struct Signature<R(*)(Args...) noexcept> : Signature<R(*)(Args...)> {};
+template<typename F>
+struct Signature<F, std::enable_if_t<std::is_member_function_pointer_v<F>>> : MemberSignature<F> { static constexpr bool Known = true; static constexpr bool IsFunctor = false; };
+template<typename F>
+struct Signature<F, std::void_t<decltype(&F::operator())>> : MemberSignature<decltype(&F::operator())> { static constexpr bool Known = true; static constexpr bool IsFunctor = true; };
+
+template<typename T> struct UsertypeSelf { using Type = void; };	// tables and the global state have no self
+template<typename T, typename Base> struct UsertypeSelf<sol::basic_usertype<T, Base>> { using Type = T; };
+
+template<typename T>
+std::string ParameterTypeName()
+{
+	if constexpr (sol::meta::is_specialization_of_v<T, sol::optional>)
+		return LuaTypeName<typename T::value_type>() + "?";
+	else
+		return LuaTypeName<T>();
+}
+
+// A functor's first argument of the usertype's own type is the object it's called on, not a Lua argument
+template<typename Self, bool IsFunctor, typename... Args>
+bool ParameterTypeNames(TypeList<Args...>, std::vector<std::string>& names)
+{
+	bool known = true;
+	bool first = true;
+	auto add = [&](auto tag)
+	{
+		using T = std::decay_t<typename decltype(tag)::Type>;
+		if constexpr (std::is_same_v<T, sol::this_state>)
+			return;
+		else if constexpr (std::is_same_v<T, sol::variadic_args>)
+			known = false;
+		else
+		{
+			bool isSelf = IsFunctor && std::is_same_v<T, Self> && first;
+			first = false;
+			if (!isSelf)
+				names.push_back(ParameterTypeName<T>());
+		}
+	};
+	(add(TypeTag<Args>{}), ...);
+	return known;
+}
+}
+
+// An API entry for a bound function, with its return and argument types worked out from F
+template<typename Self, typename F>
+LuaApiEntry FunctionEntry(const std::string& name, const std::string& description, LuaApiEntry::Kind kind, const std::string& owner, bool isComponent = false)
+{
+	using Signature = Detail::Signature<std::decay_t<F>>;
+	LuaApiEntry entry{ name, description, kind, owner, "", isComponent };
+
+	if constexpr (!std::is_void_v<typename Signature::Return>)
+	{
+		std::string returnType = LuaTypeName<typename Signature::Return>();
+		entry.type = returnType == "unknown" ? "" : returnType;
+	}
+	if constexpr (Signature::Known)
+		entry.hasSignature = Detail::ParameterTypeNames<Self, Signature::IsFunctor>(typename Signature::Arguments{}, entry.parameters);
+	return entry;
+}
+
+template<typename T, typename F, typename... Args>
+void SetFunction(T& type, const std::string& owner, const std::string& name, const std::string& description, F&& function, Args&&... args)
+{
+	LuaApiEntry entry = FunctionEntry<typename Detail::UsertypeSelf<T>::Type, F>(name, description, LuaApiEntry::Kind::Function, owner);
+	type.set_function(name, std::forward<F>(function), std::forward<Args>(args)...);
+	RegisterLuaApiEntry(std::move(entry));
 }
 
 // Registers a global enum table, e.g. BodyType.Dynamic, and documents each value
