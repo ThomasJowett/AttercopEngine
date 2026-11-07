@@ -19,6 +19,14 @@
 #include <unordered_set>
 #include "FileSystem/WebProject.h"
 
+// Functions get their signature above the description, e.g. "FindEntity(string) -> Entity"
+static std::string LuaDescription(const LuaApiEntry& entry)
+{
+	if (entry.kind != LuaApiEntry::Kind::Function && entry.kind != LuaApiEntry::Kind::ComponentAccessor)
+		return entry.description;
+	return entry.name + entry.FormatParameters() + (entry.type.empty() ? "" : " -> " + entry.type) + "\n" + entry.description;
+}
+
 ScriptView::ScriptView(bool* show, const std::filesystem::path& filepath)
 	:View("ScriptView"), m_Show(show), m_FilePath(filepath)
 {
@@ -49,7 +57,7 @@ void ScriptView::OnAttach()
 		const auto& identifiers = LuaManager::GetIdentifiers();
 		for (const LuaApiEntry& entry : identifiers) {
 			TextEditor::Identifier id;
-			id.mDeclaration = entry.description;
+			id.mDeclaration = LuaDescription(entry);
 			lang.mIdentifiers.insert(std::make_pair(entry.name, id));
 
 			if (entry.kind == LuaApiEntry::Kind::Global)
@@ -62,7 +70,7 @@ void ScriptView::OnAttach()
 			else
 				m_LuaMembers[entry.component].push_back(entry);
 
-			(entry.component.empty() ? m_LuaGlobalWords : m_LuaMemberWords).push_back({ entry.name, entry.description });
+			(entry.component.empty() ? m_LuaGlobalWords : m_LuaMemberWords).push_back({ entry.name, id.mDeclaration });
 		}
 
 		// The built-in identifiers mix globals with library members such as math.floor
@@ -480,7 +488,7 @@ bool ScriptView::CompleteLuaMember(const std::string& lineBefore, std::vector<Te
 	{
 		bool isFunction = entry.kind == LuaApiEntry::Kind::Function || entry.kind == LuaApiEntry::Kind::ComponentAccessor;
 		if (!methodCall || isFunction)
-			items.push_back({ entry.name, entry.description });
+			items.push_back({ entry.name, LuaDescription(entry) });
 	}
 	return !items.empty();
 }

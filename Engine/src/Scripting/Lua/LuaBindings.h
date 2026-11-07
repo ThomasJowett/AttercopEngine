@@ -22,6 +22,10 @@ class Uuid;
 class Material;
 class PhysicsMaterial;
 class SceneCamera;
+class Texture;
+class Texture2D;
+class AudioClip;
+class PostProcessEffect;
 struct HitResult2D;
 namespace BehaviourTree { class BehaviourTree; class Blackboard; }
 
@@ -167,6 +171,10 @@ LUA_TYPE_NAME(Scene, "Scene")
 LUA_TYPE_NAME(Material, "Material")
 LUA_TYPE_NAME(PhysicsMaterial, "PhysicsMaterial")
 LUA_TYPE_NAME(SceneCamera, "Camera")
+LUA_TYPE_NAME(Texture, "Texture")
+LUA_TYPE_NAME(Texture2D, "Texture")
+LUA_TYPE_NAME(AudioClip, "AudioClip")
+LUA_TYPE_NAME(PostProcessEffect, "PostProcessEffect")
 LUA_TYPE_NAME(HitResult2D, "HitResult2D")
 LUA_TYPE_NAME(BehaviourTree::BehaviourTree, "BehaviourTree")
 LUA_TYPE_NAME(BehaviourTree::Blackboard, "Blackboard")
