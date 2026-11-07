@@ -97,8 +97,9 @@ void RegisterComponent(sol::state& state)
 	// component's page as if e.g. a TilemapComponent could be added to itself.
 	auto registerAccessor = [&](const std::string& functionName, const std::string& description, auto&& function)
 	{
+		LuaApiEntry entry = FunctionEntry<Entity, decltype(function)>(functionName, description, LuaApiEntry::Kind::ComponentAccessor, name, true);
 		entity_Type.set_function(functionName, std::forward<decltype(function)>(function));
-		LuaManager::AddApiEntry({ functionName, description, LuaApiEntry::Kind::ComponentAccessor, name, "", true });
+		LuaManager::AddApiEntry(std::move(entry));
 	};
 
 	registerAccessor("Add" + name, "Add a " + name + " to this entity; errors if it already has one", [function = "Add" + name](sol::this_state state, Entity& entity)
