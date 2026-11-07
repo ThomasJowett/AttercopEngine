@@ -14,7 +14,11 @@ namespace
 		if (entry.kind == LuaApiEntry::Kind::Property)
 			file << "- **" << entry.name << "** (`" << entry.type << "`): " << entry.description << "\n";
 		else if (entry.kind == LuaApiEntry::Kind::Function || entry.kind == LuaApiEntry::Kind::ComponentAccessor)
-			file << "- **" << entry.name << "()**: " << entry.description << "\n";
+		{
+			file << "- **" << entry.name << entry.FormatParameters() << (entry.type.empty() ? "" : " → " + entry.type) << "**: " << entry.description << "\n";
+			if (std::find(entry.parameters.begin(), entry.parameters.end(), "unknown") != entry.parameters.end())
+				std::cerr << "Warning: " << (entry.component.empty() ? "" : entry.component + ".") << entry.name << " takes a type with no Lua name - add a LUA_TYPE_NAME for it" << std::endl;
+		}
 		else if (entry.kind == LuaApiEntry::Kind::EnumValue)
 			file << "- **" << entry.name << "** = `" << entry.description << "`\n";
 		else
