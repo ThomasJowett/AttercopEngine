@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include "FileSystem/WebProject.h"
 
 ScriptView::ScriptView(bool* show, const std::filesystem::path& filepath)
@@ -50,7 +51,37 @@ void ScriptView::OnAttach()
 			TextEditor::Identifier id;
 			id.mDeclaration = entry.description;
 			lang.mIdentifiers.insert(std::make_pair(entry.name, id));
+
+			if (entry.kind == LuaApiEntry::Kind::Global)
+			{
+				if (!entry.type.empty())
+					m_LuaGlobalTypes[entry.name] = entry.type;
+			}
+			else if (entry.kind == LuaApiEntry::Kind::ComponentAccessor)
+				m_LuaMembers["Entity"].push_back(entry);	// called on the entity, not the component
+			else
+				m_LuaMembers[entry.component].push_back(entry);
+
+			(entry.component.empty() ? m_LuaGlobalWords : m_LuaMemberWords).push_back({ entry.name, entry.description });
 		}
+
+		// The built-in identifiers mix globals with library members such as math.floor
+		static const std::unordered_set<std::string> builtInGlobals = {
+			"assert", "collectgarbage", "dofile", "error", "getmetatable", "ipairs", "load", "loadfile", "loadstring", "next",
+			"pairs", "pcall", "print", "rawequal", "rawget", "rawlen", "rawset", "require", "select", "setmetatable", "tonumber",
+			"tostring", "type", "unpack", "xpcall", "_G", "_VERSION", "coroutine", "debug", "io", "math", "os", "package", "string",
+			"table", "utf8", "bit32"
+		};
+		for (const auto& [name, id] : TextEditor::LanguageDefinition::Lua().mIdentifiers)
+			(builtInGlobals.count(name) ? m_LuaGlobalWords : m_LuaMemberWords).push_back({ name, id.mDeclaration });
+		for (const std::string& keyword : lang.mKeywords)
+			if (!keyword.empty())
+				m_LuaGlobalWords.push_back({ keyword, "" });
+
+		m_TextEditor.SetAutoCompleteProvider([this](const std::string& lineBefore, const std::string& word, std::vector<TextEditor::AutoCompleteItem>& items)
+			{
+				return CompleteLua(lineBefore, word, items);
+			});
 	}
 
 	m_TextEditor.SetLanguageDefinition(lang);
@@ -133,11 +164,11 @@ void ScriptView::OnImGuiRender()
 				m_ShowSearch = true;
 				m_FocusSearch = true;
 			}
-			else if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+			else if (!m_TextEditor.IsAutoCompleteOpen() && ImGui::IsKeyPressed(ImGuiKey_Escape))
 			{
 				m_ShowSearch = false;
 			}
-			else if (m_ShowSearch && ImGui::IsKeyPressed(ImGuiKey_Enter))
+			else if (m_ShowSearch && !m_TextEditor.IsAutoCompleteOpen() && ImGui::IsKeyPressed(ImGuiKey_Enter))
 			{
 				if (shift)
 					FindPrevious();
@@ -349,6 +380,109 @@ void ScriptView::ParseLuaScript()
 	
 	LuaScriptComponent& luaComp = entity.AddComponent<LuaScriptComponent>(m_FilePath);
 	luaComp.ParseScript(entity);
+}
+
+// Globals at the start of an expression, members after a "." or ":"
+bool ScriptView::CompleteLua(const std::string& lineBefore, const std::string& word, std::vector<TextEditor::AutoCompleteItem>& items) const
+{
+	bool afterSeparator = !lineBefore.empty() && (lineBefore.back() == '.' || lineBefore.back() == ':');
+	if (afterSeparator && CompleteLuaMember(lineBefore, items))
+		return true;
+
+	// Nothing typed yet and nothing known to list, e.g. after a number or an unknown local
+	if (word.empty())
+		return false;
+
+	items = afterSeparator ? m_LuaMemberWords : m_LuaGlobalWords;
+	return true;
+}
+
+// Lists the members after "a.b:c()." when each step's type is known from the Lua API entries
+bool ScriptView::CompleteLuaMember(const std::string& lineBefore, std::vector<TextEditor::AutoCompleteItem>& items) const
+{
+	if (lineBefore.empty() || (lineBefore.back() != '.' && lineBefore.back() != ':'))
+		return false;
+	const bool methodCall = lineBefore.back() == ':';
+
+	auto isWordChar = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
+
+	// Walk back through the chain, e.g. CurrentEntity:GetRigidBody2DComponent()
+	struct Step { std::string name; bool call; };
+	std::vector<Step> steps;
+	size_t end = lineBefore.size() - 1;
+	while (true)
+	{
+		bool call = false;
+		if (end > 0 && lineBefore[end - 1] == ')')
+		{
+			int depth = 0;
+			size_t i = end;
+			while (i > 0)
+			{
+				char c = lineBefore[--i];
+				if (c == ')')
+					depth++;
+				else if (c == '(' && --depth == 0)
+					break;
+			}
+			if (depth != 0)
+				return false;
+			end = i;
+			call = true;
+		}
+
+		size_t begin = end;
+		while (begin > 0 && isWordChar(lineBefore[begin - 1]))
+			--begin;
+		if (begin == end || std::isdigit((unsigned char)lineBefore[begin]))
+			return false;
+
+		steps.insert(steps.begin(), { lineBefore.substr(begin, end - begin), call });
+
+		if (begin > 0 && (lineBefore[begin - 1] == '.' || lineBefore[begin - 1] == ':'))
+			end = begin - 1;
+		else
+			break;
+	}
+
+	// The first step is a global with a known type, or a table or type such as Input or Vec2
+	std::string type;
+	if (steps[0].call)
+		return false;
+	if (auto it = m_LuaGlobalTypes.find(steps[0].name); it != m_LuaGlobalTypes.end())
+		type = it->second;
+	else if (m_LuaMembers.count(steps[0].name))
+		type = steps[0].name;
+	else
+		return false;
+
+	for (size_t i = 1; i < steps.size(); ++i)
+	{
+		auto members = m_LuaMembers.find(type);
+		if (members == m_LuaMembers.end())
+			return false;
+
+		auto member = std::find_if(members->second.begin(), members->second.end(), [&](const LuaApiEntry& entry) { return entry.name == steps[i].name; });
+		if (member == members->second.end())
+			return false;
+
+		bool isFunction = member->kind == LuaApiEntry::Kind::Function || member->kind == LuaApiEntry::Kind::ComponentAccessor;
+		if (isFunction != steps[i].call)
+			return false;
+		type = member->type;
+	}
+
+	auto members = m_LuaMembers.find(type);
+	if (members == m_LuaMembers.end())
+		return false;
+
+	for (const LuaApiEntry& entry : members->second)
+	{
+		bool isFunction = entry.kind == LuaApiEntry::Kind::Function || entry.kind == LuaApiEntry::Kind::ComponentAccessor;
+		if (!methodCall || isFunction)
+			items.push_back({ entry.name, entry.description });
+	}
+	return !items.empty();
 }
 
 void ScriptView::FindNext() {
