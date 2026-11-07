@@ -41,8 +41,8 @@ void LuaManager::StopWatchdog()
 }
 
 std::vector<LuaApiEntry> LuaManager::s_Identifiers = {
-	{ "CurrentEntity", "Get the entity this script is attached to", LuaApiEntry::Kind::Global, "", "" },
-	{ "CurrentScene", "The currently loaded Scene", LuaApiEntry::Kind::Global, "", "" }
+	{ "CurrentEntity", "Get the entity this script is attached to", LuaApiEntry::Kind::Global, "", "Entity" },
+	{ "CurrentScene", "The currently loaded Scene", LuaApiEntry::Kind::Global, "", "Scene" }
 };
 
 static constexpr int k_ModuleNotFound = -1;
