@@ -9,6 +9,7 @@
 #include <map>
 #include <regex>
 #include <filesystem>
+#include <functional>
 #include "imgui/imgui.h"
 #include "Interfaces/IUndoable.h"
 #include "Interfaces/ICopyable.h"
@@ -127,6 +128,15 @@ public:
 		Coordinates mLocation;
 		std::string mDeclaration;
 	};
+
+	struct AutoCompleteItem
+	{
+		std::string mWord;
+		std::string mDescription;
+	};
+
+	// Given the line up to the word being typed and the word so far, fills the names that fit there; false to use the language's word list
+	typedef std::function<bool(const std::string& aLineBefore, const std::string& aWord, std::vector<AutoCompleteItem>& aItems)> AutoCompleteProvider;
 
 	typedef std::string String;
 	typedef std::unordered_map<std::string, Identifier> Identifiers;
@@ -274,6 +284,9 @@ public:
 
 	bool NeedsSaving() { return mDirty; }
 
+	bool IsAutoCompleteOpen() const { return mAutoCompleteOpen; }
+	void SetAutoCompleteProvider(const AutoCompleteProvider& aProvider) { mAutoCompleteProvider = aProvider; }
+
 	static const Palette& GetDarkPalette();
 	static const Palette& GetLightPalette();
 	static const Palette& GetRetroBluePalette();
@@ -360,6 +373,13 @@ private:
 	void HandleMouseInputs();
 	void Render();
 
+	std::string GetAutoCompletePrefix(Coordinates& aStart) const;
+	void OpenAutoComplete();
+	void UpdateAutoComplete();
+	void CloseAutoComplete();
+	void AcceptAutoComplete();
+	void RenderAutoComplete();
+
 	float mLineSpacing;
 	Lines mLines;
 	EditorState mState;
@@ -401,4 +421,14 @@ private:
 	float mLastClick;
 
 	std::filesystem::path mFilePath;
+
+	std::vector<AutoCompleteItem> mAutoCompleteWords;	// keywords and known identifiers, sorted
+	std::vector<AutoCompleteItem> mAutoCompleteMatches;
+	AutoCompleteProvider mAutoCompleteProvider;
+	std::string mAutoCompleteKey;	// line and word the matches were found for
+	int mAutoCompleteIndex = 0;
+	bool mAutoCompleteOpen = false;
+	bool mAutoCompleteInUse = false;
+	bool mAutoCompleteScrollToSelected = false;
+	ImVec2 mAutoCompletePos;
 };
