@@ -115,7 +115,7 @@ void BindScene(sol::state& state)
 	sol::usertype<Material> material_type = state.new_usertype<Material>("Material");
 	SetFunction(material_type, "Material", "SetShader", "Set the shader by name", &Material::SetShader);
 	SetFunction(material_type, "Material", "GetShader", "Get the shader name", &Material::GetShader);
-	SetFunction(material_type, "Material", "AddTexture", "Set the texture in a slot: (texture, slot); nil removes it", &Material::AddTexture);
+	SetFunction(material_type, "Material", "AddTexture", Params{ "texture, slot" }, "Set the texture in a slot; nil removes it", &Material::AddTexture);
 	SetFunction(material_type, "Material", "GetTextureOffset", "Get the texture offset", &Material::GetTextureOffset);
 	SetFunction(material_type, "Material", "SetTextureOffset", "Set the texture offset", &Material::SetTextureOffset);
 	SetFunction(material_type, "Material", "GetTilingFactor", "Get how many times textures repeat", &Material::GetTilingFactor);

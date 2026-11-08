@@ -169,7 +169,7 @@ void BindEntity(sol::state& state)
 		sol::meta_function::equal_to, [](const Uuid& a, const Uuid& b) { return a == b; },
 		sol::meta_function::to_string, &Uuid::to_string);
 	SetFunction(uuid_type, "UUID", "ToString", "Get the ID as a string, e.g. to save it or use it as a table key", &Uuid::to_string);
-	SetFunction(uuid_type, "UUID", "FromString", "UUID.FromString(s): read back an ID from ToString, or nil if s isn't one", [](const std::string& string) -> sol::optional<Uuid>
+	SetFunction(uuid_type, "UUID", "FromString", Params{ "text" }, "Read back an ID from ToString, or nil if the text isn't one", [](const std::string& string) -> sol::optional<Uuid>
 		{
 			size_t dash = string.find('-');
 			if (dash == std::string::npos || dash == 0 || dash == string.size() - 1)
@@ -215,8 +215,8 @@ void BindEntity(sol::state& state)
 
 	// Component bindings live in each component's REFLECT_LUA block; these are the non-component types they use
 	sol::usertype<SceneCamera> sceneCamera_type = state.new_usertype<SceneCamera>("Camera");
-	SetFunction(sceneCamera_type, "Camera", "SetOrthographic", "Switch to an orthographic projection: (size, near, far)", &SceneCamera::SetOrthographic);
-	SetFunction(sceneCamera_type, "Camera", "SetPerspective", "Switch to a perspective projection: (verticalFov, near, far)", &SceneCamera::SetPerspective);
+	SetFunction(sceneCamera_type, "Camera", "SetOrthographic", Params{ "size, near, far" }, "Switch to an orthographic projection", &SceneCamera::SetOrthographic);
+	SetFunction(sceneCamera_type, "Camera", "SetPerspective", Params{ "verticalFov, near, far" }, "Switch to a perspective projection", &SceneCamera::SetPerspective);
 	SetFunction(sceneCamera_type, "Camera", "SetAspectRatio", "Set the width / height aspect ratio", &SceneCamera::SetAspectRatio);
 	SetFunction(sceneCamera_type, "Camera", "GetAspectRatio", "Get the width / height aspect ratio", &SceneCamera::GetAspectRatio);
 	SetFunction(sceneCamera_type, "Camera", "GetOrthoNear", "Get the orthographic near clip distance", &SceneCamera::GetOrthoNear);
@@ -291,18 +291,18 @@ void BindCommonTypes(sol::state& state)
 		{"Yellow", (int)Colours::YELLOW},
 		{"Random", (int)Colours::RANDOM}
 	};
-	SetEnum(state, "Colours", "Named colours, for Colour.new(Colours.Red) or colour:SetColour; Random picks one at random", coloursItems);
+	SetEnum(state, "Colours", "Named colours, for Colour.new(Colours.Red) or colour:SetColour; Random picks one at random", coloursItems, "Colour");
 
 	SetFunction(colour_type, "Colour", "SetColour", "Set to a named colour, e.g. colour:SetColour(Colours.Red)", static_cast<void(Colour::*)(Colours)>(&Colour::SetColour));
 
 	sol::usertype<BehaviourTree::Blackboard> blackboard_type = state.new_usertype<BehaviourTree::Blackboard>("Blackboard");
-	SetFunction(blackboard_type, "Blackboard", "SetBool", "Set a boolean: (key, value)", &BehaviourTree::Blackboard::setBool);
-	SetFunction(blackboard_type, "Blackboard", "SetInt", "Set an integer: (key, value)", &BehaviourTree::Blackboard::setInt);
-	SetFunction(blackboard_type, "Blackboard", "SetFloat", "Set a number: (key, value)", &BehaviourTree::Blackboard::setFloat);
-	SetFunction(blackboard_type, "Blackboard", "SetDouble", "Set a double: (key, value)", &BehaviourTree::Blackboard::setDouble);
-	SetFunction(blackboard_type, "Blackboard", "SetString", "Set a string: (key, value)", &BehaviourTree::Blackboard::setString);
-	SetFunction(blackboard_type, "Blackboard", "SetVec2", "Set a Vec2: (key, value)", &BehaviourTree::Blackboard::setVector2);
-	SetFunction(blackboard_type, "Blackboard", "SetVec3", "Set a Vec3: (key, value)", &BehaviourTree::Blackboard::setVector3);
+	SetFunction(blackboard_type, "Blackboard", "SetBool", Params{ "key, value" }, "Set a boolean", &BehaviourTree::Blackboard::setBool);
+	SetFunction(blackboard_type, "Blackboard", "SetInt", Params{ "key, value" }, "Set an integer", &BehaviourTree::Blackboard::setInt);
+	SetFunction(blackboard_type, "Blackboard", "SetFloat", Params{ "key, value" }, "Set a number", &BehaviourTree::Blackboard::setFloat);
+	SetFunction(blackboard_type, "Blackboard", "SetDouble", Params{ "key, value" }, "Set a double", &BehaviourTree::Blackboard::setDouble);
+	SetFunction(blackboard_type, "Blackboard", "SetString", Params{ "key, value" }, "Set a string", &BehaviourTree::Blackboard::setString);
+	SetFunction(blackboard_type, "Blackboard", "SetVec2", Params{ "key, value" }, "Set a Vec2", &BehaviourTree::Blackboard::setVector2);
+	SetFunction(blackboard_type, "Blackboard", "SetVec3", Params{ "key, value" }, "Set a Vec3", &BehaviourTree::Blackboard::setVector3);
 	SetFunction(blackboard_type, "Blackboard", "GetBool", "Get a boolean by key", &BehaviourTree::Blackboard::getBool);
 	SetFunction(blackboard_type, "Blackboard", "GetInt", "Get an integer by key", &BehaviourTree::Blackboard::getInt);
 	SetFunction(blackboard_type, "Blackboard", "GetFloat", "Get a number by key", &BehaviourTree::Blackboard::getFloat);
@@ -320,7 +320,7 @@ void BindCommonTypes(sol::state& state)
 		{ "Running", (int)BehaviourTree::Node::Status::Running },
 		{ "Aborted", (int)BehaviourTree::Node::Status::Aborted }
 	};
-	SetEnum(state, "NodeStatus", "What a behaviour tree custom task returns from its update", nodeStatusItems);
+	SetEnum(state, "NodeStatus", "What a behaviour tree custom task returns from its update", nodeStatusItems, "BehaviourTree");
 }
 
 //--------------------------------------------------------------------------------------------------------------
@@ -341,17 +341,17 @@ void BindDebug(sol::state& state)
 	sol::table debug = state.create_table("Debug");
 	LuaManager::AddIdentifier("Debug", "Draw debug lines and shapes, from OnDebugRender");
 
-	SetFunction(debug, "Debug", "DrawLine", "DrawLine(start, end, colour): a line between two Vec3 points", [](const Vector3f& start, const Vector3f& end, const Colour& colour)
+	SetFunction(debug, "Debug", "DrawLine", Params{ "start, end, colour" }, "Draw a line between two points", [](const Vector3f& start, const Vector3f& end, const Colour& colour)
 		{ Renderer2D::DrawHairLine(start, end, colour); });
-	SetFunction(debug, "Debug", "DrawCircle", "DrawCircle(position, radius, segments, colour): a circle outline", [](const Vector3f& position, float radius, uint32_t segments, const Colour& colour)
+	SetFunction(debug, "Debug", "DrawCircle", Params{ "position, radius, segments, colour" }, "Draw a circle outline", [](const Vector3f& position, float radius, uint32_t segments, const Colour& colour)
 		{ Renderer2D::DrawHairLineCircle(position, radius, segments, colour); });
-	SetFunction(debug, "Debug", "DrawRect", "DrawRect(position, size, colour): a rectangle outline; size is a Vec2", [](const Vector3f& position, const Vector2f& size, const Colour& colour)
+	SetFunction(debug, "Debug", "DrawRect", Params{ "position, size, colour" }, "Draw a rectangle outline", [](const Vector3f& position, const Vector2f& size, const Colour& colour)
 		{ Renderer2D::DrawHairLineRect(position, size, colour); });
-	SetFunction(debug, "Debug", "DrawPolyline", "DrawPolyline(points, width, colour, closed): a line through a table of Vec3 points, width in pixels", [](sol::table points, float width, const Colour& colour, sol::optional<bool> closed)
+	SetFunction(debug, "Debug", "DrawPolyline", Params{ "points, width, colour, closed" }, "Draw a line through a table of Vec3 points, width in pixels", [](sol::table points, float width, const Colour& colour, sol::optional<bool> closed)
 		{
 			Renderer2D::DrawPolyline(ToPoints(points), width, colour, closed.value_or(false));
 		});
-	SetFunction(debug, "Debug", "DrawTexturedPolyline", "DrawTexturedPolyline(points, width, texture, textureLength, closed): a textured line through a table of Vec3 points, width in world units; the texture repeats every textureLength", [](sol::table points, float width, Ref<Texture2D> texture, float textureLength, sol::optional<bool> closed)
+	SetFunction(debug, "Debug", "DrawTexturedPolyline", Params{ "points, width, texture, textureLength, closed" }, "Draw a textured line through a table of Vec3 points, width in world units; the texture repeats every textureLength", [](sol::table points, float width, Ref<Texture2D> texture, float textureLength, sol::optional<bool> closed)
 		{
 			Renderer2D::DrawPolyline(ToPoints(points), width, texture, textureLength, Colours::WHITE, closed.value_or(false));
 		});

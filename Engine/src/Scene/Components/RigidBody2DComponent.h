@@ -49,7 +49,7 @@ struct RigidBody2DComponent
 			{ "Static", (int)BodyType::STATIC },
 			{ "Kinematic", (int)BodyType::KINEMATIC },
 			{ "Dynamic", (int)BodyType::DYNAMIC }
-		});
+		}, s_ReflectComponentName);
 		REFLECT_LUA_PROPERTY_CUSTOM("Type", "BodyType.Static, BodyType.Kinematic or BodyType.Dynamic", "BodyType",
 			([](Self& c) { return c.type; }),
 			([](Self& c, BodyType v) { c.type = v; }))

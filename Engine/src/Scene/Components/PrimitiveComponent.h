@@ -278,12 +278,12 @@ struct PrimitiveComponent
 		REFLECT_LUA_PROPERTY_CUSTOM("Mesh", "The generated mesh", "Mesh",
 			([](Self& c) { return c.mesh; }),
 			([](Self& c, const Ref<Mesh>& v) { c.mesh = v; }))
-		REFLECT_LUA_FUNCTION(SetCube, "Rebuild as a cube: (width, depth, height)")
-		REFLECT_LUA_FUNCTION(SetSphere, "Rebuild as a sphere: (radius, longitudeLines, latitudeLines)")
-		REFLECT_LUA_FUNCTION(SetPlane, "Rebuild as a plane: (width, length, widthLines, lengthLines, tileU, tileV)")
-		REFLECT_LUA_FUNCTION(SetCylinder, "Rebuild as a cylinder: (bottomRadius, topRadius, height, sliceCount, stackCount)")
-		REFLECT_LUA_FUNCTION(SetCone, "Rebuild as a cone: (bottomRadius, height, sliceCount, stackCount)")
-		REFLECT_LUA_FUNCTION(SetTorus, "Rebuild as a torus: (outerRadius, innerRadius, sliceCount)")
+		REFLECT_LUA_FUNCTION_PARAMS(SetCube, "width, depth, height", "Rebuild as a cube")
+		REFLECT_LUA_FUNCTION_PARAMS(SetSphere, "radius, longitudeLines, latitudeLines", "Rebuild as a sphere")
+		REFLECT_LUA_FUNCTION_PARAMS(SetPlane, "width, length, widthLines, lengthLines, tileU, tileV", "Rebuild as a plane")
+		REFLECT_LUA_FUNCTION_PARAMS(SetCylinder, "bottomRadius, topRadius, height, sliceCount, stackCount", "Rebuild as a cylinder")
+		REFLECT_LUA_FUNCTION_PARAMS(SetCone, "bottomRadius, height, sliceCount, stackCount", "Rebuild as a cone")
+		REFLECT_LUA_FUNCTION_PARAMS(SetTorus, "outerRadius, innerRadius, sliceCount", "Rebuild as a torus")
 		REFLECT_LUA_FUNCTION(SetType, "Rebuild as the given shape type, using its current settings")
 	REFLECT_LUA_END()
 

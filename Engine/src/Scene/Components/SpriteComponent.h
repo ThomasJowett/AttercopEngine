@@ -36,12 +36,12 @@ struct SpriteComponent
 		Lua::SetEnum(state, "FilterMethod", "Texture filtering, for SpriteComponent.FilterMethod", {
 			{ "Linear", (int)Texture::FilterMethod::Linear },
 			{ "Nearest", (int)Texture::FilterMethod::Nearest }
-		});
+		}, s_ReflectComponentName);
 		Lua::SetEnum(state, "WrapMethod", "Texture wrapping outside 0-1, for SpriteComponent.WrapMethod", {
 			{ "Clamp", (int)Texture::WrapMethod::Clamp },
 			{ "Mirror", (int)Texture::WrapMethod::Mirror },
 			{ "Repeat", (int)Texture::WrapMethod::Repeat }
-		});
+		}, s_ReflectComponentName);
 		REFLECT_LUA_PROPERTY_CUSTOM("Tint", "Colour multiplied over the texture", "Colour",
 			([](Self& c) -> Colour& { return c.tint; }),
 			([](Self& c, const Colour& v) { c.tint = v; }))

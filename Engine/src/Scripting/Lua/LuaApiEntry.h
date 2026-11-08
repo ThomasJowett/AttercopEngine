@@ -16,15 +16,26 @@ struct LuaApiEntry
 	bool isComponent = false;
 	std::vector<std::string> parameters;	// Lua type of each argument, filled in for functions
 	bool hasSignature = false;			// false when the arguments can't be worked out, e.g. variadic
+	std::vector<std::string> parameterNames;	// optional, one per argument
+	std::string documentedOn;			// enums: the page they're listed on, e.g. Input; empty for a page of their own
 
-	// "(Entity, Vec3)", or "(...)" when the arguments aren't known
+	// "(prefab: Entity, position: Vec3)", "(Entity, Vec3)" without names, or "(...)" when nothing is known
 	std::string FormatParameters() const
 	{
-		if (!hasSignature)
+		bool named = !parameterNames.empty() && (!hasSignature || parameterNames.size() == parameters.size());
+		if (!hasSignature && !named)
 			return "(...)";
+
+		size_t count = hasSignature ? parameters.size() : parameterNames.size();
 		std::string result = "(";
-		for (size_t i = 0; i < parameters.size(); ++i)
-			result += (i > 0 ? ", " : "") + parameters[i];
+		for (size_t i = 0; i < count; ++i)
+		{
+			result += i > 0 ? ", " : "";
+			if (named)
+				result += parameterNames[i] + (hasSignature ? ": " : "");
+			if (hasSignature)
+				result += parameters[i];
+		}
 		return result + ")";
 	}
 };

@@ -137,10 +137,11 @@ void BindCoroutines(sol::state& state)
 	lua_register(state.lua_state(), "Wait", &Wait);
 	lua_register(state.lua_state(), "WaitFixed", &WaitFixed);
 
-	RegisterLuaApiEntry({ "StartCoroutine", "StartCoroutine(fn, ...) runs fn as a coroutine owned by this script and returns a handle; it runs straight away until its first pause, then is resumed each frame after OnUpdate", LuaApiEntry::Kind::Function, "", "" });
-	RegisterLuaApiEntry({ "StopCoroutine", "StopCoroutine(handle) stops a coroutine started with StartCoroutine", LuaApiEntry::Kind::Function, "", "" });
-	RegisterLuaApiEntry({ "Wait", "Wait(seconds) pauses the current coroutine for at least this much game time; coroutine.yield() waits one frame", LuaApiEntry::Kind::Function, "", "" });
-	RegisterLuaApiEntry({ "WaitFixed", "WaitFixed() pauses the current coroutine until the next fixed update, after OnFixedUpdate", LuaApiEntry::Kind::Function, "", "" });
+	// Registered on the Lua state directly, so the arguments are written out here
+	RegisterLuaApiEntry({ "StartCoroutine", "Run fn as a coroutine owned by this script, passing it any further arguments, and return a handle; it runs straight away until its first pause, then is resumed each frame after OnUpdate", LuaApiEntry::Kind::Function, "", "integer", false, {}, false, { "fn", "..." } });
+	RegisterLuaApiEntry({ "StopCoroutine", "Stop a coroutine started with StartCoroutine", LuaApiEntry::Kind::Function, "", "", false, { "integer" }, true, { "handle" } });
+	RegisterLuaApiEntry({ "Wait", "Pause the current coroutine for at least this much game time; coroutine.yield() waits one frame", LuaApiEntry::Kind::Function, "", "", false, { "number" }, true, { "seconds" } });
+	RegisterLuaApiEntry({ "WaitFixed", "Pause the current coroutine until the next fixed update, after OnFixedUpdate", LuaApiEntry::Kind::Function, "", "", false, {}, true });
 }
 
 void InstallCoroutines(sol::environment& environment, const Ref<CoroutineScheduler>& scheduler)
