@@ -50,6 +50,10 @@ private:
 	void ParseLuaScript();
 	bool CompleteLua(const std::string& lineBefore, const std::string& word, std::vector<TextEditor::AutoCompleteItem>& items) const;
 	bool CompleteLuaMember(const std::string& lineBefore, std::vector<TextEditor::AutoCompleteItem>& items) const;
+	struct LuaStep { std::string name; bool call; };	// one name in a chain such as CurrentEntity:GetName(), and whether it's called
+	static bool ParseLuaChain(const std::string& text, size_t end, std::vector<LuaStep>& steps, size_t& begin);
+	std::string ResolveLuaType(const std::vector<LuaStep>& steps, const std::vector<std::string>& lines, int line, int depth) const;
+	std::string FindLuaVariableType(const std::string& name, const std::vector<std::string>& lines, int line, int depth) const;
 	void FindNext();
 	void FindPrevious();
 private:

@@ -17,6 +17,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_set>
+#include <regex>
 #include "FileSystem/WebProject.h"
 
 // Functions get their signature above the description, e.g. "FindEntity(string) -> Entity"
@@ -405,29 +406,24 @@ bool ScriptView::CompleteLua(const std::string& lineBefore, const std::string& w
 	return true;
 }
 
-// Lists the members after "a.b:c()." when each step's type is known from the Lua API entries
-bool ScriptView::CompleteLuaMember(const std::string& lineBefore, std::vector<TextEditor::AutoCompleteItem>& items) const
+static bool IsLuaWordChar(char c)
 {
-	if (lineBefore.empty() || (lineBefore.back() != '.' && lineBefore.back() != ':'))
-		return false;
-	const bool methodCall = lineBefore.back() == ':';
+	return std::isalnum((unsigned char)c) || c == '_';
+}
 
-	auto isWordChar = [](char c) { return std::isalnum((unsigned char)c) || c == '_'; };
-
-	// Walk back through the chain, e.g. CurrentEntity:GetRigidBody2DComponent()
-	struct Step { std::string name; bool call; };
-	std::vector<Step> steps;
-	size_t end = lineBefore.size() - 1;
+// Reads back the chain ending just before end, e.g. CurrentEntity:GetRigidBody2DComponent(); begin is where it starts
+bool ScriptView::ParseLuaChain(const std::string& text, size_t end, std::vector<LuaStep>& steps, size_t& begin)
+{
 	while (true)
 	{
 		bool call = false;
-		if (end > 0 && lineBefore[end - 1] == ')')
+		if (end > 0 && text[end - 1] == ')')
 		{
 			int depth = 0;
 			size_t i = end;
 			while (i > 0)
 			{
-				char c = lineBefore[--i];
+				char c = text[--i];
 				if (c == ')')
 					depth++;
 				else if (c == '(' && --depth == 0)
@@ -439,47 +435,94 @@ bool ScriptView::CompleteLuaMember(const std::string& lineBefore, std::vector<Te
 			call = true;
 		}
 
-		size_t begin = end;
-		while (begin > 0 && isWordChar(lineBefore[begin - 1]))
+		begin = end;
+		while (begin > 0 && IsLuaWordChar(text[begin - 1]))
 			--begin;
-		if (begin == end || std::isdigit((unsigned char)lineBefore[begin]))
+		if (begin == end || std::isdigit((unsigned char)text[begin]))
 			return false;
 
-		steps.insert(steps.begin(), { lineBefore.substr(begin, end - begin), call });
+		steps.insert(steps.begin(), { text.substr(begin, end - begin), call });
 
-		if (begin > 0 && (lineBefore[begin - 1] == '.' || lineBefore[begin - 1] == ':'))
+		if (begin > 0 && (text[begin - 1] == '.' || text[begin - 1] == ':'))
 			end = begin - 1;
 		else
-			break;
+			return true;
 	}
+}
 
-	// The first step is a global with a known type, or a table or type such as Input or Vec2
+// The Lua type a chain evaluates to, or empty if a step isn't known; names that aren't globals are looked up as variables above line
+std::string ScriptView::ResolveLuaType(const std::vector<LuaStep>& steps, const std::vector<std::string>& lines, int line, int depth) const
+{
 	std::string type;
 	if (steps[0].call)
-		return false;
+		return "";
 	if (auto it = m_LuaGlobalTypes.find(steps[0].name); it != m_LuaGlobalTypes.end())
 		type = it->second;
 	else if (m_LuaMembers.count(steps[0].name))
 		type = steps[0].name;
 	else
-		return false;
+		type = FindLuaVariableType(steps[0].name, lines, line, depth + 1);
 
-	for (size_t i = 1; i < steps.size(); ++i)
+	for (size_t i = 1; i < steps.size() && !type.empty(); ++i)
 	{
 		auto members = m_LuaMembers.find(type);
 		if (members == m_LuaMembers.end())
-			return false;
+			return "";
 
 		auto member = std::find_if(members->second.begin(), members->second.end(), [&](const LuaApiEntry& entry) { return entry.name == steps[i].name; });
 		if (member == members->second.end())
-			return false;
+			return "";
 
 		bool isFunction = member->kind == LuaApiEntry::Kind::Function || member->kind == LuaApiEntry::Kind::ComponentAccessor;
 		if (isFunction != steps[i].call)
-			return false;
-		type = member->type;
-	}
+			return "";
 
+		// Constructors such as Vec2.new don't record a return type
+		type = member->type.empty() && member->name == "new" ? type : member->type;
+	}
+	return type;
+}
+
+// The type of the nearest assignment to name above line, e.g. "local rb = CurrentEntity:GetRigidBody2DComponent()"
+std::string ScriptView::FindLuaVariableType(const std::string& name, const std::vector<std::string>& lines, int line, int depth) const
+{
+	if (depth > 8)
+		return "";
+
+	const std::regex assignment("(^|[^\\w.:])(local\\s+)?" + name + "\\s*=(?!=)\\s*(.*)$");
+	for (int i = std::min(line, (int)lines.size()) - 1; i >= 0; --i)
+	{
+		std::string text = lines[i].substr(0, lines[i].find("--"));
+		std::smatch match;
+		if (!std::regex_search(text, match, assignment))
+			continue;
+
+		std::string value = match[3].str();
+		while (!value.empty() && (std::isspace((unsigned char)value.back()) || value.back() == ';'))
+			value.pop_back();
+
+		std::vector<LuaStep> steps;
+		size_t begin = 0;
+		if (value.empty() || !ParseLuaChain(value, value.size(), steps, begin) || begin != 0)
+			return "";
+		return ResolveLuaType(steps, lines, i, depth);
+	}
+	return "";
+}
+
+// Lists the members after "a.b:c()." when each step's type is known from the Lua API entries or a variable assigned above
+bool ScriptView::CompleteLuaMember(const std::string& lineBefore, std::vector<TextEditor::AutoCompleteItem>& items) const
+{
+	if (lineBefore.empty() || (lineBefore.back() != '.' && lineBefore.back() != ':'))
+		return false;
+	const bool methodCall = lineBefore.back() == ':';
+
+	std::vector<LuaStep> steps;
+	size_t begin = 0;
+	if (!ParseLuaChain(lineBefore, lineBefore.size() - 1, steps, begin))
+		return false;
+
+	std::string type = ResolveLuaType(steps, m_TextEditor.GetTextLines(), m_TextEditor.GetCursorPosition().mLine, 0);
 	auto members = m_LuaMembers.find(type);
 	if (members == m_LuaMembers.end())
 		return false;
