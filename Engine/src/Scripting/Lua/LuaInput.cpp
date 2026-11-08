@@ -33,7 +33,7 @@ void BindInput(sol::state& state)
 		{ "Right", MOUSE_BUTTON_RIGHT },
 		{ "Middle", MOUSE_BUTTON_MIDDLE },
 	};
-	SetEnum(state, "MouseButton", "Mouse buttons, for Input.IsMouseButtonPressed and friends", mouseItems);
+	SetEnum(state, "MouseButton", "Mouse buttons, for Input.IsMouseButtonPressed and friends", mouseItems, "Input");
 
 	std::initializer_list<std::pair<sol::string_view, int>> joystickItems = {
 		{ "A", GAMEPAD_BUTTON_A },
@@ -56,7 +56,7 @@ void BindInput(sol::state& state)
 		{ "Square", GAMEPAD_BUTTON_SQUARE },
 		{ "Triangle", GAMEPAD_BUTTON_TRIANGLE }
 	};
-	SetEnum(state, "JoystickButton", "Gamepad buttons, for Input.IsJoystickButtonPressed", joystickItems);
+	SetEnum(state, "JoystickButton", "Gamepad buttons, for Input.IsJoystickButtonPressed", joystickItems, "Input");
 
 	std::initializer_list<std::pair<sol::string_view, int>> joystickAxisItems =
 	{
@@ -67,11 +67,11 @@ void BindInput(sol::state& state)
 		{ "LeftTrigger", GAMEPAD_AXIS_LEFT_TRIGGER },
 		{ "RightTrigger", GAMEPAD_AXIS_RIGHT_TRIGGER }
 	};
-	SetEnum(state, "JoystickAxis", "Gamepad sticks and triggers, for Input.GetJoystickAxis", joystickAxisItems);
+	SetEnum(state, "JoystickAxis", "Gamepad sticks and triggers, for Input.GetJoystickAxis", joystickAxisItems, "Input");
 
 	SetFunction(input, "Input", "GetJoyStickCount", "Get how many gamepads are connected", &Joysticks::GetJoystickCount);
-	SetFunction(input, "Input", "IsJoystickButtonPressed", "IsJoystickButtonPressed(slot, button): whether a gamepad button is held; slots start at 0", &Input::IsJoystickButtonPressed);
-	SetFunction(input, "Input", "GetJoystickAxis", "GetJoystickAxis(slot, axis): stick position from -1 to 1, or trigger from 0 to 1 (see JoystickAxis)", &Input::GetJoystickAxis);
+	SetFunction(input, "Input", "IsJoystickButtonPressed", Params{ "slot, button" }, "Whether a gamepad button is held; slots start at 0", &Input::IsJoystickButtonPressed);
+	SetFunction(input, "Input", "GetJoystickAxis", Params{ "slot, axis" }, "Stick position from -1 to 1, or trigger from 0 to 1 (see JoystickAxis)", &Input::GetJoystickAxis);
 
 	std::initializer_list<std::pair<sol::string_view, int>> cursorItems =
 	{
@@ -87,7 +87,7 @@ void BindInput(sol::state& state)
 		{ "NotAllowed", (int)Cursors::NotAllowed}
 	};
 
-	SetEnum(state, "Cursors", "Cursor shapes, for Input.SetCursor", cursorItems);
+	SetEnum(state, "Cursors", "Cursor shapes, for Input.SetCursor", cursorItems, "Input");
 
 	SetFunction(input, "Input", "SetCursor", "Set the appearance of the cursor", [](sol::this_state s, Cursors cursor)
 		{ if (Window* window = Application::GetWindow()) window->SetCursor(cursor); });

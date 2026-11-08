@@ -1,5 +1,6 @@
 #include "LuaDocGenerator.h"
 #include "Scripting/Lua/LuaManager.h"
+#include "Core/Colour.h"
 
 #include <fstream>
 #include <map>
@@ -19,8 +20,6 @@ namespace
 			if (std::find(entry.parameters.begin(), entry.parameters.end(), "unknown") != entry.parameters.end())
 				std::cerr << "Warning: " << (entry.component.empty() ? "" : entry.component + ".") << entry.name << " takes a type with no Lua name - add a LUA_TYPE_NAME for it" << std::endl;
 		}
-		else if (entry.kind == LuaApiEntry::Kind::EnumValue)
-			file << "- **" << entry.name << "** = `" << entry.description << "`\n";
 		else
 			file << "- **" << entry.name << "**: " << entry.description << "\n";
 	}
@@ -39,10 +38,56 @@ namespace
 	{
 		return !entries.empty() && std::all_of(entries.begin(), entries.end(), [](const LuaApiEntry& e) { return e.kind == LuaApiEntry::Kind::EnumValue; });
 	}
+
+	const char* const k_IndexTitle = "# Lua API Reference";
+
+	// Pages for types or enums that are no longer generated would otherwise be left behind.
+	// Only clears a folder holding a previous output, in case the path points at hand-written docs.
+	void RemovePreviousPages(const std::filesystem::path& outputDirectory)
+	{
+		std::ifstream index(outputDirectory / "index.md");
+		std::string firstLine;
+		if (!std::getline(index, firstLine) || firstLine != k_IndexTitle)
+			return;
+		index.close();
+
+		for (const auto& dirEntry : std::filesystem::directory_iterator(outputDirectory))
+		{
+			if (dirEntry.is_regular_file() && dirEntry.path().extension() == ".md")
+				std::filesystem::remove(dirEntry.path());
+		}
+	}
+
+	struct Enum
+	{
+		LuaApiEntry entry;
+		std::vector<LuaApiEntry> values;	// in value order
+	};
+
+	// A small square of the colour, for the Colours values
+	std::string ColourSwatch(const LuaApiEntry& value)
+	{
+		if (value.name == "Random")
+			return "";
+		Colour colour((Colours)std::stoi(value.description));
+		char hex[8];
+		snprintf(hex, sizeof(hex), "#%02x%02x%02x", (int)(colour.r * 255.0f + 0.5f), (int)(colour.g * 255.0f + 0.5f), (int)(colour.b * 255.0f + 0.5f));
+		return std::string("<span style=\"display:inline-block;width:0.9em;height:0.9em;vertical-align:-0.1em;border:1px solid #8888;border-radius:2px;background:") + hex + "\"></span> ";
+	}
+
+	// The names only; the numbers behind them aren't something scripts should need
+	void WriteEnum(std::ofstream& file, const Enum& e, const std::string& heading)
+	{
+		file << heading << " " << e.entry.name << "\n\n" << e.entry.description << "\n\n";
+		for (const LuaApiEntry& value : e.values)
+			file << "- " << (e.entry.name == "Colours" ? ColourSwatch(value) : "") << "`" << e.entry.name << "." << value.name << "`\n";
+		file << "\n";
+	}
 }
 
 void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 {
+	RemovePreviousPages(outputDirectory);
 	std::filesystem::create_directories(outputDirectory);
 
 	const std::vector<LuaApiEntry>& entries = LuaManager::GetIdentifiers();
@@ -71,14 +116,21 @@ void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 	// a globally-accessible table, not a plain value - link to its page instead of listing it
 	// as a bullet. Anything left (e.g. CurrentEntity) is a genuine bare value.
 	std::vector<LuaApiEntry> globalTables, globalEnums, globalValues;
+	std::map<std::string, Enum> enums;
 	for (const LuaApiEntry& entry : entries)
 	{
 		if (entry.kind != LuaApiEntry::Kind::Global)
 			continue;
 		if (!byComponent.count(entry.name))
 			globalValues.push_back(entry);
+		else if (IsEnum(byComponent[entry.name]))
+		{
+			globalEnums.push_back(entry);
+			enums[entry.name] = { entry, byComponent[entry.name] };
+			SortByValue(enums[entry.name].values);
+		}
 		else
-			(IsEnum(byComponent[entry.name]) ? globalEnums : globalTables).push_back(entry);
+			globalTables.push_back(entry);
 	}
 
 	SortByName(globalFunctions);
@@ -116,14 +168,6 @@ void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 			file << "\n";
 		}
 
-		if (!globalEnums.empty())
-		{
-			file << "## Enums\n\n";
-			file << "Named values, used like `BodyType.Dynamic`.\n\n";
-			for (const LuaApiEntry& entry : globalEnums)
-				file << "- [" << entry.name << "](" << entry.name << ".md): " << entry.description << "\n";
-			file << "\n";
-		}
 	}
 
 	// Hand-written component pages live under docs/Components/<category>/<Name>.md. Found by
@@ -152,34 +196,78 @@ void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 			std::cerr << "Warning: no documentation page for " << componentName << " - add docs/Components/<category>/" << componentName << ".md" << std::endl;
 	}
 
+	// Where each enum is listed: on the page it's documented on, or a page of its own
+	std::map<std::string, std::filesystem::path> enumPages;	// enum name -> page path relative to docs/
+	std::map<std::string, std::vector<const Enum*>> enumsOnPage;	// host page name -> enums listed on it
+	for (const auto& [name, e] : enums)
+	{
+		const std::string& host = e.entry.documentedOn;
+		bool hostIsComponent = allComponentNames.count(host) && componentPages.count(host);
+		bool hostIsTable = !allComponentNames.count(host) && byComponent.count(host) && !IsEnum(byComponent[host]);
+		if (!host.empty() && (hostIsComponent || hostIsTable))
+		{
+			enumPages[name] = hostIsComponent ? componentPages[host] : std::filesystem::path("LuaAPI") / (host + ".md");
+			enumsOnPage[host].push_back(&e);
+		}
+		else
+		{
+			if (!host.empty())
+				std::cerr << "Warning: " << name << " is documented on " << host << ", which has no page - giving it a page of its own" << std::endl;
+			enumPages[name] = std::filesystem::path("LuaAPI") / (name + ".md");
+		}
+	}
+
+	auto listedOnAnotherPage = [&](const std::string& name)
+	{
+		return enums.count(name) && enumPages[name] != std::filesystem::path("LuaAPI") / (name + ".md");
+	};
+
+	auto anchor = [](std::string name)
+	{
+		std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+		return name;
+	};
+
+	{
+		std::ofstream file(outputDirectory / "Globals.md", std::ios::app);
+		if (!globalEnums.empty())
+		{
+			file << "## Enums\n\n";
+			file << "Named values, used like `BodyType.Dynamic`.\n\n";
+			for (const LuaApiEntry& entry : globalEnums)
+			{
+				std::string link = linkBetween("LuaAPI/Globals.md", enumPages[entry.name]);
+				if (listedOnAnotherPage(entry.name))
+					link += "#" + anchor(entry.name);
+				file << "- [" << entry.name << "](" << link << "): " << entry.description << "\n";
+			}
+			file << "\n";
+		}
+	}
+
 	for (auto& [component, componentEntries] : byComponent)
 	{
 		if (allComponentNames.count(component))
 			continue;	// written as a fragment of the component's own page below
+		if (listedOnAnotherPage(component))
+			continue;
 
-		std::vector<LuaApiEntry> properties, functions, enumValues;
+		std::vector<LuaApiEntry> properties, functions;
 		for (const LuaApiEntry& entry : componentEntries)
-		{
-			if (entry.kind == LuaApiEntry::Kind::EnumValue)
-				enumValues.push_back(entry);
-			else
-				(entry.kind == LuaApiEntry::Kind::Property ? properties : functions).push_back(entry);
-		}
+			(entry.kind == LuaApiEntry::Kind::Property ? properties : functions).push_back(entry);
 
 		SortByName(properties);
 		SortByName(functions);
-		SortByValue(enumValues);
 
 		std::ofstream file(outputDir / (component + ".md"));
-		file << "# " << component << "\n\n";
 
-		if (!enumValues.empty())
+		if (enums.count(component))
 		{
-			file << "## Values\n\n";
-			for (const LuaApiEntry& entry : enumValues)
-				WriteEntry(file, entry);
-			file << "\n";
+			WriteEnum(file, enums[component], "#");
+			continue;
 		}
+
+		file << "# " << component << "\n\n";
 
 		if (!properties.empty())
 		{
@@ -195,6 +283,13 @@ void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 			for (const LuaApiEntry& entry : functions)
 				WriteEntry(file, entry);
 			file << "\n";
+		}
+
+		if (enumsOnPage.count(component))
+		{
+			file << "## Enums\n\n";
+			for (const Enum* e : enumsOnPage[component])
+				WriteEnum(file, *e, "###");
 		}
 
 		// Entity is the one page that also needs to explain and index the generic
@@ -255,16 +350,23 @@ void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
 				WriteEntry(file, entry);
 			file << "\n";
 		}
+
+		if (enumsOnPage.count(componentName))
+		{
+			file << "### Enums\n\n";
+			for (const Enum* e : enumsOnPage[componentName])
+				WriteEnum(file, *e, "####");
+		}
 	}
 
 	{
 		// index.md, not Home.md - MkDocs' convention for a section's landing page.
 		std::ofstream file(outputDir / "index.md");
-		file << "# Lua API Reference\n\n";
+		file << k_IndexTitle << "\n\n";
 		file << "- [Globals](Globals.md)\n";
 		for (auto& [component, componentEntries] : byComponent)
 		{
-			if (!allComponentNames.count(component))
+			if (!allComponentNames.count(component) && !listedOnAnotherPage(component))
 				file << "- [" << component << "](" << component << ".md)\n";
 		}
 		file << "\n## Components\n\n";

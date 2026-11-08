@@ -17,7 +17,7 @@ void BindApp(sol::state& state)
 		{ "Full_Screen", (int)WindowMode::FULL_SCREEN },
 		{ "Borderless", (int)WindowMode::BORDERLESS }
 	};
-	SetEnum(state, "WindowMode", "Window modes, for App.SetWindowMode", windowModes);
+	SetEnum(state, "WindowMode", "Window modes, for App.SetWindowMode", windowModes, "App");
 
 	sol::table application = state.create_table("App");
 	LuaManager::AddIdentifier("App", "The application window");

@@ -27,14 +27,14 @@ void BindMath(sol::state& state)
 	SetFunction(vector2_type, "Vec2", "SqrLength", "Get the squared length, cheaper than Length for comparisons", &Vector2f::SqrMagnitude);
 	SetFunction(vector2_type, "Vec2", "Normalize", "Scale this vector to length 1, in place", &Vector2f::Normalize);
 	SetFunction(vector2_type, "Vec2", "Clamp", "Shorten this vector in place to at most the given length", &Vector2f::Clamp);
-	SetFunction(vector2_type, "Vec2", "Perpendicular", "Get the vector rotated 90 degrees: Perpendicular(clockwise)", &Vector2f::Perpendicular);
-	SetFunction(vector2_type, "Vec2", "Dot", "Vec2.Dot(a, b): dot product", &Vector2f::Dot);
-	SetFunction(vector2_type, "Vec2", "Distance", "Vec2.Distance(a, b): distance between two points", &Vector2f::Distance);
-	SetFunction(vector2_type, "Vec2", "SqrDistance", "Vec2.SqrDistance(a, b): squared distance between two points", &Vector2f::SqrDistance);
-	SetFunction(vector2_type, "Vec2", "Lerp", "Vec2.Lerp(a, b, alpha): blend from a to b", &Vector2f::Lerp);
-	SetFunction(vector2_type, "Vec2", "Angle", "Vec2.Angle(a, b): angle between two vectors, in radians", &Vector2f::Angle);
-	SetFunction(vector2_type, "Vec2", "Cross", "Vec2.Cross(a, b): 2D cross product", &Vector2f::Cross);
-	SetFunction(vector2_type, "Vec2", "Reflect", "Vec2.Reflect(v, normal): bounce a vector off a surface", &Vector2f::Reflect);
+	SetFunction(vector2_type, "Vec2", "Perpendicular", Params{ "clockwise" }, "Get the vector rotated 90 degrees", &Vector2f::Perpendicular);
+	SetFunction(vector2_type, "Vec2", "Dot", Params{ "a, b" }, "Dot product", &Vector2f::Dot);
+	SetFunction(vector2_type, "Vec2", "Distance", Params{ "a, b" }, "Distance between two points", &Vector2f::Distance);
+	SetFunction(vector2_type, "Vec2", "SqrDistance", Params{ "a, b" }, "Squared distance between two points", &Vector2f::SqrDistance);
+	SetFunction(vector2_type, "Vec2", "Lerp", Params{ "a, b, alpha" }, "Blend from a to b", &Vector2f::Lerp);
+	SetFunction(vector2_type, "Vec2", "Angle", Params{ "a, b" }, "Angle between two vectors, in radians", &Vector2f::Angle);
+	SetFunction(vector2_type, "Vec2", "Cross", Params{ "a, b" }, "2D cross product", &Vector2f::Cross);
+	SetFunction(vector2_type, "Vec2", "Reflect", Params{ "v, normal" }, "Bounce a vector off a surface", &Vector2f::Reflect);
 	SetFunction(vector2_type, "Vec2", "Zero", "Set this vector to 0, 0 in place", &Vector2f::Zero);
 
 	sol::usertype<Vector3f> vector3_type = state.new_usertype<Vector3f>(
@@ -53,11 +53,11 @@ void BindMath(sol::state& state)
 	SetFunction(vector3_type, "Vec3", "SqrLength", "Get the squared length, cheaper than Length for comparisons", &Vector3f::SqrMagnitude);
 	SetFunction(vector3_type, "Vec3", "Normalize", "Scale this vector to length 1, in place", &Vector3f::Normalize);
 	SetFunction(vector3_type, "Vec3", "Clamp", "Shorten this vector in place to at most the given length", &Vector3f::Clamp);
-	SetFunction(vector3_type, "Vec3", "Dot", "Vec3.Dot(a, b): dot product", &Vector3f::Dot);
-	SetFunction(vector3_type, "Vec3", "Distance", "Vec3.Distance(a, b): distance between two points", &Vector3f::Distance);
-	SetFunction(vector3_type, "Vec3", "Lerp", "Vec3.Lerp(a, b, alpha): blend from a to b", &Vector3f::Lerp);
-	SetFunction(vector3_type, "Vec3", "Cross", "Vec3.Cross(a, b): cross product", &Vector3f::Cross);
-	SetFunction(vector3_type, "Vec3", "Reflect", "Vec3.Reflect(v, normal): bounce a vector off a surface", &Vector3f::Reflect);
+	SetFunction(vector3_type, "Vec3", "Dot", Params{ "a, b" }, "Dot product", &Vector3f::Dot);
+	SetFunction(vector3_type, "Vec3", "Distance", Params{ "a, b" }, "Distance between two points", &Vector3f::Distance);
+	SetFunction(vector3_type, "Vec3", "Lerp", Params{ "a, b, alpha" }, "Blend from a to b", &Vector3f::Lerp);
+	SetFunction(vector3_type, "Vec3", "Cross", Params{ "a, b" }, "Cross product", &Vector3f::Cross);
+	SetFunction(vector3_type, "Vec3", "Reflect", Params{ "v, normal" }, "Bounce a vector off a surface", &Vector3f::Reflect);
 	SetFunction(vector3_type, "Vec3", "Zero", "Set this vector to 0, 0, 0 in place", &Vector3f::Zero);
 
 	sol::usertype<Quaternion> quaternion_type = state.new_usertype<Quaternion>(

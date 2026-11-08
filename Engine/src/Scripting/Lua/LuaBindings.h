@@ -231,18 +231,25 @@ inline std::string LuaPropertyName(const char* member)
 
 // The bound function is moved into sol: given an lvalue, sol keeps a reference to it
 #define REFLECT_LUA_FUNCTION(Method, Description) \
+		REFLECT_LUA_FUNCTION_PARAMS(Method, nullptr, Description)
+
+// Parameters names the arguments for the docs, e.g. "width, depth, height"
+#define REFLECT_LUA_FUNCTION_PARAMS(Method, Parameters, Description) \
 		{ \
 			auto function = Lua::ResolveOnAccess<Self>(&Self::Method); \
-			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(#Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true)); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(#Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
 			type.set_function(#Method, std::move(function)); \
 		}
 
 // For functions that need a custom lambda rather than a plain &Self::Method pointer
 // (bounds-checked accessors, adapting a different signature, etc).
 #define REFLECT_LUA_FUNCTION_CUSTOM(Name, Description, ...) \
+		REFLECT_LUA_FUNCTION_CUSTOM_PARAMS(Name, nullptr, Description, __VA_ARGS__)
+
+#define REFLECT_LUA_FUNCTION_CUSTOM_PARAMS(Name, Parameters, Description, ...) \
 		{ \
 			auto function = Lua::ResolveOnAccess<Self>(__VA_ARGS__); \
-			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true)); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
 			type.set_function(Name, std::move(function)); \
 		}
 
@@ -315,12 +322,41 @@ bool ParameterTypeNames(TypeList<Args...>, std::vector<std::string>& names)
 }
 }
 
+// Argument names for the docs, e.g. Params{ "key, value" }
+struct Params
+{
+	const char* names;
+};
+
+// "key, value" -> { "key", "value" }
+inline std::vector<std::string> SplitParameterNames(const char* names)
+{
+	std::vector<std::string> result;
+	if (!names)
+		return result;
+	std::string name;
+	for (const char* c = names; ; ++c)
+	{
+		if (*c == ',' || *c == '\0')
+		{
+			result.push_back(name);
+			name.clear();
+			if (*c == '\0')
+				break;
+		}
+		else if (*c != ' ')
+			name += *c;
+	}
+	return result;
+}
+
 // An API entry for a bound function, with its return and argument types worked out from F
 template<typename Self, typename F>
-LuaApiEntry FunctionEntry(const std::string& name, const std::string& description, LuaApiEntry::Kind kind, const std::string& owner, bool isComponent = false)
+LuaApiEntry FunctionEntry(const std::string& name, const std::string& description, LuaApiEntry::Kind kind, const std::string& owner, bool isComponent = false, const char* parameterNames = nullptr)
 {
 	using Signature = Detail::Signature<std::decay_t<F>>;
 	LuaApiEntry entry{ name, description, kind, owner, "", isComponent };
+	entry.parameterNames = SplitParameterNames(parameterNames);
 
 	if constexpr (!std::is_void_v<typename Signature::Return>)
 	{
@@ -333,18 +369,26 @@ LuaApiEntry FunctionEntry(const std::string& name, const std::string& descriptio
 }
 
 template<typename T, typename F, typename... Args>
-void SetFunction(T& type, const std::string& owner, const std::string& name, const std::string& description, F&& function, Args&&... args)
+void SetFunction(T& type, const std::string& owner, const std::string& name, Params parameters, const std::string& description, F&& function, Args&&... args)
 {
-	LuaApiEntry entry = FunctionEntry<typename Detail::UsertypeSelf<T>::Type, F>(name, description, LuaApiEntry::Kind::Function, owner);
+	LuaApiEntry entry = FunctionEntry<typename Detail::UsertypeSelf<T>::Type, F>(name, description, LuaApiEntry::Kind::Function, owner, false, parameters.names);
 	type.set_function(name, std::forward<F>(function), std::forward<Args>(args)...);
 	RegisterLuaApiEntry(std::move(entry));
 }
 
-// Registers a global enum table, e.g. BodyType.Dynamic, and documents each value
-inline void SetEnum(sol::state& state, const std::string& name, const std::string& description, std::initializer_list<std::pair<sol::string_view, int>> items)
+template<typename T, typename F, typename... Args>
+void SetFunction(T& type, const std::string& owner, const std::string& name, const std::string& description, F&& function, Args&&... args)
+{
+	SetFunction(type, owner, name, Params{ nullptr }, description, std::forward<F>(function), std::forward<Args>(args)...);
+}
+
+// Registers a global enum table, e.g. BodyType.Dynamic, and documents each value on the page of documentedOn
+inline void SetEnum(sol::state& state, const std::string& name, const std::string& description, std::initializer_list<std::pair<sol::string_view, int>> items, const std::string& documentedOn = "")
 {
 	state.new_enum(name, items);
-	RegisterLuaApiEntry({ name, description, LuaApiEntry::Kind::Global, "", "" });
+	LuaApiEntry entry{ name, description, LuaApiEntry::Kind::Global, "", "" };
+	entry.documentedOn = documentedOn;
+	RegisterLuaApiEntry(std::move(entry));
 	for (const auto& [key, value] : items)
 		RegisterLuaApiEntry({ std::string(key), std::to_string(value), LuaApiEntry::Kind::EnumValue, name, "" });
 }
