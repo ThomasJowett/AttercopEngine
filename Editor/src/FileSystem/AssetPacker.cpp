@@ -50,6 +50,44 @@ static void WriteExternalBundleMetadata(const std::filesystem::path& metadataPat
 	metadataFile.write(reinterpret_cast<const char*>(&footer), sizeof(footer));
 }
 
+// Single-quoted for the shell
+static std::string ShellQuote(const std::filesystem::path& path)
+{
+	std::string quoted = "'";
+	for (char c : path.string())
+		quoted += c == '\'' ? std::string("'\\''") : std::string(1, c);
+	return quoted + "'";
+}
+
+// Makes an .icns from a PNG with sips and iconutil, which come with macOS
+static bool WriteIcns(const std::filesystem::path& pngPath, const std::filesystem::path& icnsPath)
+{
+	std::error_code ec;
+	std::filesystem::path iconsetPath = std::filesystem::temp_directory_path(ec) / "AttercopIcon.iconset";
+	std::filesystem::remove_all(iconsetPath, ec);
+	std::filesystem::create_directories(iconsetPath, ec);
+	if (ec)
+		return false;
+
+	bool succeeded = true;
+	for (int size : { 16, 32, 128, 256, 512 })
+	{
+		for (int scale : { 1, 2 })
+		{
+			std::string name = "icon_" + std::to_string(size) + "x" + std::to_string(size) + (scale == 2 ? "@2x.png" : ".png");
+			std::string pixels = std::to_string(size * scale);
+			std::string command = "sips -z " + pixels + " " + pixels + " " + ShellQuote(pngPath) + " --out " + ShellQuote(iconsetPath / name) + " >/dev/null";
+			succeeded = succeeded && std::system(command.c_str()) == 0;
+		}
+	}
+
+	if (succeeded)
+		succeeded = std::system(("iconutil -c icns " + ShellQuote(iconsetPath) + " -o " + ShellQuote(icnsPath)).c_str()) == 0;
+
+	std::filesystem::remove_all(iconsetPath, ec);
+	return succeeded;
+}
+
 AssetPacker::AssetPacker(bool* show, const std::filesystem::path& projectDirectory, const std::filesystem::path& exportDirectory)
     : Layer("Asset Packer"), m_Show(show), m_ProjectDirectory(projectDirectory), m_ExportDirectory(exportDirectory)
 {
@@ -547,6 +585,21 @@ void AssetPacker::ExportGameToAppBundle()
 		}
 	}
 	m_Progress.store(0.8f);
+
+	if (!m_Data.icon.empty())
+	{
+		std::filesystem::path iconPath = m_ProjectDirectory / m_Data.icon;
+		if (!std::filesystem::exists(iconPath))
+		{
+			ENGINE_WARN("Project icon not found, exporting without it: {0}", m_Data.icon);
+		}
+		else if (!WriteIcns(iconPath, resourcesPath / "Icon.icns")
+			|| std::system(("plutil -replace CFBundleIconFile -string Icon.icns " + ShellQuote(infoPlistPath)).c_str()) != 0)
+		{
+			ENGINE_ERROR("Could not add the project icon to the app bundle");
+		}
+	}
+	m_Progress.store(0.9f);
 
 	std::string signCommand = "codesign --deep -f -s \"-\" \"" + destinationBundle.string() + "\"";
 	if (std::system(signCommand.c_str()) != 0)
