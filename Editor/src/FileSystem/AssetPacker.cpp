@@ -652,6 +652,22 @@ void AssetPacker::ExportGameToWeb()
 		return;
 	}
 	WriteExternalBundleMetadata(gameDirectory / "game.meta", m_GameName.string(), m_Data.defaultScene);
+
+	bool hasIcon = false;
+	if (!m_Data.icon.empty())
+	{
+		std::filesystem::path iconPath = m_ProjectDirectory / m_Data.icon;
+		if (!std::filesystem::exists(iconPath))
+		{
+			ENGINE_WARN("Project icon not found, exporting without it: {0}", m_Data.icon);
+		}
+		else
+		{
+			hasIcon = std::filesystem::copy_file(iconPath, gameDirectory / "favicon.png", std::filesystem::copy_options::overwrite_existing, ec);
+			if (!hasIcon)
+				ENGINE_ERROR("Could not copy the project icon: {0}", ec.message());
+		}
+	}
 	m_Progress.store(0.2f);
 
 	// The web Runtime is deployed next to the Editor (see Editor/CMakeLists.txt)
@@ -690,6 +706,10 @@ void AssetPacker::ExportGameToWeb()
 		const std::string replacement = ">" + escapedTitle + "<";
 		for (size_t pos = page.find(placeholder); pos != std::string::npos; pos = page.find(placeholder, pos + replacement.size()))
 			page.replace(pos, placeholder.size(), replacement);
+
+		// Before <title>, which minifying keeps
+		if (size_t titlePos = page.find("<title>"); hasIcon && titlePos != std::string::npos)
+			page.insert(titlePos, "<link rel=\"icon\" type=\"image/png\" href=\"favicon.png\">");
 
 		std::ofstream pageOut(gameDirectory / "index.html", std::ios::binary | std::ios::trunc);
 		pageOut << page;
