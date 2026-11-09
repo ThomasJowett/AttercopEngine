@@ -45,7 +45,7 @@ WebGPUVertexBuffer::WebGPUVertexBuffer(void* vertices, uint32_t size)
 WebGPUVertexBuffer::~WebGPUVertexBuffer()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		m_Buffer.release();
 }
 
@@ -103,7 +103,7 @@ WebGPUIndexBuffer::WebGPUIndexBuffer(uint32_t* indices, uint32_t count)
 WebGPUIndexBuffer::~WebGPUIndexBuffer()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		m_Buffer.release();
 }
 

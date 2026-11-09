@@ -28,7 +28,7 @@ OpenGLVertexBuffer::OpenGLVertexBuffer(void* vertices, uint32_t size)
 OpenGLVertexBuffer::~OpenGLVertexBuffer()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		glDeleteBuffers(1, &m_RendererID);
 }
 
@@ -76,7 +76,7 @@ OpenGLIndexBuffer::OpenGLIndexBuffer(uint32_t* indices, uint32_t count)
 OpenGLIndexBuffer::~OpenGLIndexBuffer()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		glDeleteBuffers(1, &m_RendererID);
 }
 

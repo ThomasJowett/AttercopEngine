@@ -106,6 +106,7 @@ Application::~Application()
 	}
 	AssetManager::Shutdown();
 	LuaManager::Shutdown();
+	s_Instance = nullptr;
 }
 
 int Application::Init(int argc, char* argv[], const std::string& userFolderName)

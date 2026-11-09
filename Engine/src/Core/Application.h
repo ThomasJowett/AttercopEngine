@@ -41,7 +41,8 @@ public:
 	void Close() { m_Running = false; }
 
 	// Is the application currently in the run function
-	bool IsRunning() { return m_Running; }
+	// False after the main loop ends and once the application is destroyed
+	static bool IsRunning() { return s_Instance && s_Instance->m_Running; }
 
 	// fixed update delta time. Default of 10ms seconds (100 times a second)
 	float GetFixedUpdateInterval() { return m_FixedUpdateInterval; }

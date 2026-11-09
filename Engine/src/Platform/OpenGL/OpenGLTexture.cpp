@@ -127,7 +127,7 @@ OpenGLTexture2D::OpenGLTexture2D(const std::filesystem::path& filepath, const st
 OpenGLTexture2D::~OpenGLTexture2D()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		glDeleteTextures(1, &m_RendererID);
 }
 

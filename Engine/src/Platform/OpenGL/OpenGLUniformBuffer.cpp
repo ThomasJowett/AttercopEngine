@@ -12,7 +12,7 @@ OpenGLUniformBuffer::OpenGLUniformBuffer(uint32_t size, uint32_t binding)
 
 OpenGLUniformBuffer::~OpenGLUniformBuffer()
 {
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		glDeleteBuffers(1, &m_RendererID);
 }
 

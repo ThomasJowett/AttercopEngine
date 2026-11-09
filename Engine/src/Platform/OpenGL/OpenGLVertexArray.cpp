@@ -38,7 +38,7 @@ OpenGLVertexArray::OpenGLVertexArray()
 OpenGLVertexArray::~OpenGLVertexArray()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 		glDeleteVertexArrays(1, &m_RendererID);
 }
 

@@ -23,7 +23,7 @@ WebGPUUniformBuffer::WebGPUUniformBuffer(uint32_t size, uint32_t binding)
 
 WebGPUUniformBuffer::~WebGPUUniformBuffer()
 {
-	if (Application::Get().IsRunning() && m_UniformBuffer)
+	if (Application::IsRunning() && m_UniformBuffer)
 		m_UniformBuffer.release();
 	m_UniformBuffer = nullptr;
 }

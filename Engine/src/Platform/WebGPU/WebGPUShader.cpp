@@ -22,7 +22,7 @@ WebGPUShader::WebGPUShader(const std::string& name, const std::filesystem::path&
 WebGPUShader::~WebGPUShader()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning())
+	if (Application::IsRunning())
 	{
 	}
 }

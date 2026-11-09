@@ -166,7 +166,7 @@ std::vector<wgpu::Buffer> WebGPUTexture2D::s_PendingBufferReleases;
 WebGPUTexture2D::~WebGPUTexture2D()
 {
 	PROFILE_FUNCTION();
-	if (Application::Get().IsRunning()) {
+	if (Application::IsRunning()) {
 		// This texture's view may have been shown via ImGui::Image() (e.g. a Content Explorer
 		// thumbnail). Destroying it here can hand a later-allocated view the same address, which
 		// ImGui's WebGPU backend would otherwise mistake for this one and reuse its now-invalid
