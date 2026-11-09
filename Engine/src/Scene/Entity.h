@@ -79,7 +79,7 @@ public:
 	{
 		if (!HasComponent<T>())
 			m_Scene->MakeDirty();
-		return m_Scene->GetRegistry().get_or_emplace<T>(m_EntityHandle, std::forward<args>(args)...);
+		return m_Scene->GetRegistry().get_or_emplace<T>(m_EntityHandle, std::forward<Args>(args)...);
 	}
 
 	// Tries to get the component
