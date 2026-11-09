@@ -25,6 +25,9 @@ namespace ProjectSerializer
 		if (!data.defaultScene.empty())
 			SerializationUtils::Encode(pRoot->InsertNewChildElement("DefaultScene"), std::filesystem::path(data.defaultScene));
 
+		if (!data.icon.empty())
+			SerializationUtils::Encode(pRoot->InsertNewChildElement("Icon"), std::filesystem::path(data.icon));
+
 		pRoot->InsertNewChildElement("Description")->SetText(data.description.c_str());
 		pRoot->InsertNewChildElement("SpriteAtlasPageSize")->SetText(data.spriteAtlasPageSize);
 
@@ -61,6 +64,10 @@ namespace ProjectSerializer
 		std::filesystem::path defaultScene;
 		SerializationUtils::Decode(pRoot->FirstChildElement("DefaultScene"), defaultScene);
 		data.defaultScene = defaultScene.string();
+
+		std::filesystem::path icon;
+		SerializationUtils::Decode(pRoot->FirstChildElement("Icon"), icon);
+		data.icon = icon.string();
 
 		if (const tinyxml2::XMLElement* pDescription = pRoot->FirstChildElement("Description"); pDescription && pDescription->GetText())
 			data.description = pDescription->GetText();

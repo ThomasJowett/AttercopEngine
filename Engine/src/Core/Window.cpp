@@ -49,6 +49,7 @@ EM_JS(void, Window_ReleaseMouse, (), {
 #include "imgui.h"
 
 #include <algorithm>
+#include <fstream>
 
 static uint8_t s_GLFWWindowCount = 0;
 
@@ -101,20 +102,35 @@ bool Window::IsVSync() const
 
 void Window::SetIcon(const std::filesystem::path& path)
 {
+	std::ifstream file(path, std::ios::binary);
+	if (!file)
+	{
+		ENGINE_ERROR("Could not open window icon: {0}", path.string());
+		return;
+	}
+	SetIcon(std::vector<uint8_t>((std::istreambuf_iterator<char>(file)), {}));
+}
+
+void Window::SetIcon(const std::vector<uint8_t>& imageData)
+{
+	// macOS and browsers take the icon from the app bundle or the page instead
+#if !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 	int width, height, channels;
 	stbi_set_flip_vertically_on_load(0);
-	stbi_uc* data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
-	ASSERT(data, "Failed to load image!");
-	ASSERT(channels == 4, "Icon must be RGBA");
+	stbi_uc* pixels = stbi_load_from_memory(imageData.data(), (int)imageData.size(), &width, &height, &channels, 4);
+	if (!pixels)
+	{
+		ENGINE_ERROR("Could not load window icon: {0}", stbi_failure_reason());
+		return;
+	}
 
-	GLFWimage images[1];
-	images[0].width = width;
-	images[0].height = height;
-	images[0].pixels = data;
-#ifndef __APPLE__
-	glfwSetWindowIcon(m_Window, 1, images);
+	GLFWimage image;
+	image.width = width;
+	image.height = height;
+	image.pixels = pixels;
+	glfwSetWindowIcon(m_Window, 1, &image);
+	stbi_image_free(pixels);
 #endif
-	stbi_image_free(data);
 }
 
 void Window::SetCursor(Cursors cursorType)

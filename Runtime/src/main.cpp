@@ -125,6 +125,10 @@ int main(int argc, char* argv[])
 	if (!window)
 		return EXIT_FAILURE;
 
+	std::vector<uint8_t> iconData;
+	if (AssetManager::GetFileData(AssetManager::BundledIconPath, iconData))
+		window->SetIcon(iconData);
+
 	Application::ShowImGui(false);
 
 	RenderCommand::SetClearColour(Colours::GREY);

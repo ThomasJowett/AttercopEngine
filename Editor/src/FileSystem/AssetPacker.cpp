@@ -15,6 +15,7 @@
 #include "Utilities/AssetReferenceUtils.h"
 #include "Input/InputMappings.h"
 #include "Physics/CollisionLayers.h"
+#include "Scene/AssetManager.h"
 #include "ProjectSerializer.h"
 #include "WebProject.h"
 
@@ -348,6 +349,19 @@ void AssetPacker::PackAssets()
 
 		++filesPacked;
 		m_Progress.store(static_cast<float>(filesPacked) / totalFiles);
+	}
+
+	if (!m_Data.icon.empty())
+	{
+		std::filesystem::path iconPath = m_ProjectDirectory / m_Data.icon;
+		if (!std::filesystem::exists(iconPath))
+		{
+			ENGINE_WARN("Project icon not found, exporting without it: {0}", m_Data.icon);
+		}
+		else if (!mz_zip_writer_add_file(&zip, AssetManager::BundledIconPath, iconPath.string().c_str(), nullptr, 0, MZ_BEST_SPEED))
+		{
+			ENGINE_ERROR("Failed to add the project icon to zip: {0}", mz_zip_get_error_string(mz_zip_get_last_error(&zip)));
+		}
 	}
 
 	if (!mz_zip_writer_finalize_archive(&zip))
