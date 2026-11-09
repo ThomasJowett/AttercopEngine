@@ -56,6 +56,7 @@ void TilemapEditor::OnImGuiRender()
 		}
 	}
 
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(0, 0));
 	if (ImGui::Begin("Tilemap Editor", m_Show))
 	{
 		bool selected = false;

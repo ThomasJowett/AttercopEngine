@@ -85,7 +85,7 @@ void SpriteSheetView::OnImGuiRender()
 		return;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(680, 580), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(680, 580));
 
 	ImVec2 displaySize;
 	if (m_LocalSpriteSheet->GetSubTexture()->GetTexture())

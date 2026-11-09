@@ -31,7 +31,7 @@ void PhysicsMaterialView::OnImGuiRender()
 	if (m_Dirty)
 		flags |= ImGuiWindowFlags_UnsavedDocument;
 
-	ImGui::SetNextWindowSize(ImVec2(300, 150), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(300, 150));
 
 	if (ImGui::Begin(m_WindowName.c_str(), m_Show, flags))
 	{

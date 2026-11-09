@@ -2,6 +2,8 @@
 #include "Renderer/RendererAPI.h"
 #include "imgui/backends/imgui_impl_wgpu.h"
 
+#include <algorithm>
+
 static size_t ImFormatString(char* buf, size_t buf_size, const char* fmt, ...)
 {
 	va_list args;
@@ -294,4 +296,14 @@ void ImGui::Tooltip(const char* text)
 		ImGui::TextUnformatted(text);
 		ImGui::EndTooltip();
 	}
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void ImGui::CentreNextWindowOnFirstUse(const ImVec2& size)
+{
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImVec2 fitted(std::min(size.x, viewport->WorkSize.x * 0.9f), std::min(size.y, viewport->WorkSize.y * 0.9f));
+	ImGui::SetNextWindowSize(fitted, ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
 }

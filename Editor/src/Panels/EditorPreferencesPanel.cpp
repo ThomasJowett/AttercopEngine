@@ -56,7 +56,7 @@ void EditorPreferencesPanel::OnImGuiRender()
 		return;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(640, 480));
 	if (ImGui::Begin(ICON_FA_GEAR" Editor Preferences", m_Show, ImGuiWindowFlags_MenuBar))
 	{
 		if (ImGui::IsWindowFocused())

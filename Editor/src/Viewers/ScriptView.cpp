@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <regex>
 #include "FileSystem/WebProject.h"
+#include "ImGui/ImGuiUtilities.h"
 
 // Functions get their signature above the description, e.g. "FindEntity(string) -> Entity"
 static std::string LuaDescription(const LuaApiEntry& entry)
@@ -152,7 +153,7 @@ void ScriptView::OnImGuiRender()
 		return;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(800, 600));
 
 	ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar;
 

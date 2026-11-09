@@ -35,7 +35,7 @@ void ProjectSettingsPanel::OnImGuiRender()
 		m_WasShown = true;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(640, 480));
 	if (ImGui::Begin(ICON_FA_GEARS" Project Settings", m_Show))
 	{
 		if (ImGui::IsWindowFocused())

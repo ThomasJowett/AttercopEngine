@@ -94,7 +94,7 @@ void StaticMeshView::OnImGuiRender()
 	if (m_Dirty)
 		flags |= ImGuiWindowFlags_UnsavedDocument;
 
-	ImGui::SetNextWindowSize(ImVec2(960, 540), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(960, 540));
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 	bool open = ImGui::Begin(m_WindowName.c_str(), m_Show, flags);

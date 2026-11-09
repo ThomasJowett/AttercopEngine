@@ -32,7 +32,7 @@ void TextureView::OnImGuiRender()
 
 	ImVec2 displaySize = ImVec2((float)m_Texture->GetWidth() * m_Zoom, (float)m_Texture->GetHeight() * m_Zoom);
 
-	ImGui::SetNextWindowSize(ImVec2(std::max(displaySize.x, 400.0f), std::max(displaySize.y + 200, 400.0f)), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(std::max(displaySize.x, 400.0f), std::max(displaySize.y + 200, 400.0f)));
 
 	if (ImGui::Begin(m_WindowName.c_str(), m_Show, ExternalEditor::IsSupported() ? ImGuiWindowFlags_MenuBar : ImGuiWindowFlags_None))
 	{
