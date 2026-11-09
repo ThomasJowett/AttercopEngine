@@ -484,10 +484,14 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 			Renderer::Submit(staticMeshComp.mesh->GetMesh(), staticMeshComp.materialOverrides, transformComp.GetWorldMatrix(), (int)entity);
 	}
 
-	auto primitiveGroup = m_Registry.view<TransformComponent, PrimitiveComponent>(entt::exclude<HiddenInHierarchyMarker>);
+	auto primitiveGroup = m_Registry.view<TransformComponent, PrimitiveComponent>();
 	for (auto entity : primitiveGroup)
 	{
 		auto&& [transformComp, primitiveComp] = primitiveGroup.get(entity);
+		if (primitiveComp.needsUpdating)
+			primitiveComp.SetType(primitiveComp.type);
+		if (m_Registry.all_of<HiddenInHierarchyMarker>(entity))
+			continue;
 		Renderer::Submit(primitiveComp.mesh, primitiveComp.material, transformComp.GetWorldMatrix(), (int)entity);
 	}
 
@@ -700,14 +704,6 @@ void Scene::OnUpdate(float deltaTime)
 
 			for (const InputActionEvent& inputActionEvent : InputActionSystem::GetPendingEvents())
 				luaScriptComp.OnInputAction(inputActionEvent.actionName, inputActionEvent.phase);
-		});
-
-	m_Registry.view<PrimitiveComponent>(entt::exclude<DestroyMarker>).each([](auto entity, auto& primitiveComponent)
-		{
-			if (primitiveComponent.needsUpdating)
-			{
-				primitiveComponent.SetType(primitiveComponent.type);
-			}
 		});
 
 	m_Registry.view<BehaviourTreeComponent>(entt::exclude<DestroyMarker>).each([deltaTime](auto entity, auto& behaviourTreeComponent)
