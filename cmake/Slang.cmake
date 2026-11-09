@@ -94,7 +94,6 @@ function(attercop_add_shader_target)
 	get_property(sources GLOBAL PROPERTY ATTERCOP_SHADER_SOURCES)
 	list(REMOVE_DUPLICATES sources)
 	add_custom_target(AttercopShaders DEPENDS ${outputs} SOURCES ${sources} ${_shaderModules})
-	set_target_properties(AttercopShaders PROPERTIES FOLDER Engine)
 	add_dependencies(Engine AttercopShaders)
 endfunction()
 
