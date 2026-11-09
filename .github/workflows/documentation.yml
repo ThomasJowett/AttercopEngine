@@ -1,7 +1,7 @@
 name: Build and deploy documentation
 
 # Builds the Editor, runs --generate-docs to produce the Lua API reference Markdown (see
-# LuaDocGenerator.cpp), renders the full site (that plus the hand-written pages) with MkDocs +
+# DocGenerator.cpp), renders the full site (that plus the hand-written pages) with MkDocs +
 # Material (see mkdocs.yml), and deploys straight to GitHub Pages. Everything happens inside
 # this workflow run - nothing is ever committed back to the repo.
 on:
@@ -10,7 +10,7 @@ on:
     paths:
       - "Engine/src/Scripting/Lua/**"
       - "Engine/src/Scene/Components/**"
-      - "Editor/src/FileSystem/LuaDocGenerator.*"
+      - "Editor/src/FileSystem/DocGenerator.*"
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/documentation.yml"
@@ -44,10 +44,10 @@ jobs:
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DATTERCOP_ENABLE_UNITY_BUILD=ON -S .
 
-      # Only builds what GenerateLuaDocs depends on (Editor and its dependencies), not the
+      # Only builds what GenerateDocs depends on (Editor and its dependencies), not the
       # full multi-platform matrix the main CI workflow builds.
       - name: Generate Lua API reference
-        run: cmake --build build --target GenerateLuaDocs
+        run: cmake --build build --target GenerateDocs
 
       - uses: actions/setup-python@v7
         with:

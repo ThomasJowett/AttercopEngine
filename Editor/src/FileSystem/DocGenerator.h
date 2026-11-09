@@ -6,8 +6,8 @@
 // under _fragments/ that the hand-written docs/Components/ pages include.
 // Requires nothing beyond Application::Init() having run (which calls LuaManager::Init()
 // before any window/renderer is created), so this can run fully headless - see the
-// --generate-docs flag in Editor/src/main.cpp and the GenerateLuaDocs CMake target.
-class LuaDocGenerator
+// --generate-docs flag in Editor/src/main.cpp and the GenerateDocs CMake target.
+class DocGenerator
 {
 public:
 	static void Generate(const std::filesystem::path& outputDirectory);

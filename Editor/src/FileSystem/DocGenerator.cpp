@@ -1,4 +1,4 @@
-#include "LuaDocGenerator.h"
+#include "DocGenerator.h"
 #include "Scripting/Lua/LuaManager.h"
 #include "Core/Colour.h"
 
@@ -85,7 +85,7 @@ namespace
 	}
 }
 
-void LuaDocGenerator::Generate(const std::filesystem::path& outputDirectory)
+void DocGenerator::Generate(const std::filesystem::path& outputDirectory)
 {
 	RemovePreviousPages(outputDirectory);
 	std::filesystem::create_directories(outputDirectory);

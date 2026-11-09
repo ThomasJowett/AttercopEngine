@@ -5,7 +5,7 @@
 #include "ProjectsStartScreen.h"
 #include "MainDockSpace.h"
 #include "FileSystem/AssetPacker.h"
-#include "FileSystem/LuaDocGenerator.h"
+#include "FileSystem/DocGenerator.h"
 #include "Core/InputParser.h"
 
 int main(int argc, char* argv[])
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
 
 	if (!generateDocsPath.empty())
 	{
-		LuaDocGenerator::Generate(std::filesystem::path(generateDocsPath));
+		DocGenerator::Generate(std::filesystem::path(generateDocsPath));
 		std::cout << "OK" << std::endl;
 		return EXIT_SUCCESS;
 	}

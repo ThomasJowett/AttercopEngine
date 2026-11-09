@@ -4,8 +4,8 @@ site_description: Documentation and Lua API reference for the engine.
 site_url: https://thomasjowett.github.io/AttercopEngine/
 
 # docs/ is hand-written (index.md, getting-started.md, ...) - edit those directly. Only
-# docs/LuaAPI/ is generated (by Editor's --generate-docs flag / the GenerateLuaDocs CMake
-# target - see Editor/src/FileSystem/LuaDocGenerator.cpp); don't hand-edit anything under
+# docs/LuaAPI/ is generated (by Editor's --generate-docs flag / the GenerateDocs CMake
+# target - see Editor/src/FileSystem/DocGenerator.cpp); don't hand-edit anything under
 # there, it's overwritten on every regeneration. Component pages (docs/Components/) are
 # hand-written and include their generated Lua section from docs/LuaAPI/_fragments/.
 docs_dir: docs
