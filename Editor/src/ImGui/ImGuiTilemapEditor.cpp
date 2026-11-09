@@ -56,7 +56,17 @@ void TilemapEditor::OnImGuiRender()
 		}
 	}
 
-	ImGui::CentreNextWindowOnFirstUse(ImVec2(0, 0));
+	// Big enough for the title bar, brush buttons, whole tileset and coords row
+	ImVec2 windowSize(0, 0);
+	if (m_TilemapComp->tileset && m_TilemapComp->tileset->GetSubTexture()->GetTexture())
+	{
+		Ref<Texture> texture = m_TilemapComp->tileset->GetSubTexture()->GetTexture();
+		const ImGuiStyle& style = ImGui::GetStyle();
+		windowSize.x = (float)texture->GetWidth() + style.WindowPadding.x * 2.0f + style.ScrollbarSize;
+		windowSize.y = (float)texture->GetHeight() + 5.0f + ImGui::GetFrameHeight() + style.WindowPadding.y * 2.0f
+			+ ImGui::GetFrameHeightWithSpacing() * 2.0f + style.ItemSpacing.y;
+	}
+	ImGui::CentreNextWindowOnFirstUse(windowSize);
 	if (ImGui::Begin("Tilemap Editor", m_Show))
 	{
 		bool selected = false;
