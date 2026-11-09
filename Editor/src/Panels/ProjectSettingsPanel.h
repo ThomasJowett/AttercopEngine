@@ -26,6 +26,7 @@ private:
 	void ReadCollisionLayersFile();
 	void SaveCollisionLayersFile();
 
+	void DrawIcon();
 	void DrawCollisionLayers();
 
 	bool OnOpenDocumentChanged(Event& event) { ReadProjectFile(); ReadCollisionLayersFile(); return false; }

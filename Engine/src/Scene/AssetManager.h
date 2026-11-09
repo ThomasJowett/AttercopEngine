@@ -17,6 +17,9 @@
 class AssetManager
 {
 public:
+	// Where an exported game's icon is kept in its asset bundle
+	static constexpr const char* BundledIconPath = "Generated/Icon.png";
+
 	static void LoadBundle(const void* zipData, size_t zipSize)
 	{
 		PROFILE_FUNCTION();

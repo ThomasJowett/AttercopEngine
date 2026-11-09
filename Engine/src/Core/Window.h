@@ -3,6 +3,7 @@
 #include <functional>
 #include <any>
 #include <filesystem>
+#include <vector>
 
 #include <GLFW/glfw3.h>
 
@@ -71,6 +72,7 @@ public:
 	bool IsVSync() const;
 
 	void SetIcon(const std::filesystem::path& path);
+	void SetIcon(const std::vector<uint8_t>& imageData);
 	void SetCursor(Cursors cursorType);
 	void SetTitle(const char* title);
 	const char* GetTitle();

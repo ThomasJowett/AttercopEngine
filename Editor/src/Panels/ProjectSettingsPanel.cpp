@@ -11,6 +11,8 @@
 #include "Viewers/ViewerManager.h"
 #include "Utilities/FileUtils.h"
 #include "FileSystem/WebProject.h"
+#include "ImGui/ImGuiAssetEdit.h"
+#include "Scene/AssetManager.h"
 
 ProjectSettingsPanel::ProjectSettingsPanel(bool* show)
 	:m_Show(show), Layer("Project Settings Panel")
@@ -66,6 +68,8 @@ void ProjectSettingsPanel::OnImGuiRender()
 		ImGui::Tooltip("Open Scene");
 
 		ImGui::InputTextMultiline("Description", m_DescriptionBuffer, sizeof(m_DescriptionBuffer));
+
+		DrawIcon();
 
 		int pageSize = (int)m_ProjectData.spriteAtlasPageSize;
 		if (ImGui::InputInt("Sprite Atlas Page Size", &pageSize, 256, 1024))
@@ -183,6 +187,59 @@ void ProjectSettingsPanel::SaveCollisionLayersFile()
 	m_CollisionLayersDirty = false;
 
 	WebProject::Sync();
+}
+
+void ProjectSettingsPanel::DrawIcon()
+{
+	const ImVec2 previewSize(64.0f, 64.0f);
+	const std::filesystem::path projectDirectory = Application::GetOpenDocumentDirectory();
+
+	Ref<Texture2D> texture;
+	if (!m_ProjectData.icon.empty())
+		texture = AssetManager::GetTexture(m_ProjectData.icon);
+
+	ImGui::BeginGroup();
+	if (texture && !texture->IsMissing())
+		ImGui::Image(texture, previewSize);
+	else
+		ImGui::Button("##IconPreview", previewSize);
+	ImGui::SameLine();
+
+	ImGui::BeginGroup();
+	if (ImGui::BeginAssetCombo("Icon", m_ProjectData.icon, texture.get()))
+	{
+		for (std::filesystem::path& file : Directory::GetFilesRecursive(projectDirectory, { ".png" }))
+		{
+			std::string relativePath = FileUtils::RelativePath(file, projectDirectory).generic_string();
+			ImGui::PushID(relativePath.c_str());
+			if (ImGui::Selectable(file.filename().string().c_str(), relativePath == m_ProjectData.icon))
+				m_ProjectData.icon = relativePath;
+			ImGui::Tooltip(relativePath.c_str());
+			ImGui::PopID();
+		}
+		ImGui::EndCombo();
+	}
+	if (!m_ProjectData.icon.empty())
+	{
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT"##ResetIcon"))
+			m_ProjectData.icon.clear();
+		ImGui::Tooltip("Remove icon");
+	}
+	ImGui::TextDisabled("A square PNG, 1024x1024 for the sharpest icons");
+	ImGui::EndGroup();
+	ImGui::EndGroup();
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_AcceptPeekOnly))
+		{
+			std::filesystem::path* file = (std::filesystem::path*)payload->Data;
+			if (file->extension() == ".png" && ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
+				m_ProjectData.icon = FileUtils::RelativePath(*file, projectDirectory).generic_string();
+		}
+		ImGui::EndDragDropTarget();
+	}
 }
 
 void ProjectSettingsPanel::DrawCollisionLayers()
