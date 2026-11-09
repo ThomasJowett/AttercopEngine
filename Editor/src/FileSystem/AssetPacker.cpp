@@ -18,6 +18,7 @@
 #include "Scene/AssetManager.h"
 #include "ProjectSerializer.h"
 #include "WebProject.h"
+#include "WindowsIcon.h"
 
 #include <algorithm>
 #include <iterator>
@@ -445,11 +446,32 @@ void AssetPacker::ExportGameToExecutable()
 	m_Progress.store(0.1f);
 
 	std::ifstream exeFile(exePath, std::ios::binary);
-	std::ofstream outFile(executableName, std::ios::binary);
+	std::vector<char> exeData((std::istreambuf_iterator<char>(exeFile)), {});
+	exeFile.close();
+	{
+		std::ofstream copiedExe(executableName, std::ios::binary | std::ios::trunc);
+		copiedExe.write(exeData.data(), exeData.size());
+	}
 	m_Progress.store(0.2f);
 
-	std::vector<char> exeData((std::istreambuf_iterator<char>(exeFile)), {});
+#ifdef _WIN32
+	// Rewriting resources drops anything appended to the file, so this goes first
+	if (!m_Data.icon.empty())
+	{
+		std::filesystem::path iconPath = m_ProjectDirectory / m_Data.icon;
+		if (!std::filesystem::exists(iconPath))
+		{
+			ENGINE_WARN("Project icon not found, exporting without it: {0}", m_Data.icon);
+		}
+		else
+		{
+			WindowsIcon::AddToExecutable(executableName, iconPath);
+		}
+	}
+#endif
 	m_Progress.store(0.3f);
+
+	std::ofstream outFile(executableName, std::ios::binary | std::ios::app);
 
 	std::vector<char> zipData;
 	if (m_EmbedBundle)
@@ -458,9 +480,6 @@ void AssetPacker::ExportGameToExecutable()
 		zipData.assign((std::istreambuf_iterator<char>(zipFile)), {});
 	}
 
-	m_Progress.store(0.4f);
-
-	outFile.write(exeData.data(), exeData.size());
 	m_Progress.store(0.5f);
 	if (m_EmbedBundle)
 		outFile.write(zipData.data(), zipData.size());
@@ -480,7 +499,6 @@ void AssetPacker::ExportGameToExecutable()
 	outFile.write(reinterpret_cast<const char*>(&footer), sizeof(footer));
 	m_Progress.store(0.9f);
 
-	exeFile.close();
 	outFile.close();
 
 	if (m_EmbedBundle)
