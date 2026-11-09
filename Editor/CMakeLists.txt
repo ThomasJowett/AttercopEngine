@@ -107,25 +107,14 @@ add_definitions(
     -DUNICODE
 )
 
-if(APPLE)
-        add_custom_command(
-        TARGET Editor POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-            "${CMAKE_CURRENT_SOURCE_DIR}/imgui.ini"
-            "$<TARGET_FILE_DIR:Editor>/../Resources"
-        COMMENT "Copying imgui.ini into app bundle Resources"
-    )
-else()
+if(NOT APPLE)
     add_custom_command(
         TARGET Editor POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Editor>/data"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/data"
             "$<TARGET_FILE_DIR:Editor>/data"
-        COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_SOURCE_DIR}/imgui.ini
-            "$<TARGET_FILE_DIR:Editor>"
-        COMMENT "Copying data folder and imgui.ini to binary dir"
+        COMMENT "Copying data folder to binary dir"
     )
 endif()
 

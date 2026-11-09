@@ -30,8 +30,13 @@ private:
 	bool OnOpenProject(AppOpenDocumentChangedEvent& event);
 
 	void HandleKeyBoardInputs();
+
+	void ShowDefaultWindows();
+	void BuildDefaultLayout(ImGuiID dockspaceId);
+	void ResetLayout(ImGuiID dockspaceId);
 private:
 	bool m_Show;
+	bool m_ResetLayout = false;
 
 	bool m_ShowEditorPreferences;
 	bool m_ShowProjectSettings;

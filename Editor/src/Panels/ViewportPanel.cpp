@@ -635,7 +635,6 @@ void ViewportPanel::OnImGuiRender()
 	}
 	else {
 		ImGui::SetNextWindowSize(ImVec2(800, 800), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_FirstUseEver);
 		shown = ImGui::Begin(ICON_FA_BORDER_ALL" Viewport", m_Show, flags);
 	}
 

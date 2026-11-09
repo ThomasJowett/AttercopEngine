@@ -60,15 +60,8 @@ MainDockSpace::MainDockSpace()
 	m_ShowEditorPreferences = false;
 	m_ShowProjectSettings = false;
 	m_ShowInputMappings = false;
-	m_ShowViewport = true;
-	m_ShowConsole = true;
-	m_ShowErrorList = true;
-	m_ShowFindInFiles = false;
 	m_ShowTaskList = false;
-	m_ShowProperties = true;
-	m_ShowHierarchy = true;
-	m_ShowContentExplorer = true;
-	m_ShowJoystickInfo = true;
+	ShowDefaultWindows();
 
 	m_ShowTilemapEditor = false;
 
@@ -143,10 +136,11 @@ void MainDockSpace::OnAttach()
 	Application::GetLayerStack().AddOverlay(CreateRef<ProjectSettingsPanel>(&m_ShowProjectSettings));
 	Application::GetLayerStack().AddOverlay(CreateRef<InputMappingsPanel>(&m_ShowInputMappings));
 	Application::GetLayerStack().AddOverlay(m_ContentExplorer);
+	// Added before the other bottom panels so it's their first tab
+	Application::GetLayerStack().AddOverlay(CreateRef<ConsolePanel>(&m_ShowConsole));
 	Application::GetLayerStack().AddOverlay(CreateRef<JoystickInfoPanel>(&m_ShowJoystickInfo));
 	Application::GetLayerStack().AddOverlay(CreateRef<ErrorListPanel>(&m_ShowErrorList));
 	Application::GetLayerStack().AddOverlay(CreateRef<FindInFilesPanel>(&m_ShowFindInFiles));
-	Application::GetLayerStack().AddOverlay(CreateRef<ConsolePanel>(&m_ShowConsole));
 	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy);
 	Application::GetLayerStack().AddOverlay(hierarchyPanel);
 	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, tilemapEditor));
@@ -279,32 +273,15 @@ void MainDockSpace::OnImGuiRender()
 	{
 		ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 
-		static bool first_time = true;
-		if (first_time)
+		if (m_ResetLayout)
 		{
-			first_time = false;
-
-			if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
-			{
-				ImGui::DockBuilderRemoveNode(dockspace_id);
-				ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-				ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
-
-				ImGuiID dock_main_id = dockspace_id;
-				ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, nullptr, &dock_main_id);
-				ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.30f, nullptr, &dock_main_id);
-				ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, nullptr, &dock_main_id);
-
-				ImGui::DockBuilderDockWindow(ICON_FA_SITEMAP" Hierarchy", dock_id_left);
-				ImGui::DockBuilderDockWindow(ICON_FA_SCREWDRIVER_WRENCH" Properties", dock_id_right);
-				ImGui::DockBuilderDockWindow(ICON_FA_FOLDER_OPEN " Content Explorer", dock_id_bottom);
-				ImGui::DockBuilderDockWindow(ICON_FA_TERMINAL" Console", dock_id_bottom);
-				ImGui::DockBuilderDockWindow(ICON_FA_CIRCLE_XMARK" Error List", dock_id_bottom);
-				ImGui::DockBuilderDockWindow(ICON_FA_MAGNIFYING_GLASS" Find in Files", dock_id_bottom);
-				ImGui::DockBuilderDockWindow(ICON_FA_BORDER_ALL" Viewport", dock_main_id);
-
-				ImGui::DockBuilderFinish(dockspace_id);
-			}
+			m_ResetLayout = false;
+			ResetLayout(dockspace_id);
+		}
+		// No dock space means no imgui.ini in the settings folder yet
+		else if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+		{
+			BuildDefaultLayout(dockspace_id);
 		}
 
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
@@ -455,6 +432,9 @@ void MainDockSpace::OnImGuiRender()
 #ifdef DEBUG
 			ImGui::MenuItem("ImGui Demo", "", &m_ShowImGuiDemo);
 #endif // DEBUG
+			ImGui::Separator();//-----------------------------------------------
+			if (ImGui::MenuItem(ICON_FA_TABLE_COLUMNS" Reset Layout"))
+				m_ResetLayout = true;
 			ImGui::EndMenu();
 		}
 
@@ -531,6 +511,69 @@ void MainDockSpace::OnImGuiRender()
 	}
 
 	ImGui::End();
+}
+
+void MainDockSpace::ShowDefaultWindows()
+{
+	m_ShowViewport = true;
+	m_ShowHierarchy = true;
+	m_ShowProperties = true;
+	m_ShowContentExplorer = true;
+	m_ShowConsole = true;
+	m_ShowErrorList = true;
+	m_ShowFindInFiles = false;
+	m_ShowJoystickInfo = false;
+}
+
+// Floating windows aren't docked here, they centre themselves with ImGui::CentreNextWindowOnFirstUse
+void MainDockSpace::BuildDefaultLayout(ImGuiID dockspaceId)
+{
+	ImGui::DockBuilderRemoveNode(dockspaceId);
+	ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+	ImGui::DockBuilderSetNodeSize(dockspaceId, ImGui::GetMainViewport()->WorkSize);
+
+	ImGuiID centre = dockspaceId;
+	ImGuiID right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.22f, nullptr, &centre);
+	ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
+	ImGuiID left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left, 0.22f, nullptr, &centre);
+	ImGuiID bottomRight = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.5f, nullptr, &bottom);
+
+	ImGui::DockBuilderDockWindow(ICON_FA_BORDER_ALL" Viewport", centre);
+	ImGui::DockBuilderDockWindow(ICON_FA_SITEMAP" Hierarchy", left);
+	ImGui::DockBuilderDockWindow(ICON_FA_SCREWDRIVER_WRENCH" Properties", right);
+	ImGui::DockBuilderDockWindow(ICON_FA_FOLDER_OPEN " Content Explorer", bottomRight);
+	ImGui::DockBuilderDockWindow(ICON_FA_TERMINAL" Console", bottom);
+	ImGui::DockBuilderDockWindow(ICON_FA_CIRCLE_XMARK" Error List", bottom);
+	ImGui::DockBuilderDockWindow(ICON_FA_MAGNIFYING_GLASS" Find in Files", bottom);
+	ImGui::DockBuilderDockWindow(ICON_FA_GAMEPAD" Joystick Info", bottom);
+
+	ImGui::DockBuilderFinish(dockspaceId);
+}
+
+// Clears every saved window position, so all windows come back as they do on a first start
+void MainDockSpace::ResetLayout(ImGuiID dockspaceId)
+{
+	ImGuiContext& context = *ImGui::GetCurrentContext();
+	const std::string dockSpaceWindow = ImGui::GetCurrentWindow()->Name;
+
+	std::vector<std::string> windows;
+	for (ImGuiWindowSettings* settings = context.SettingsWindows.begin(); settings != nullptr; settings = context.SettingsWindows.next_chunk(settings))
+		windows.push_back(settings->GetName());
+	for (ImGuiWindow* window : context.Windows)
+	{
+		if (!(window->Flags & (ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoSavedSettings)))
+			windows.push_back(window->Name);
+	}
+
+	ImGui::DockBuilderRemoveNode(dockspaceId);
+	for (const std::string& window : windows)
+	{
+		if (window != dockSpaceWindow)
+			ImGui::ClearWindowSettings(window.c_str());
+	}
+
+	ShowDefaultWindows();
+	BuildDefaultLayout(dockspaceId);
 }
 
 void MainDockSpace::OpenProject(const std::filesystem::path& filename)
