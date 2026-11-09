@@ -49,7 +49,6 @@ void ErrorListPanel::OnImGuiRender()
 		return;
 
 	ImGui::SetNextWindowSize(ImVec2(600, 600), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowPos(ImVec2(70, 50), ImGuiCond_FirstUseEver);
 
 	if (ImGui::Begin(ICON_FA_CIRCLE_XMARK" Error List", m_Show))
 	{

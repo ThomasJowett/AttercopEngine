@@ -120,7 +120,6 @@ void PropertiesPanel::OnImGuiRender()
 	}
 
 	ImGui::SetNextWindowSize(ImVec2(400, 600), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowPos(ImVec2(40, 40), ImGuiCond_FirstUseEver);
 
 	if (ImGui::Begin(ICON_FA_SCREWDRIVER_WRENCH" Properties", m_Show))
 	{

@@ -51,7 +51,6 @@ void HierarchyPanel::OnImGuiRender()
 	}
 
 	ImGui::SetNextWindowSize(ImVec2(400, 600), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowPos(ImVec2(40, 40), ImGuiCond_FirstUseEver);
 
 	if (ImGui::Begin(ICON_FA_SITEMAP" Hierarchy", m_Show))
 	{
