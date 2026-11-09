@@ -151,7 +151,7 @@ void StateMachineView::OnImGuiRender()
 	if (IsDirty())
 		flags |= ImGuiWindowFlags_UnsavedDocument;
 
-	ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(800, 600));
 
 	if (ImGui::Begin(m_WindowName.c_str(), m_Show, flags))
 	{

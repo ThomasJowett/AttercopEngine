@@ -442,7 +442,7 @@ void InputMappingsPanel::OnImGuiRender()
 	if (m_Dirty)
 		flags |= ImGuiWindowFlags_UnsavedDocument;
 
-	ImGui::SetNextWindowSize(ImVec2(750, 450), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(750, 450));
 
 	if (ImGui::Begin(ICON_FA_SLIDERS" Input Mappings", m_Show, flags))
 	{

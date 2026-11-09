@@ -75,7 +75,7 @@ void TilesetView::OnImGuiRender()
 		return;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(640, 480));
 
 	ImVec2 displaySize;
 	if (m_LocalTileset->GetSubTexture()->GetTexture())

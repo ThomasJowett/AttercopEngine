@@ -17,4 +17,7 @@ bool LoadStyle(const std::filesystem::path& filename, ImGuiStyle& style);
 
 void Tooltip(const std::string& text);
 void Tooltip(const char* text);
+
+// Centres the next window in the main viewport on first use, shrunk to fit it
+void CentreNextWindowOnFirstUse(const ImVec2& size);
 }

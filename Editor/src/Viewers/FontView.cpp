@@ -39,6 +39,7 @@ void FontView::OnImGuiRender()
 		return;
 	}
 
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(0, 0));
 	if(ImGui::Begin(m_WindowName.c_str(), m_Show, ExternalEditor::IsSupported() ? ImGuiWindowFlags_MenuBar : ImGuiWindowFlags_None))
 	{
 		if(ImGui::IsWindowFocused())

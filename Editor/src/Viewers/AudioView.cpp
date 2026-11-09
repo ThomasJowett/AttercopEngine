@@ -6,6 +6,7 @@
 #include <MainDockSpace.h>
 #include <FileSystem/ExternalEditor.h>
 #include <Asset/AudioClip.h>
+#include <ImGui/ImGuiUtilities.h>
 
 constexpr uint32_t VOLUME_HISTORY_LENGTH = 500;
 
@@ -130,7 +131,7 @@ void AudioView::OnImGuiRender()
 		return;
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(800, 300), ImGuiCond_FirstUseEver);
+	ImGui::CentreNextWindowOnFirstUse(ImVec2(800, 300));
 
 	if (ImGui::Begin(m_WindowName.c_str(), m_Show, ExternalEditor::IsSupported() ? ImGuiWindowFlags_MenuBar : ImGuiWindowFlags_None))
 	{
