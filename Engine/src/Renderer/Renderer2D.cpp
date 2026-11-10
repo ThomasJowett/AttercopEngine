@@ -1385,20 +1385,27 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 	DrawTextGlyphs(*drawFont, transform, colour, entityId);
 }
 
+void Renderer2D::DrawString(const Matrix4x4& transform, const TextComponent& textComp, int entityId)
+{
+	PROFILE_FUNCTION();
+	if (IsDrawingDisabled())
+		return;
+	if (textComp.text.empty() || textComp.font == nullptr)
+		return;
 
-	for (uint32_t i = 1; i < s_Data.fontAtlasSlotIndex; i++)
+	if (!s_Data.frustum.Intersects(textComp.GetBounds(), transform))
 	{
-		if (s_Data.fontAtlasSlots[i]->GetFilepath() == fontAtlas->GetFilepath())
-		{
-			textureIndex = (float)i;
-			break;
-		}
+		s_Data.statistics.culledStringCount++;
+		return;
 	}
 
-	if (textureIndex == 0.0f)
-	{
-		if (s_Data.fontAtlasSlotIndex >= Renderer2DData::maxTexturesSlots)
-			NextTextBatch();
+	const Ref<Font>& drawFont = Font::OrDefault(textComp.font);
+	if (!drawFont->GetMSDFData())
+		return;
+
+	drawFont->LayoutString(textComp.text, textComp.maxWidth, s_Data.textGlyphs);
+	DrawTextGlyphs(*drawFont, transform, textComp.colour, entityId);
+}
 
 float Renderer2D::AssignFontAtlasSlot(const Ref<Texture>& fontAtlas)
 {

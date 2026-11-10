@@ -10,6 +10,7 @@
 
 #include "Scene/Components/SpriteComponent.h"
 #include "Scene/Components/CircleRendererComponent.h"
+#include "Scene/Components/TextComponent.h"
 
 class Frustum;
 
@@ -101,6 +102,8 @@ public:
 	static void DrawString(const std::string& text, const Ref<Font> font, float maxWidth, const Vector2f& position, const float& rotation, const Colour & = Colours::WHITE, int entityId = -1);
 	static void DrawString(const std::string& text, const Ref<Font> font, float maxWidth, const Vector3f& position, const float& rotation, const Colour & = Colours::WHITE, int entityId = -1);
 	static void DrawString(const std::string& text, const Ref<Font> font, float maxWidth, const Matrix4x4& transform, const Colour & = Colours::WHITE, int entityId = -1);
+	// Culled with the component's cached bounds before the text is laid out
+	static void DrawString(const Matrix4x4& transform, const TextComponent& textComp, int entityId = -1);
 
 	struct Stats
 	{
