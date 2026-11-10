@@ -2,6 +2,7 @@
 
 #include "cereal/cereal.hpp"
 #include "Asset/Font.h"
+#include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
 
 struct TextComponent
