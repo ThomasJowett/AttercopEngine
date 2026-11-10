@@ -1265,7 +1265,7 @@ void ViewportPanel::OnImGuiRender()
 
 		if (m_ShowStats)
 		{
-			char statsLines[8][32];
+			char statsLines[9][32];
 			snprintf(statsLines[0], sizeof(statsLines[0]), "Draw Calls: %i", Renderer2D::GetStats().drawCalls + Renderer::GetStats().drawCalls);
 			snprintf(statsLines[1], sizeof(statsLines[1]), "Quad Count: %i", Renderer2D::GetStats().quadCount);
 			snprintf(statsLines[2], sizeof(statsLines[2]), "Culled Quads: %i", Renderer2D::GetStats().culledQuadCount);
@@ -1274,6 +1274,7 @@ void ViewportPanel::OnImGuiRender()
 			snprintf(statsLines[5], sizeof(statsLines[5]), "Culled Hair Lines: %i", Renderer2D::GetStats().culledHairLineCount);
 			snprintf(statsLines[6], sizeof(statsLines[6]), "Mesh Count: %i", Renderer::GetStats().meshCount);
 			snprintf(statsLines[7], sizeof(statsLines[7]), "Culled Meshes: %i", Renderer::GetStats().culledMeshCount);
+			snprintf(statsLines[8], sizeof(statsLines[8]), "Culled Strings: %i", Renderer2D::GetStats().culledStringCount);
 
 			ImVec2 statsBoxSize(0.0f, 0.0f);
 			for (const char* line : statsLines)
@@ -1441,6 +1442,8 @@ BoundingBox ViewportPanel::GetLocalBounds(Entity entity) const
 		return comp->mesh->GetBounds();
 	if (auto comp = entity.TryGetComponent<TilemapComponent>(); comp && comp->mesh)
 		return comp->mesh->GetBounds();
+	if (auto comp = entity.TryGetComponent<TextComponent>(); comp && comp->GetBounds().IsValid())
+		return comp->GetBounds();
 
 	if (auto boxColliderComp = entity.TryGetComponent<BoxCollider2DComponent>())
 	{
@@ -1493,7 +1496,7 @@ void ViewportPanel::DrawBoundingBoxes()
 				for (const Submesh& submesh : staticMeshComp->mesh->GetMesh()->GetSubmeshes())
 					DrawBox(submesh.boundingBox, transform * submesh.transform, boxColour, (int)entityHandle);
 			}
-			else if (entity.HasComponent<PrimitiveComponent, TilemapComponent, SpriteComponent, AnimatedSpriteComponent, CircleRendererComponent>())
+			else if (entity.HasComponent<PrimitiveComponent, TilemapComponent, SpriteComponent, AnimatedSpriteComponent, CircleRendererComponent, TextComponent>())
 			{
 				DrawBox(GetLocalBounds(entity), transform, boxColour, (int)entityHandle);
 			}
