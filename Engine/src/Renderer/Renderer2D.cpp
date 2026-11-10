@@ -184,6 +184,7 @@ struct Renderer2DData
 
 	std::array<Ref<Texture>, maxTexturesSlots> fontAtlasSlots;
 	uint32_t fontAtlasSlotIndex = 1;
+	std::vector<GlyphQuad> textGlyphs;
 
 	std::array<Ref<Texture>, maxTexturesSlots> quadTextureSlots;
 	uint32_t quadTextureSlotIndex = 1;
@@ -1370,22 +1371,20 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 	if (text.empty() || font == nullptr)
 		return;
 
-	// A font that failed to load draws with the default font
-	Ref<Font> drawFont = font->IsMissing() && Font::GetDefaultFont() ? Font::GetDefaultFont() : font;
+	const Ref<Font>& drawFont = Font::OrDefault(font);
 	if (!drawFont->GetMSDFData())
 		return;
 
-	if (s_Data.textIndexCount >= s_Data.maxIndices)
+	BoundingBox bounds = drawFont->LayoutString(text, maxWidth, s_Data.textGlyphs);
+	if (!s_Data.frustum.Intersects(bounds, transform))
 	{
-		NextTextBatch();
+		s_Data.statistics.culledStringCount++;
+		return;
 	}
 
-	float textureIndex = 0.0f;
+	DrawTextGlyphs(*drawFont, transform, colour, entityId);
+}
 
-	Ref<Texture2D> fontAtlas = drawFont->GetFontAtlas();
-
-	ASSERT(fontAtlas, "Font atlas cannot be null");
-	ASSERT(drawFont->GetMSDFData(), "MSDF Data  cannot be null");
 
 	for (uint32_t i = 1; i < s_Data.fontAtlasSlotIndex; i++)
 	{
@@ -1401,143 +1400,57 @@ void Renderer2D::DrawString(const std::string& text, const Ref<Font> font, float
 		if (s_Data.fontAtlasSlotIndex >= Renderer2DData::maxTexturesSlots)
 			NextTextBatch();
 
-		textureIndex = (float)s_Data.fontAtlasSlotIndex;
-		s_Data.fontAtlasSlots[s_Data.fontAtlasSlotIndex] = fontAtlas;
-		s_Data.fontAtlasSlotIndex++;
+float Renderer2D::AssignFontAtlasSlot(const Ref<Texture>& fontAtlas)
+{
+	for (uint32_t i = 1; i < s_Data.fontAtlasSlotIndex; i++)
+	{
+		if (s_Data.fontAtlasSlots[i] == fontAtlas)
+			return (float)i;
 	}
 
-	const msdf_atlas::FontGeometry& fontGeometry = drawFont->GetMSDFData()->fontGeometry;
-	const msdfgen::FontMetrics& metrics = fontGeometry.getMetrics();
+	if (s_Data.fontAtlasSlotIndex >= Renderer2DData::maxTexturesSlots)
+		NextTextBatch();
 
-	std::vector<int> nextLines;
-	double x = 0.0;
-	double fsScale = 1 / (metrics.ascenderY - metrics.descenderY);
-	double y = -fsScale * metrics.ascenderY;
-	int lastSpace = -1;
+	s_Data.fontAtlasSlots[s_Data.fontAtlasSlotIndex] = fontAtlas;
+	return (float)s_Data.fontAtlasSlotIndex++;
+}
 
-	std::u32string utf32string;
-	utf32string.resize(text.size());
-	std::transform(text.begin(), text.end(), utf32string.begin(), [](char c) -> unsigned char {return c; });
+void Renderer2D::DrawTextGlyphs(const Font& font, const Matrix4x4& transform, const Colour& colour, int entityId)
+{
+	if (s_Data.textGlyphs.empty())
+		return;
 
-	for (int i = 0; i < utf32string.size(); i++)
+	Ref<Texture2D> fontAtlas = font.GetFontAtlas();
+	ASSERT(fontAtlas, "Font atlas cannot be null");
+
+	float textureIndex = AssignFontAtlasSlot(fontAtlas);
+	const float texelWidth = 1.0f / fontAtlas->GetWidth();
+	const float texelHeight = 1.0f / fontAtlas->GetHeight();
+
+	auto addVertex = [&](float x, float y, float u, float v)
+		{
+			s_Data.textVertexBufferPtr->position = transform * Vector3f(x, y, 0.0f);
+			s_Data.textVertexBufferPtr->colour = colour;
+			s_Data.textVertexBufferPtr->texCoords = Vector2f(u * texelWidth, v * texelHeight);
+			s_Data.textVertexBufferPtr->texIndex = textureIndex;
+			s_Data.textVertexBufferPtr->EntityId = entityId;
+			s_Data.textVertexBufferPtr++;
+		};
+
+	for (const GlyphQuad& quad : s_Data.textGlyphs)
 	{
-		char32_t character = utf32string[i];
-		if (character == '\n')
+		if (s_Data.textIndexCount + 6 > s_Data.maxIndices)
 		{
-			x = 0;
-			y -= fsScale * metrics.lineHeight;
-			continue;
+			NextTextBatch();
+			textureIndex = AssignFontAtlasSlot(fontAtlas);
 		}
 
-		auto glyph = fontGeometry.getGlyph(character);
-		if (!glyph)
-			glyph = fontGeometry.getGlyph('?');
-		if (!glyph)
-			continue;
-
-		if (character != ' ' && character != '\t')
-		{
-			double pl, pb, pr, pt;
-			glyph->getQuadPlaneBounds(pl, pb, pr, pt);
-			Vector2f quadMin((float)pl, (float)pb);
-			Vector2f quadMax((float)pr, (float)pt);
-
-			quadMin = quadMin * (float)fsScale;
-			quadMax = quadMax * (float)fsScale;
-			quadMin += Vector2f((float)x, (float)y);
-			quadMax += Vector2f((float)x, (float)y);
-
-			if (quadMax.x > maxWidth && lastSpace != -1)
-			{
-				i = lastSpace;
-				nextLines.emplace_back(lastSpace);
-				lastSpace = -1;
-				x = 0;
-				y -= fsScale * metrics.lineHeight;
-			}
-		}
-		else
-		{
-			lastSpace = i;
-		}
-
-		double advance = glyph->getAdvance();
-		fontGeometry.getAdvance(advance, character, utf32string[i + 1]);
-		x += fsScale * advance;
-	}
-
-	x = 0.0;
-	fsScale = 1 / (metrics.ascenderY - metrics.descenderY);
-	y = 0.0;
-	for (int i = 0; i < utf32string.size(); i++)
-	{
-		char32_t character = utf32string[i];
-
-		if (character == '\n' || std::any_of(nextLines.begin(), nextLines.end(), [&i](int line) { return i == line; }))
-		{
-			x = 0;
-			y -= fsScale * metrics.lineHeight;
-			continue;
-		}
-		if (character == '\t')
-		{
-			double advance = fontGeometry.getGlyph(' ')->getAdvance();
-			x += fsScale * (advance * 4);
-			continue;
-		}
-		auto glyph = fontGeometry.getGlyph(character);
-		if (!glyph)
-			glyph = fontGeometry.getGlyph('?');
-		if (!glyph)
-			continue;
-
-		double l, b, r, t;
-		glyph->getQuadAtlasBounds(l, b, r, t);
-
-		double pl, pb, pr, pt;
-		glyph->getQuadPlaneBounds(pl, pb, pr, pt);
-
-		pl *= fsScale, pb *= fsScale, pr *= fsScale, pt *= fsScale;
-		pl += x, pb += y, pr += x, pt += y;
-
-		double texelWidth = 1.0 / fontAtlas->GetWidth();
-		double texelHeight = 1.0 / fontAtlas->GetHeight();
-		l *= texelWidth, b *= texelHeight, r *= texelWidth, t *= texelHeight;
-
-		s_Data.textVertexBufferPtr->position = transform * Vector3f((float)pl, (float)pb, 0.0f);
-		s_Data.textVertexBufferPtr->colour = colour;
-		s_Data.textVertexBufferPtr->texCoords = Vector2f((float)l, (float)b);
-		s_Data.textVertexBufferPtr->texIndex = textureIndex;
-		s_Data.textVertexBufferPtr->EntityId = entityId;
-		s_Data.textVertexBufferPtr++;
-
-		s_Data.textVertexBufferPtr->position = transform * Vector3f((float)pr, (float)pb, 0.0f);
-		s_Data.textVertexBufferPtr->colour = colour;
-		s_Data.textVertexBufferPtr->texCoords = Vector2f((float)r, (float)b);
-		s_Data.textVertexBufferPtr->texIndex = textureIndex;
-		s_Data.textVertexBufferPtr->EntityId = entityId;
-		s_Data.textVertexBufferPtr++;
-
-		s_Data.textVertexBufferPtr->position = transform * Vector3f((float)pr, (float)pt, 0.0f);
-		s_Data.textVertexBufferPtr->colour = colour;
-		s_Data.textVertexBufferPtr->texCoords = Vector2f((float)r, (float)t);
-		s_Data.textVertexBufferPtr->texIndex = textureIndex;
-		s_Data.textVertexBufferPtr->EntityId = entityId;
-		s_Data.textVertexBufferPtr++;
-
-		s_Data.textVertexBufferPtr->position = transform * Vector3f((float)pl, (float)pt, 0.0f);
-		s_Data.textVertexBufferPtr->colour = colour;
-		s_Data.textVertexBufferPtr->texCoords = Vector2f((float)l, (float)t);
-		s_Data.textVertexBufferPtr->texIndex = textureIndex;
-		s_Data.textVertexBufferPtr->EntityId = entityId;
-		s_Data.textVertexBufferPtr++;
+		addVertex(quad.planeMin.x, quad.planeMin.y, quad.atlasMin.x, quad.atlasMin.y);
+		addVertex(quad.planeMax.x, quad.planeMin.y, quad.atlasMax.x, quad.atlasMin.y);
+		addVertex(quad.planeMax.x, quad.planeMax.y, quad.atlasMax.x, quad.atlasMax.y);
+		addVertex(quad.planeMin.x, quad.planeMax.y, quad.atlasMin.x, quad.atlasMax.y);
 
 		s_Data.textIndexCount += 6;
-
-		double advance = glyph->getAdvance();
-		fontGeometry.getAdvance(advance, character, utf32string[i + 1]);
-		x += fsScale * advance;
-
 		s_Data.statistics.quadCount++;
 	}
 }

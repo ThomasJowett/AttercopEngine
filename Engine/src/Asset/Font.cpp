@@ -24,6 +24,7 @@ Font::~Font()
 }
 
 Ref<Font> Font::s_DefaultFont;
+uint32_t Font::s_NextVersion = 0;
 
 void Font::Init()
 {
@@ -86,6 +87,7 @@ bool Font::Load(const std::filesystem::path& filepath)
 		delete m_MSDFData;
 	m_MSDFData = new MSDFData();
 	m_MSDFData->fontGeometry = msdf_atlas::FontGeometry(&m_MSDFData->glyphs);
+	m_Version = ++s_NextVersion;
 
 	int glyphsLoaded = -1;
 
@@ -191,6 +193,7 @@ bool Font::Load(const std::filesystem::path& filepath, const std::vector<uint8_t
 		delete m_MSDFData;
 	m_MSDFData = new MSDFData();
 	m_MSDFData->fontGeometry = msdf_atlas::FontGeometry(&m_MSDFData->glyphs);
+	m_Version = ++s_NextVersion;
 
 	int glyphsLoaded = m_MSDFData->fontGeometry.loadCharset(fontHandle, 1.0f, msdf_atlas::Charset::ASCII);
 	ASSERT(glyphsLoaded >= 0, "Could not load any glyphs from the font");
@@ -219,4 +222,135 @@ bool Font::Load(const std::filesystem::path& filepath, const std::vector<uint8_t
 	msdfgen::deinitializeFreetype(ftHandle);
 
 	return true;
+}
+
+// Invalid or truncated sequences decode to U+FFFD
+static void DecodeUtf8(const std::string& text, std::u32string& out)
+{
+	out.clear();
+	out.reserve(text.size());
+	size_t i = 0;
+	while (i < text.size())
+	{
+		unsigned char lead = (unsigned char)text[i];
+		int length = lead < 0x80 ? 1 : (lead >> 5) == 0x6 ? 2 : (lead >> 4) == 0xE ? 3 : (lead >> 3) == 0x1E ? 4 : 0;
+		if (length == 0 || i + length > text.size())
+		{
+			out.push_back(0xFFFD);
+			i++;
+			continue;
+		}
+
+		char32_t codepoint = length == 1 ? lead : lead & (0x7F >> length);
+		bool valid = true;
+		for (int j = 1; j < length; j++)
+		{
+			unsigned char next = (unsigned char)text[i + j];
+			if ((next & 0xC0) != 0x80)
+			{
+				valid = false;
+				break;
+			}
+			codepoint = (codepoint << 6) | (next & 0x3F);
+		}
+
+		out.push_back(valid ? codepoint : 0xFFFD);
+		i += valid ? length : 1;
+	}
+}
+
+BoundingBox Font::LayoutString(const std::string& text, float maxWidth, std::vector<GlyphQuad>& quads) const
+{
+	PROFILE_FUNCTION();
+	quads.clear();
+	BoundingBox bounds;
+	if (!m_MSDFData || text.empty())
+		return bounds;
+
+	static thread_local std::u32string s_Codepoints;
+	DecodeUtf8(text, s_Codepoints);
+	const std::u32string& codepoints = s_Codepoints;
+
+	const msdf_atlas::FontGeometry& fontGeometry = m_MSDFData->fontGeometry;
+	const msdfgen::FontMetrics& metrics = fontGeometry.getMetrics();
+	const double scale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+	const double lineAdvance = scale * metrics.lineHeight;
+	const msdf_atlas::GlyphGeometry* space = fontGeometry.getGlyph(' ');
+	const double tabAdvance = space ? scale * space->getAdvance() * 4.0 : 0.0;
+
+	double x = 0.0;
+	double y = 0.0;
+	// The last space or tab on this line, where it wraps; glyphs placed after it are dropped when it does
+	size_t lastSpace = std::u32string::npos;
+	size_t quadsAtLastSpace = 0;
+
+	for (size_t i = 0; i < codepoints.size(); i++)
+	{
+		char32_t character = codepoints[i];
+		if (character == '\n')
+		{
+			x = 0.0;
+			y -= lineAdvance;
+			lastSpace = std::u32string::npos;
+			continue;
+		}
+
+		if (character == ' ' || character == '\t')
+		{
+			lastSpace = i;
+			quadsAtLastSpace = quads.size();
+		}
+
+		if (character == '\t')
+		{
+			x += tabAdvance;
+			continue;
+		}
+
+		const msdf_atlas::GlyphGeometry* glyph = fontGeometry.getGlyph(character);
+		if (!glyph)
+			glyph = fontGeometry.getGlyph('?');
+		if (!glyph)
+			continue;
+
+		if (!glyph->isWhitespace())
+		{
+			double pl, pb, pr, pt;
+			glyph->getQuadPlaneBounds(pl, pb, pr, pt);
+			pl = pl * scale + x, pb = pb * scale + y, pr = pr * scale + x, pt = pt * scale + y;
+
+			if (pr > maxWidth && lastSpace != std::u32string::npos)
+			{
+				// Start a new line after the space, the loop picks up from the character following it
+				quads.resize(quadsAtLastSpace);
+				i = lastSpace;
+				lastSpace = std::u32string::npos;
+				x = 0.0;
+				y -= lineAdvance;
+				continue;
+			}
+
+			double l, b, r, t;
+			glyph->getQuadAtlasBounds(l, b, r, t);
+			quads.push_back({ Vector2f((float)pl, (float)pb), Vector2f((float)pr, (float)pt), Vector2f((float)l, (float)b), Vector2f((float)r, (float)t) });
+		}
+
+		double advance = glyph->getAdvance();
+		char32_t nextCharacter = i + 1 < codepoints.size() ? codepoints[i + 1] : 0;
+		fontGeometry.getAdvance(advance, character, nextCharacter);
+		x += scale * advance;
+	}
+
+	for (const GlyphQuad& quad : quads)
+	{
+		bounds.Merge(Vector3f(quad.planeMin.x, quad.planeMin.y, 0.0f));
+		bounds.Merge(Vector3f(quad.planeMax.x, quad.planeMax.y, 0.0f));
+	}
+	return bounds;
+}
+
+BoundingBox Font::MeasureString(const std::string& text, float maxWidth) const
+{
+	std::vector<GlyphQuad> quads;
+	return LayoutString(text, maxWidth, quads);
 }

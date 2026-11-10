@@ -111,6 +111,7 @@ public:
 		// Quads and circles skipped for being off screen
 		uint32_t culledQuadCount = 0;
 		uint32_t culledHairLineCount = 0;
+		uint32_t culledStringCount = 0;
 
 		uint32_t GetTotalVertexCount() { return quadCount * 4; }
 		uint32_t GetTotalIndexCount() { return quadCount * 6; }
@@ -127,6 +128,9 @@ private:
 	// Requests the sampler for the next textured quads, it's only switched to once a visible one is drawn
 	static void UseQuadSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod);
 	static void ApplyQuadSampler();
+	static float AssignFontAtlasSlot(const Ref<Texture>& fontAtlas);
+	// Draws the glyphs left in s_Data.textGlyphs by Font::LayoutString
+	static void DrawTextGlyphs(const Font& font, const Matrix4x4& transform, const Colour& colour, int entityId);
 	static void DrawSubTexturedQuad(const Matrix4x4& transform, const Ref<SubTexture2D>& subtexture, const Colour& colour, int entityId);
 	static void DrawTexturedQuad(const Matrix4x4& transform, const Ref<Texture>& texture, const Colour& colour, float tilingFactor, int entityId);
 	static void DrawQuadWithUVRect(const Matrix4x4& transform, const Ref<Texture>& texture, const Vector2f& uvMin, const Vector2f& uvMax, const Colour& colour, int entityId);
