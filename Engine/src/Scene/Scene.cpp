@@ -467,7 +467,7 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 	for (auto entity : textGroup)
 	{
 		auto&& [transformComp, textComp] = textGroup.get(entity);
-		Renderer2D::DrawString(textComp.text, textComp.font, textComp.maxWidth, transformComp.GetWorldMatrix(), textComp.colour, (int)entity);
+		Renderer2D::DrawString(transformComp.GetWorldMatrix(), textComp, (int)entity);
 	}
 
 	auto staticMeshGroup = m_Registry.view<TransformComponent, StaticMeshComponent>(entt::exclude<HiddenInHierarchyMarker>);
