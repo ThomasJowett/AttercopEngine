@@ -460,11 +460,7 @@ void Renderer2D::BeginScene()
 	s_Data.quadVertexBufferPoolIndex = 0;
 	s_Data.hairLineVertexBufferPoolIndex = 0;
 	s_Data.lineVertexBufferPoolIndex = 0;
-
-	// Reset atlas slots each frame; unused slots default to whiteTexture so SetTextureArray
-	// always has a valid texture for every binding.
-	s_Data.fontAtlasSlotIndex = 1;
-	std::fill(s_Data.fontAtlasSlots.begin(), s_Data.fontAtlasSlots.end(), s_Data.whiteTexture);
+	s_Data.textVertexBufferPoolIndex = 0;
 
 	StartQuadsBatch();
 	StartCirclesBatch();
@@ -680,6 +676,10 @@ void Renderer2D::StartTextBatch()
 {
 	s_Data.textIndexCount = 0;
 	s_Data.textVertexBufferPtr = s_Data.textVertexBufferBase;
+
+	// Unused slots stay whiteTexture so SetTextureArray always has a valid texture for every binding
+	s_Data.fontAtlasSlotIndex = 1;
+	std::fill(s_Data.fontAtlasSlots.begin(), s_Data.fontAtlasSlots.end(), s_Data.whiteTexture);
 }
 
 void Renderer2D::StartHairLinesBatch()
