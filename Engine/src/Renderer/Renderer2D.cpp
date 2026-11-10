@@ -179,6 +179,9 @@ struct Renderer2DData
 	std::vector<Ref<VertexBuffer>> lineVertexBufferPool;
 	size_t lineVertexBufferPoolIndex = 0;
 
+	std::vector<Ref<VertexBuffer>> textVertexBufferPool;
+	size_t textVertexBufferPoolIndex = 0;
+
 	std::array<Ref<Texture>, maxTexturesSlots> fontAtlasSlots;
 	uint32_t fontAtlasSlotIndex = 1;
 
@@ -521,6 +524,18 @@ static Ref<VertexBuffer> NextLineVertexBuffer()
 	return s_Data.lineVertexBufferPool[s_Data.lineVertexBufferPoolIndex++];
 }
 
+static Ref<VertexBuffer> NextTextVertexBuffer()
+{
+	if (s_Data.textVertexBufferPoolIndex >= s_Data.textVertexBufferPool.size())
+	{
+		Ref<VertexBuffer> buffer = VertexBuffer::Create(s_Data.maxVertices * sizeof(TextVertex));
+		buffer->SetLayout(s_Data.textVertexBuffer->GetLayout());
+		s_Data.textVertexBufferPool.push_back(buffer);
+	}
+
+	return s_Data.textVertexBufferPool[s_Data.textVertexBufferPoolIndex++];
+}
+
 void Renderer2D::FlushQuads()
 {
 	if (s_Data.quadIndexCount == 0)
@@ -627,7 +642,8 @@ void Renderer2D::FlushText()
 
 	ENGINE_TRACE("Renderer2D: Flushing {0} text indices", s_Data.textIndexCount);
 	uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.textVertexBufferPtr - (uint8_t*)s_Data.textVertexBufferBase);
-	s_Data.textVertexBuffer->SetData(s_Data.textVertexBufferBase, dataSize);
+	Ref<VertexBuffer> vertexBuffer = NextTextVertexBuffer();
+	vertexBuffer->SetData(s_Data.textVertexBufferBase, dataSize);
 
 	// Binding 0 is Camera below, so atlases start at 1. Prefer a real (Linear-filtered) atlas
 	// as the sampler source over whiteTexture (Nearest) when one is active.
@@ -638,10 +654,10 @@ void Renderer2D::FlushText()
 	s_Data.textPipeline->Bind();
 	s_Data.textPipeline->SetUniformBuffer(s_Data.cameraUniformBuffer, BINDING_CAMERA);
 
-	s_Data.textVertexBuffer->Bind();
+	vertexBuffer->Bind();
 	s_Data.textIndexBuffer->Bind();
 	RenderCommand::DrawIndexed(s_Data.textIndexCount);
-	s_Data.textVertexBuffer->UnBind();
+	vertexBuffer->UnBind();
 	s_Data.textIndexBuffer->UnBind();
 	s_Data.statistics.drawCalls++;
 }
