@@ -53,7 +53,7 @@ target_compile_definitions(UnitTests PRIVATE ATTERCOP_SOURCE_DIR="${CMAKE_SOURCE
 target_copy_webgpu_binaries(UnitTests)
 
 if (MSVC)
-    target_compile_options(UnitTests PRIVATE "/utf-8")
+    target_compile_options(UnitTests PRIVATE "/bigobj" "/utf-8")
 endif()
 
 add_test(NAME UnitTests COMMAND UnitTests)
