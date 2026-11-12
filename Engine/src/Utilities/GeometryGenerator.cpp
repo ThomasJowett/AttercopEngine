@@ -44,7 +44,7 @@ void GeometryGenerator::GenerateTangents(Vertex* vertices, uint32_t vertexCount)
 		const Vector2f duv10 = uv1 - uv0;
 		const Vector2f duv20 = uv2 - uv0;
 
-		float det = (dv10.x * duv20.y * duv20.x);
+		float det = duv10.x * duv20.y - duv20.x * duv10.y;
 		if (std::abs(det) < 1e-6f)
 		{
 			vertices[i + 0].tangent = Vector3f(1.0f, 0.0f, 0.0f);
