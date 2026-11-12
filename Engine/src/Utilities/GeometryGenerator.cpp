@@ -192,7 +192,7 @@ Ref<Mesh> GeometryGenerator::CreateSphere(float radius, uint32_t longitudeLines,
 			vertex.tangent.Normalize();
 
 			//TexCoords
-			vertex.texcoord.x = (1 - (theta / (float)PI)) / 2;
+			vertex.texcoord.x = 1.0f - theta / (2.0f * (float)PI);
 			vertex.texcoord.y = 1 - (phi / (float)PI);
 
 			vertices.push_back(vertex);
