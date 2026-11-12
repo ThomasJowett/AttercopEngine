@@ -201,7 +201,8 @@ Ref<Mesh> GeometryGenerator::CreateSphere(float radius, uint32_t longitudeLines,
 
 	std::vector<uint32_t> indices;
 	uint32_t k1, k2;
-	for (uint32_t i = 0; i <= latitudeLines; i++)
+	// One band between each pair of rings
+	for (uint32_t i = 0; i < latitudeLines - 1; i++)
 	{
 		k1 = i * (longitudeLines + 1);
 		k2 = k1 + (longitudeLines + 1);
