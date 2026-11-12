@@ -63,7 +63,7 @@ jobs:
 
       - name: Unit tests
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
-        run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -L unit
+        run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -V -L unit
 
       # Also runs after a unit test failure
       - name: Scene tests
