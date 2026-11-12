@@ -18,8 +18,6 @@
 
 class b2Body;
 
-LUA_TYPE_NAME(Tileset, "Tileset")
-
 struct RebuildResult
 {
 	std::vector<Vertex> vertices;
