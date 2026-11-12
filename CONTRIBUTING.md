@@ -105,3 +105,9 @@ Put new code in the folder that matches what it does; `Core/` is only for the ap
 - **New Files**: `.cpp` and `.h` files are picked up automatically by a CMake glob of each folder, but `Engine/CMakeLists.txt` lists the folders explicitly: when adding a new folder under `Engine/src`, add it to that list too.
 - Ensure submodules are initialized: `git submodule update --init --recursive`.
 - Define `DEBUG` or `RELEASE` configurations appropriately.
+
+## 🧪 Tests
+- **Unit tests** are in `Tests/UnitTests`, written with [doctest](https://github.com/doctest/doctest) (vendored in `Tests/UnitTests/vendor`). Build the `UnitTests` target, then run them from the build folder with `ctest -L unit --output-on-failure`, or run the `UnitTests` executable directly to use doctest's options (e.g. `UnitTests -tc="Text*"` for matching test cases).
+- **New test file**: add a `.cpp` to `Tests/UnitTests` that includes `vendor/doctest.h`; the glob picks it up when CMake next runs. Tests must not need a window, a GPU or files outside the repository: make test data in the test (in memory or under `std::filesystem::temp_directory_path()`), or use a small file in the repository via `RepositoryPath` in `TestHelpers.h`. The logger is set up in `main.cpp`.
+- **Scene tests** play every `*Test.scene` in `Tests/Scenes/Scenes` headless in `SceneTest`: `ctest -L scene --output-on-failure`.
+- **Labels**: `unit` and `scene`. `ctest -L "scene|unit"` runs both; CI runs each label as its own step on every platform. Tests aren't built for Emscripten, or when `ATTERCOP_BUILD_SCENE_TESTS` is off.
