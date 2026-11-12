@@ -154,7 +154,8 @@ void LuaManager::Shutdown()
 {
 	PROFILE_FUNCTION();
 	s_SignalBus.Shutdown();
-	s_UnrequireFunction.abandon();
+	// Releases the reference and the state pointer
+	s_UnrequireFunction = sol::function();
 	CleanUp();
 	if (s_State) {
 		s_State->clear_package_loaders();
