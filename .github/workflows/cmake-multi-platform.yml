@@ -58,9 +58,16 @@ jobs:
           -S ${{ github.workspace }}
 
       - name: Build
+        id: build
         run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ env.BUILD_TYPE }}
 
-      - name: Test
+      - name: Unit tests
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -L unit
+
+      # Also runs after a unit test failure
+      - name: Scene tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -j 4 -L scene
 
