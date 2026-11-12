@@ -2,6 +2,9 @@
 
 #include "Math/Random.h"
 
+#include <cstdint>
+#include <string>
+
 class Uuid
 {
 public:
