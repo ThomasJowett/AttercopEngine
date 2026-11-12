@@ -126,7 +126,7 @@ add_subdirectory(Engine/shaders)
 add_subdirectory(Editor)
 add_subdirectory(Runtime)
 
-option(ATTERCOP_BUILD_SCENE_TESTS "Build SceneTest and register the scene tests with CTest" ON)
+option(ATTERCOP_BUILD_SCENE_TESTS "Build SceneTest and UnitTests and register them with CTest" ON)
 if (ATTERCOP_BUILD_SCENE_TESTS AND NOT EMSCRIPTEN)
     enable_testing()
     add_subdirectory(Tests)
