@@ -26,7 +26,7 @@ struct PolygonCollider2DComponent
 	};
 
 	Vector2f offset;
-	bool isTrigger;
+	bool isTrigger = false;
 	uint16_t layer = CollisionLayers::DefaultLayer;
 	uint16_t mask = CollisionLayers::Everything;
 
