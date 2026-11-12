@@ -1104,7 +1104,9 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 
 		tinyxml2::XMLElement* pVertexElement = pPolygonCollider2DComponentElement->FirstChildElement("Vertex");
 
-		component.vertices.clear();
+		// No vertices in the file keeps the default shape
+		if (pVertexElement)
+			component.vertices.clear();
 		while (pVertexElement)
 		{
 			Vector2f vertex;
