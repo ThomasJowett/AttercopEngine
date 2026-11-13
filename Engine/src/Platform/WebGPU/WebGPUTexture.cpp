@@ -11,7 +11,7 @@
 
 void WebGPUTexture2D::CreateSampler()
 {
-	wgpu::SamplerDescriptor samplerDesc = WebGPUSampler::CreateDescriptor(m_FilterMethod, m_WrapMethod);
+	wgpu::SamplerDescriptor samplerDesc = WebGPUSampler::CreateDescriptor(m_FilterMethod, m_WrapMethod, m_Anisotropic);
 
 	auto device = m_WebGPUContext->GetWebGPUDevice();
 
@@ -355,6 +355,15 @@ void WebGPUTexture2D::SetFilterMethod(FilterMethod filterMethod)
 void WebGPUTexture2D::SetWrapMethod(WrapMethod wrapMethod)
 {
 	m_WrapMethod = wrapMethod;
+	if (m_Sampler) s_PendingSamplerReleases.push_back(m_Sampler);
+	CreateSampler();
+}
+
+void WebGPUTexture2D::SetSampling(FilterMethod filterMethod, WrapMethod wrapMethod, bool anisotropic)
+{
+	m_FilterMethod = filterMethod;
+	m_WrapMethod = wrapMethod;
+	m_Anisotropic = anisotropic;
 	if (m_Sampler) s_PendingSamplerReleases.push_back(m_Sampler);
 	CreateSampler();
 }

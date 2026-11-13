@@ -36,7 +36,8 @@ bool OpenGLRendererAPI::Init()
 
 	SetClearColour(Colours::GREY);
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-	glLineWidth(1.5f);
+	// One-pixel lines, as on WebGPU
+	glLineWidth(1.0f);
 	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 	return true;

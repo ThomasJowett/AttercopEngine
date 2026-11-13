@@ -2,11 +2,11 @@
 #include "WebGPUContext.h"
 #include "Core/Application.h"
 
-WebGPUSampler::WebGPUSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod)
+WebGPUSampler::WebGPUSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod, bool anisotropic)
 	:Sampler(filterMethod, wrapMethod)
 {
 	Ref<WebGPUContext> context = std::dynamic_pointer_cast<WebGPUContext>(Application::GetWindow()->GetContext());
-	wgpu::SamplerDescriptor samplerDesc = CreateDescriptor(filterMethod, wrapMethod);
+	wgpu::SamplerDescriptor samplerDesc = CreateDescriptor(filterMethod, wrapMethod, anisotropic);
 	m_Sampler = context->GetWebGPUDevice().createSampler(samplerDesc);
 }
 
@@ -16,7 +16,7 @@ WebGPUSampler::~WebGPUSampler()
 		m_Sampler.release();
 }
 
-wgpu::SamplerDescriptor WebGPUSampler::CreateDescriptor(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod)
+wgpu::SamplerDescriptor WebGPUSampler::CreateDescriptor(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod, bool anisotropic)
 {
 	wgpu::SamplerDescriptor samplerDesc = {};
 	switch (filterMethod)
@@ -25,7 +25,7 @@ wgpu::SamplerDescriptor WebGPUSampler::CreateDescriptor(Texture::FilterMethod fi
 		samplerDesc.minFilter = wgpu::FilterMode::Linear;
 		samplerDesc.magFilter = wgpu::FilterMode::Linear;
 		samplerDesc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
-		samplerDesc.maxAnisotropy = 8;
+		samplerDesc.maxAnisotropy = anisotropic ? 8 : 1;
 		break;
 	case Texture::FilterMethod::Nearest:
 		samplerDesc.minFilter = wgpu::FilterMode::Nearest;

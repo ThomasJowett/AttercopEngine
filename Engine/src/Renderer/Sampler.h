@@ -15,8 +15,8 @@ public:
 	// Only does anything on OpenGL, like Texture::Bind; other backends bind samplers through a Pipeline
 	virtual void Bind(uint32_t unit) const {}
 
-	// Shared sampler for these settings, created on first use
-	static Ref<Sampler> Get(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod);
+	// Shared sampler for these settings, created on first use; anisotropic only applies to Linear
+	static Ref<Sampler> Get(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod, bool anisotropic);
 	static void ClearCache();
 
 protected:
