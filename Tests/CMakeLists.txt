@@ -72,7 +72,7 @@ if (NOT MSVC)
     set_source_files_properties(UnitTests/main.cpp PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 endif()
 target_link_libraries(UnitTests PRIVATE Engine)
-target_compile_definitions(UnitTests PRIVATE ATTERCOP_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_compile_definitions(UnitTests PRIVATE ATTERCOP_SOURCE_DIR="${CMAKE_SOURCE_DIR}" DOCTEST_CONFIG_USE_STD_HEADERS)
 target_copy_webgpu_binaries(UnitTests)
 
 if (MSVC)
