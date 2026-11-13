@@ -96,7 +96,9 @@ bool WebGPUContext::Init()
 	m_Adapter.getProperties(&properties);
 
 	std::string adapterName = properties.name ? properties.name : "Unknown Adapter";
-	ENGINE_INFO("Graphics Card: {0}", adapterName);
+	static const char* backendNames[] = { "Undefined", "Null", "WebGPU", "D3D11", "D3D12", "Metal", "Vulkan", "OpenGL", "OpenGLES" };
+	uint32_t backend = (uint32_t)properties.backendType;
+	ENGINE_INFO("Graphics Card: {0} ({1})", adapterName, backend < 9 ? backendNames[backend] : "Unknown");
 
 	wgpu::DeviceDescriptor deviceDesc = {};
 	deviceDesc.label = "Main Device";
