@@ -35,6 +35,30 @@ foreach(scene ${TEST_SCENES})
     set_tests_properties(${name} PROPERTIES TIMEOUT 60 LABELS scene)
 endforeach()
 
+# Every scene in Render/Scenes ending in RenderTest.scene is drawn on each backend and compared with the same image in Render/Golden;
+# see design/render-tests-and-golden-images.md
+file(GLOB RENDER_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Render/Scenes/*RenderTest.scene)
+option(ATTERCOP_STRICT_RENDER_TESTS "Fail render tests on any difference from the goldens, as on the reference CI runner" OFF)
+set(RENDER_STRICT)
+if (ATTERCOP_STRICT_RENDER_TESTS)
+    set(RENDER_STRICT --strict)
+endif()
+set(RENDER_APIS webgpu)
+if (NOT APPLE)
+    list(APPEND RENDER_APIS opengl)
+endif()
+foreach(api ${RENDER_APIS})
+    foreach(scene ${RENDER_SCENES})
+        get_filename_component(name ${scene} NAME_WE)
+        add_test(NAME Render.${api}.${name}
+            COMMAND SceneTest --project ${CMAKE_CURRENT_SOURCE_DIR}/Render/Render.proj --scene ${scene}
+                --api ${api} --size 320x180 --frames 600 --timeout 60 --require-verdict ${RENDER_STRICT}
+                --golden ${CMAKE_CURRENT_SOURCE_DIR}/Render/Golden --output ${CMAKE_CURRENT_BINARY_DIR}/render/${api}
+                --log ${CMAKE_CURRENT_BINARY_DIR}/logs/Render.${api}.${name}.txt)
+        set_tests_properties(Render.${api}.${name} PROPERTIES TIMEOUT 120 LABELS render RESOURCE_LOCK gpu)
+    endforeach()
+endforeach()
+
 # Unit tests for engine code that doesn't need a window or a scene
 file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
     UnitTests/*.cpp
