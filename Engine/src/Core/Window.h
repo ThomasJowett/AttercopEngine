@@ -31,6 +31,8 @@ struct WindowProps
 	WindowMode windowMode;
 
 	bool maximized;
+	// False creates the window hidden, e.g. for render tests
+	bool visible = true;
 
 	WindowProps(const std::string& title = "Example Game",
 		unsigned int width = 1920,

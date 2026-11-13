@@ -24,6 +24,10 @@ int RenderCommand::CreateRendererAPI()
 	api = "WebGPU";
 #endif
 
+	const std::string& apiOverride = Application::GetAPIOverride();
+	if (!apiOverride.empty())
+		api = apiOverride;
+
 	if (Application::IsHeadless())
 		api = "None";
 

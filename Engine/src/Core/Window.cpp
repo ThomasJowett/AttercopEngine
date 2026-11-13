@@ -383,7 +383,8 @@ bool Window::Init(const WindowProps& props)
 	}
 
 #ifndef __EMSCRIPTEN__
-	KeepOnScreen(m_Data.title, m_Data.posX, m_Data.posY, m_Data.width, m_Data.height);
+	if (props.visible)
+		KeepOnScreen(m_Data.title, m_Data.posX, m_Data.posY, m_Data.width, m_Data.height);
 #endif
 
 	// No monitor is reported while no display is online (e.g. the screen is locked), so fall back to the window's size
@@ -419,6 +420,7 @@ bool Window::Init(const WindowProps& props)
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		}
 
+		glfwWindowHint(GLFW_VISIBLE, props.visible ? GLFW_TRUE : GLFW_FALSE);
 		m_Window = glfwCreateWindow((int)m_Data.width, (int)m_Data.height, m_Data.title.c_str(), nullptr, nullptr);
 		if (m_Window)
 			++s_GLFWWindowCount;
