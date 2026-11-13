@@ -1,0 +1,3 @@
+<Tileset EngineVersion="1" TileWidth="10" TileHeight="10">
+    <Texture Filepath="Tiles/Square.png" FilterMethod="1" WrapMethod="0"/>
+</Tileset>

@@ -1,0 +1,5 @@
+<Project EngineVersion="1">
+    <DefaultScene Filepath="Scenes/SpritesRenderTest.scene"/>
+    <Description>Render tests: each scene is drawn by SceneTest on OpenGL and WebGPU and compared with Golden/</Description>
+    <SpriteAtlasPageSize>2048</SpriteAtlasPageSize>
+</Project>

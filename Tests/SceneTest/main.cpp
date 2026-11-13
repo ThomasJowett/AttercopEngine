@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -11,8 +13,59 @@
 #include "Physics/CollisionLayers.h"
 #include "Scene/SceneManager.h"
 #include "Renderer/RendererAPI.h"
+#include "Core/Settings.h"
 
 #include "SceneTestLayer.h"
+#include "ImageDiff.h"
+
+// Compares two PNGs, or every *.actual.png in one folder with the same file in another; 0 if all match
+static int CompareImageFiles(const std::filesystem::path& a, const std::filesystem::path& b, const std::filesystem::path& output)
+{
+	std::vector<std::pair<std::filesystem::path, std::filesystem::path>> pairs;
+	if (std::filesystem::is_directory(a))
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(a))
+		{
+			std::string file = entry.path().filename().string();
+			if (file.size() > 11 && file.compare(file.size() - 11, 11, ".actual.png") == 0)
+				pairs.emplace_back(entry.path(), b / file);
+		}
+		std::sort(pairs.begin(), pairs.end());
+	}
+	else
+		pairs.emplace_back(a, b);
+
+	if (pairs.empty())
+	{
+		std::cerr << "SceneTest: no images to compare in " << a.string() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	int mismatches = 0;
+	for (const auto& [first, second] : pairs)
+	{
+		Image imageA, imageB;
+		if (!imageA.Load(first) || !imageB.Load(second))
+		{
+			std::cout << "FAIL " << first.filename().string() << ": could not load both images" << std::endl;
+			++mismatches;
+			continue;
+		}
+		ImageDiffResult result = CompareImages(imageA, imageB, ImageDiffLimits());
+		std::cout << (result.passed ? "OK   " : "FAIL ") << first.filename().string() << ": " << result.ToString() << std::endl;
+		if (!result.passed)
+		{
+			++mismatches;
+			if (!output.empty() && result.sizeMatches)
+			{
+				std::string stem = first.filename().string();
+				stem = stem.substr(0, stem.find('.'));
+				MakeDiffImage(imageA, imageB, 0).Save(output / (stem + ".diff.png"));
+			}
+		}
+	}
+	return mismatches == 0 ? (int)SceneTestResult::Passed : (int)SceneTestResult::ImageMismatch;
+}
 
 // Runs one scene headless with a fixed time step and reports the result as the exit code, see SceneTestResult
 int main(int argc, char* argv[])
@@ -22,7 +75,9 @@ int main(int argc, char* argv[])
 	if (input.CmdOptionExists("-h") || input.CmdOptionExists("--help"))
 	{
 		std::cout << "usage: SceneTest --project <file.proj> --scene <file.scene> [--frames N] [--timeout S]"
-			" [--log <path>] [--expect-errors N] [--require-verdict] [--display]" << std::endl;
+			" [--log <path>] [--expect-errors N] [--require-verdict] [--display]\n"
+			"       render tests: [--api <opengl|webgpu>] [--size 320x180] [--golden <dir>] [--output <dir>] [--update-goldens] [--strict]\n"
+			"       SceneTest --compare <a.png|dir> --against <b.png|dir> [--output <dir>]" << std::endl;
 		return EXIT_SUCCESS;
 	}
 
@@ -30,6 +85,9 @@ int main(int argc, char* argv[])
 		{
 			return input.CmdOptionExists(name) ? input.GetCmdOption(name) : std::string();
 		};
+
+	if (input.CmdOptionExists("--compare"))
+		return CompareImageFiles(option("--compare"), option("--against"), option("--output"));
 
 	std::filesystem::path project = option("--project");
 	SceneTestOptions options;
@@ -40,6 +98,32 @@ int main(int argc, char* argv[])
 	std::string expectErrors = option("--expect-errors");
 	options.requireVerdict = input.CmdOptionExists("--require-verdict");
 	options.display = input.CmdOptionExists("--display");
+	options.updateGoldens = input.CmdOptionExists("--update-goldens");
+	options.strict = input.CmdOptionExists("--strict");
+	std::string api = option("--api");
+	std::string size = option("--size");
+	// Read each option once, InputParser counts every lookup
+	std::string golden = option("--golden");
+	std::string output = option("--output");
+	if (!golden.empty())
+		options.goldenDirectory = std::filesystem::absolute(golden);
+	if (!output.empty())
+		options.outputDirectory = std::filesystem::absolute(output);
+
+	if (api == "opengl")
+		options.api = "OpenGL";
+	else if (api == "webgpu")
+		options.api = "WebGPU";
+	else if (!api.empty())
+	{
+		std::cerr << "SceneTest: --api must be opengl or webgpu" << std::endl;
+		return EXIT_FAILURE;
+	}
+	if (!size.empty() && std::sscanf(size.c_str(), "%ux%u", &options.width, &options.height) != 2)
+	{
+		std::cerr << "SceneTest: --size must look like 320x180" << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	if (project.empty() || options.scene.empty() || !input.HasFoundAllArguments())
 	{
@@ -58,7 +142,12 @@ int main(int argc, char* argv[])
 	double timeoutSeconds = timeout.empty() ? 60.0 : std::stod(timeout);
 
 	std::vector<std::string> appArgs = { argv[0] };
-	if (!options.display)
+	if (options.IsRenderMode())
+	{
+		// The settings file is never read
+		appArgs.insert(appArgs.end(), { "--no-settings", "--fixed-step", "--api", options.api });
+	}
+	else if (!options.display)
 	{
 		appArgs.push_back("--headless");
 		appArgs.push_back("--fixed-step");
@@ -77,9 +166,22 @@ int main(int argc, char* argv[])
 	if (rCode != -1)
 		return rCode;
 
-	if (options.display){
+	if (options.IsRenderMode())
+	{
+		// Hidden unless --display; the window's size is the scene's viewport size
+		Settings::SetBool("Display", "V-Sync", false);
+		WindowProps props(options.scene.filename().string() + " - " + RendererAPI::GetAPIName(), options.width, options.height, 100, 100);
+		props.visible = options.display;
+		if (!app->CreateDesktopWindow(props))
+		{
+			CLIENT_ERROR("SceneTest: could not create a window for {0}", options.api);
+			return EXIT_FAILURE;
+		}
+	}
+	else if (options.display)
+	{
 		std::string windowTitle = options.scene.filename().string() + std::string(" - ") + RendererAPI::GetAPIName();
-		Window* window = app->CreateDesktopWindow(WindowProps(windowTitle, 1920, 1080, 100, 100));
+		app->CreateDesktopWindow(WindowProps(windowTitle, 1920, 1080, 100, 100));
 	}
 
 	if (!Application::SetOpenDocument(project))

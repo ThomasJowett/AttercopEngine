@@ -1,0 +1,51 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="17881915895075622086-15448828214234766813">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Letter" ID="7246727531810438133-4601387728573992123">
+        <Transform>
+            <Position X="-6" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="8" Y="8" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="0"/>
+            <Tint R="1" G="1" B="1" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Colours" ID="17543993303605486793-7435998823473711732">
+        <Transform>
+            <Position X="6" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="8" Y="8" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Texture Filepath="Sprites/Colours.png" FilterMethod="1" WrapMethod="0"/>
+            <Tint R="1" G="1" B="1" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Blur" ID="5304935174040705079-8053658704259232598">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/PostProcess.lua"/>
+    </Entity>
+    <Entity Name="PostProcess" ID="4010461303833759208-1359683845642161376">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+    </Entity>
+</Scene>
