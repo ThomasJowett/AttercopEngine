@@ -32,6 +32,6 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+        <LuaScript Filepath="Scripts/Text.lua"/>
     </Entity>
 </Scene>
