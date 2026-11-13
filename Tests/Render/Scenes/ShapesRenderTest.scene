@@ -1,0 +1,69 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="12371158572818694791-7518579009579348391">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Filled" ID="6298282144257015558-5930210412744853866">
+        <Transform>
+            <Position X="-2" Y="4.5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <CircleRenderer Radius="0.5" Thickness="1" Fade="0.005">
+            <Colour R="1" G="0.3" B="0.3" A="1"/>
+        </CircleRenderer>
+    </Entity>
+    <Entity Name="Ring" ID="17781617852944953534-2891045304834854873">
+        <Transform>
+            <Position X="5" Y="4.5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <CircleRenderer Radius="0.5" Thickness="0.25" Fade="0.005">
+            <Colour R="0.3" G="1" B="0.5" A="1"/>
+        </CircleRenderer>
+    </Entity>
+    <Entity Name="Faded" ID="16250589627260067963-8951604684823602341">
+        <Transform>
+            <Position X="12" Y="4.5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <CircleRenderer Radius="0.5" Thickness="1" Fade="0.5">
+            <Colour R="0.4" G="0.6" B="1" A="1"/>
+        </CircleRenderer>
+    </Entity>
+    <Entity Name="Rectangle" ID="6872947669954165208-6801688348144387688">
+        <Transform>
+            <Position X="10" Y="-5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="2" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.9" G="0.9" B="0.9" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Lines" ID="11266918532076730475-15223632391821647332">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Shapes.lua"/>
+    </Entity>
+    <Entity Name="Shapes" ID="4938923981544975471-6302017302714430258">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+    </Entity>
+</Scene>

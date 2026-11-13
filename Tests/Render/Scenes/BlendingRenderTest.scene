@@ -1,0 +1,94 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="8085345776290805043-8298225868178858041">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Backdrop" ID="9054630760525187379-166258074481852583">
+        <Transform>
+            <Position X="-8" Y="0" Z="-0.5"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="14" Y="16" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.15" G="0.15" B="0.2" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Soft Red" ID="10055076582750899173-7757129125151043642">
+        <Transform>
+            <Position X="-10" Y="2" Z="0.1"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="8" Y="8" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+            <Tint R="1" G="0.2" B="0.2" A="0.8"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Soft Green" ID="1210679050853465624-1521207111036764194">
+        <Transform>
+            <Position X="-6" Y="2" Z="0.2"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="8" Y="8" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+            <Tint R="0.2" G="1" B="0.2" A="0.6"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Soft Blue" ID="10681867192777050440-8352187094705034331">
+        <Transform>
+            <Position X="-8" Y="-2" Z="0.3"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="8" Y="8" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+            <Tint R="0.2" G="0.4" B="1" A="0.4"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Near Yellow" ID="646880667965523085-6778155420689676939">
+        <Transform>
+            <Position X="5" Y="3" Z="0.4"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="1" G="0.9" B="0.2" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Far Purple" ID="4867850976608760457-8725557654714127816">
+        <Transform>
+            <Position X="8" Y="0" Z="0.1"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.6" G="0.3" B="0.9" A="1"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Half White" ID="11018582456805173100-16440752114189813905">
+        <Transform>
+            <Position X="11" Y="-3" Z="0.5"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="6" Y="6" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="1" G="1" B="1" A="0.5"/>
+        </Sprite>
+    </Entity>
+    <Entity Name="Blending" ID="18170217376542113893-14695330105132196297">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+    </Entity>
+</Scene>

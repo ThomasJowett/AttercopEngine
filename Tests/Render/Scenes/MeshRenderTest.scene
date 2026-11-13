@@ -1,0 +1,52 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="17835588207939346872-6055322847075048399">
+        <Transform>
+            <Position X="0" Y="1.5" Z="6"/>
+            <Rotation X="-0.25" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="0" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Cube" ID="13681125585053631226-2926487001836714625">
+        <Transform>
+            <Position X="-2" Y="0" Z="0"/>
+            <Rotation X="0.4" Y="0.6" Z="0"/>
+            <Scale X="1.5" Y="1.5" Z="1.5"/>
+        </Transform>
+        <Primitive Type="0">
+            <Material Filepath="Materials/Colours.material"/>
+            <Cube Width="1" Height="1" Depth="1"/>
+        </Primitive>
+    </Entity>
+    <Entity Name="Sphere" ID="12297180451992150436-11875401668948946431">
+        <Transform>
+            <Position X="0.5" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Primitive Type="1">
+            <Sphere Radius="0.75" LongitudeLines="16" LatitudeLines="32"/>
+        </Primitive>
+    </Entity>
+    <Entity Name="Torus" ID="10679853703789940812-5205404844268769558">
+        <Transform>
+            <Position X="2.6" Y="0" Z="0"/>
+            <Rotation X="1.0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Primitive Type="5">
+            <Torus OuterRadius="0.8" InnerRadius="0.3" SliceCount="32"/>
+        </Primitive>
+    </Entity>
+    <Entity Name="Mesh" ID="12099747697979034108-3548874058721456046">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+    </Entity>
+</Scene>
