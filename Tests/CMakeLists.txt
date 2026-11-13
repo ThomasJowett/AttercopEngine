@@ -25,7 +25,7 @@ if (MSVC)
     target_compile_options(SceneTest PRIVATE "/utf-8")
 endif()
 
-# Every scene in Scenes/Scenes ending in Test.scene is one test; see design/headless-mode-and-ci-tests.md
+# Every scene in Scenes/Scenes ending in Test.scene is one test
 file(GLOB TEST_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Scenes/Scenes/*Test.scene)
 foreach(scene ${TEST_SCENES})
     get_filename_component(name ${scene} NAME_WE)
@@ -35,8 +35,7 @@ foreach(scene ${TEST_SCENES})
     set_tests_properties(${name} PROPERTIES TIMEOUT 60 LABELS scene)
 endforeach()
 
-# Every scene in Render/Scenes ending in RenderTest.scene is drawn on each backend and compared with the same image in Render/Golden;
-# see design/render-tests-and-golden-images.md
+# Every scene in Render/Scenes ending in RenderTest.scene is drawn on each backend and compared with the same image in Render/Golden
 file(GLOB RENDER_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Render/Scenes/*RenderTest.scene)
 option(ATTERCOP_STRICT_RENDER_TESTS "Fail render tests on any difference from the goldens, as on the reference CI runner" OFF)
 set(RENDER_STRICT)

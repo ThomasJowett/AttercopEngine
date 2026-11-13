@@ -1,7 +1,7 @@
 name: Render golden images
 
 # Renders every render test scene on the reference runner and uploads the images, to be
-# looked at and committed to Tests/Render/Golden by hand; see design/render-tests-and-golden-images.md
+# looked at and committed to Tests/Render/Golden by hand;
 on:
   workflow_dispatch:
 
