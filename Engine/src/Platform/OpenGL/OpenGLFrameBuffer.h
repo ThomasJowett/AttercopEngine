@@ -17,6 +17,7 @@ public:
 	virtual void Resize(uint32_t width, uint32_t height) override;
 
 	virtual int ReadPixel(uint32_t attachmentIndex, int x, int y) override;
+	virtual bool ReadPixels(uint32_t attachmentIndex, std::vector<uint8_t>& rgba) override;
 
 	virtual Ref<Texture> GetColourAttachment(size_t index) override;
 	virtual Ref<Texture> GetDepthAttachment() override;

@@ -79,6 +79,8 @@ public:
 	virtual void Resize(uint32_t width, uint32_t height) = 0;
 
 	virtual int ReadPixel(uint32_t attachmentIndex, int x, int y) = 0;
+	// Reads an RGBA8 colour attachment as tightly packed rows, top row first; blocks until the GPU is done
+	virtual bool ReadPixels(uint32_t attachmentIndex, std::vector<uint8_t>& rgba) = 0;
 
 	virtual Ref<Texture> GetColourAttachment(size_t index = 0) = 0;
 	virtual Ref<Texture> GetDepthAttachment() = 0;

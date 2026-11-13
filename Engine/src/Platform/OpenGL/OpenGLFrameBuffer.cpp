@@ -213,6 +213,33 @@ int OpenGLFrameBuffer::ReadPixel(uint32_t attachmentIndex, int x, int y)
 	return pixelData;
 }
 
+bool OpenGLFrameBuffer::ReadPixels(uint32_t attachmentIndex, std::vector<uint8_t>& rgba)
+{
+	PROFILE_FUNCTION();
+	if (attachmentIndex >= m_ColourAttachments.size() || m_Specification.samples > 1
+		|| m_ColourAttachmentSpecifications[attachmentIndex].textureFormat != FrameBufferTextureFormat::RGBA8)
+	{
+		ENGINE_ERROR("ReadPixels needs a single-sampled RGBA8 attachment");
+		return false;
+	}
+
+	const uint32_t width = m_Specification.width, height = m_Specification.height;
+	const size_t rowSize = (size_t)width * 4;
+	std::vector<uint8_t> bottomUp(rowSize * height);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_RendererID);
+	glReadBuffer(GL_COLOR_ATTACHMENT0 + (int)attachmentIndex);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, bottomUp.data());
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+	// OpenGL's origin is the bottom left
+	rgba.resize(bottomUp.size());
+	for (uint32_t y = 0; y < height; ++y)
+		memcpy(rgba.data() + y * rowSize, bottomUp.data() + (height - 1 - y) * rowSize, rowSize);
+	return true;
+}
+
 Ref<Texture> OpenGLFrameBuffer::GetColourAttachment(size_t index)
 {
 	CORE_ASSERT(index < m_ColourAttachments.size(), "Index out of range");
