@@ -49,12 +49,14 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --fix-missing libx11-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev libxcursor-dev mesa-common-dev
+          sudo apt-get install -y --fix-missing xvfb libgl1-mesa-dri mesa-vulkan-drivers libvulkan1
 
       - name: Configure CMake
         run: >
           cmake -B ${{ steps.strings.outputs.build-output-dir }}
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DATTERCOP_ENABLE_UNITY_BUILD=ON
+          -DATTERCOP_STRICT_RENDER_TESTS=ON
           -S ${{ github.workspace }}
 
       - name: Build
@@ -70,6 +72,26 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -j 4 -L scene
+
+      # Linux x64 is the reference for the golden images: OpenGL on Mesa llvmpipe, WebGPU on Mesa lavapipe
+      - name: Render tests
+        id: render
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && matrix.platform == 'Linux' && matrix.arch == 'x64' }}
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        env:
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -L render
+
+      - name: Upload render test images
+        if: ${{ failure() && steps.render.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-test-images
+          path: |
+            ${{ steps.strings.outputs.build-output-dir }}/Tests/render
+            ${{ steps.strings.outputs.build-output-dir }}/Tests/logs/Render.*
+          retention-days: 14
 
   # The web Editor and Runtime, uploaded ready to serve with any static web server
   web:
