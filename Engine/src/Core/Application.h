@@ -76,6 +76,9 @@ public:
 	// True if launched with --headless: no window, GPU, ImGui or settings file
 	static bool IsHeadless() { return Get().m_Headless; }
 
+	// Renderer API from --api (OpenGL or WebGPU), overriding the settings file; empty if not set
+	static const std::string& GetAPIOverride() { return Get().m_APIOverride; }
+
 	// True if launched with --fixed-step: each frame advances time by exactly one fixed update interval
 	static bool IsFixedStep() { return Get().m_FixedStep; }
 
@@ -150,6 +153,9 @@ private:
 
 	bool m_Headless = false;
 	bool m_FixedStep = false;
+	// Settings are kept in memory and the user's file is never read or written (--headless or --no-settings)
+	bool m_InMemorySettings = false;
+	std::string m_APIOverride;
 	uint64_t m_FrameCount = 0;
 	std::string m_SceneOverride;
 	// Duration in seconds from --exit-after; negative means disabled. m_ExitDeadline is the

@@ -13,6 +13,10 @@
 #include <webgpu/webgpu.hpp>
 #include "imgui/backends/imgui_impl_wgpu.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 WebGPUFrameBuffer* WebGPUFrameBuffer::s_Current = nullptr;
 
 WebGPUFrameBuffer::WebGPUFrameBuffer(const FrameBufferSpecification& specification)
@@ -73,6 +77,9 @@ void WebGPUFrameBuffer::Generate()
 				m_Specification.width, m_Specification.height,
 				FrameBufferFormatToTextureFormat(spec.textureFormat),
 				m_Specification.samples, nullptr);
+			// Linear, clamped and not anisotropic, as on OpenGL
+			bool isInteger = spec.textureFormat == FrameBufferTextureFormat::RED_INTEGER;
+			colorTex->SetSampling(isInteger ? Texture::FilterMethod::Nearest : Texture::FilterMethod::Linear, Texture::WrapMethod::Clamp, false);
 			m_ColourViews.push_back(colorTex->GetTextureView());
 			m_ColourAttachments.push_back(colorTex);
 		}
@@ -118,6 +125,77 @@ int WebGPUFrameBuffer::ReadPixel(uint32_t attachmentIndex, int x, int y)
 	CORE_ASSERT(attachmentIndex < m_ColourAttachments.size(), "Trying to access attachment that does not exist!");
 	int pixelData = m_ColourAttachments[attachmentIndex]->ReadPixel(x, y);
 	return pixelData;
+}
+
+bool WebGPUFrameBuffer::ReadPixels(uint32_t attachmentIndex, std::vector<uint8_t>& rgba)
+{
+	PROFILE_FUNCTION();
+	if (attachmentIndex >= m_ColourAttachments.size() || m_Specification.samples > 1
+		|| m_ColourAttachments[attachmentIndex]->GetTextureFormat() != wgpu::TextureFormat::RGBA8Unorm)
+	{
+		ENGINE_ERROR("ReadPixels needs a single-sampled RGBA8 attachment");
+		return false;
+	}
+
+	const uint32_t width = m_Specification.width, height = m_Specification.height;
+	const uint32_t rowSize = width * 4;
+	// Buffer rows must be a multiple of 256 bytes
+	const uint32_t paddedRowSize = (rowSize + 255) / 256 * 256;
+	const size_t bufferSize = (size_t)paddedRowSize * height;
+
+	auto context = std::dynamic_pointer_cast<WebGPUContext>(Application::GetWindow()->GetContext());
+
+	wgpu::BufferDescriptor bufferDesc = {};
+	bufferDesc.size = bufferSize;
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+	wgpu::Buffer buffer = m_Device.createBuffer(bufferDesc);
+
+	wgpu::ImageCopyTexture src = {};
+	src.texture = m_ColourAttachments[attachmentIndex]->GetTexture();
+	wgpu::ImageCopyBuffer dst = {};
+	dst.buffer = buffer;
+	dst.layout.bytesPerRow = paddedRowSize;
+	dst.layout.rowsPerImage = height;
+
+	wgpu::CommandEncoder encoder = m_Device.createCommandEncoder();
+	encoder.copyTextureToBuffer(src, dst, { width, height, 1 });
+	wgpu::CommandBuffer command = encoder.finish();
+	encoder.release();
+	context->GetQueue().submit(command);
+	command.release();
+
+	bool done = false;
+	bool mapped = false;
+	auto callbackHandle = buffer.mapAsync(wgpu::MapMode::Read, 0, bufferSize,
+		[&done, &mapped](wgpu::BufferMapAsyncStatus status)
+		{
+			mapped = status == wgpu::BufferMapAsyncStatus::Success;
+			done = true;
+		});
+	while (!done)
+	{
+#ifdef __EMSCRIPTEN__
+		emscripten_sleep(1);
+#else
+		m_Device.poll(true);
+#endif
+	}
+
+	if (mapped)
+	{
+		const uint8_t* data = static_cast<const uint8_t*>(buffer.getConstMappedRange(0, bufferSize));
+		rgba.resize((size_t)rowSize * height);
+		// Flipped: offscreen targets hold the bottom row first, as on OpenGL
+		for (uint32_t y = 0; y < height; ++y)
+			memcpy(rgba.data() + (size_t)y * rowSize, data + (size_t)(height - 1 - y) * paddedRowSize, rowSize);
+		buffer.unmap();
+	}
+	else
+		ENGINE_ERROR("ReadPixels could not map the readback buffer");
+
+	buffer.destroy();
+	buffer.release();
+	return mapped;
 }
 
 Ref<Texture> WebGPUFrameBuffer::GetColourAttachment(size_t index)

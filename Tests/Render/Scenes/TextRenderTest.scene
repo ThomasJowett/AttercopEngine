@@ -1,0 +1,37 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="3515999735428679573-16049958269883192001">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Large" ID="13630619707938725459-3184917165540757861">
+        <Transform>
+            <Position X="-15" Y="4" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="3" Y="3" Z="1"/>
+        </Transform>
+        <Text MaxWidth="30">Attercop Engine<Colour R="1" G="1" B="1" A="1"/></Text>
+    </Entity>
+    <Entity Name="Small" ID="148638059377221029-11310789713149258801">
+        <Transform>
+            <Position X="-15" Y="-3" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Text MaxWidth="30">The quick brown fox jumps over the lazy dog. 0123456789<Colour R="1" G="0.8" B="0.3" A="1"/></Text>
+    </Entity>
+    <Entity Name="Text" ID="14104632432992762507-18413223723824274450">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Text.lua"/>
+    </Entity>
+</Scene>

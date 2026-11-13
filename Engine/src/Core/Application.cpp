@@ -97,7 +97,7 @@ Application::~Application()
 	// Detach while members and subsystems are still alive; layers save state that uses them
 	m_LayerStack.DetachAll();
 	SceneManager::Shutdown();
-	if (!m_Headless)
+	if (!m_InMemorySettings)
 		Settings::SaveSettings();
 	if (m_Window) {
 		if (m_ImGuiManager) m_ImGuiManager->Shutdown();
@@ -140,6 +140,9 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 
 	// Scripted/headless testing flags - see the matching getters in Application.h.
 	m_Headless = input.CmdOptionExists("--headless");
+	m_InMemorySettings = m_Headless || input.CmdOptionExists("--no-settings");
+	if (input.CmdOptionExists("--api"))
+		m_APIOverride = input.GetCmdOption("--api");
 
 	m_SettingsDirectory = m_WorkingDirectory;
 #ifdef __EMSCRIPTEN__
@@ -153,8 +156,8 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 		folderName = (m_ExecutablePath.parent_path().filename() == "MacOS"
 			? m_ExecutablePath.parent_path().parent_path().parent_path() : m_ExecutablePath).stem().string();
 
-	// Headless runs don't use settings, so they don't create a folder
-	std::filesystem::path userDirectory = m_Headless ? std::filesystem::path() : UserDataDirectory(folderName);
+	// Runs without a settings file don't create a folder
+	std::filesystem::path userDirectory = m_InMemorySettings ? std::filesystem::path() : UserDataDirectory(folderName);
 	std::error_code error;
 	if (!userDirectory.empty() && (std::filesystem::create_directories(userDirectory, error) || std::filesystem::is_directory(userDirectory, error)))
 		m_SettingsDirectory = userDirectory;
@@ -174,6 +177,8 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 			<< " [--exit-after <seconds>] "
 			<< " [--scene <path>] "
 			<< " [--headless] "
+			<< " [--no-settings] "
+			<< " [--api <OpenGL|WebGPU>] "
 			<< " [--fixed-step] "
 			<< " [--log <path>] "
 			<< std::endl;
@@ -206,8 +211,7 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 			m_SceneOverride = value;
 	}
 
-	// Headless runs keep settings in memory so they never read or write the user's file
-	if (!m_Headless)
+	if (!m_InMemorySettings)
 		Settings::Init();
 	SetDefaultSettings();
 

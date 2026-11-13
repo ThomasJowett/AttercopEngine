@@ -178,7 +178,7 @@ void RenderCommandForQueue(const std::vector<Command>& renderQueue)
 		if (albedo)
 		{
 			const Material::TextureSampling& sampling = command.material->GetTextureSampling(0);
-			pipeline->SetTexture(albedo, BINDING_ALBEDO, Sampler::Get(sampling.filterMethod, sampling.wrapMethod));
+			pipeline->SetTexture(albedo, BINDING_ALBEDO, Sampler::Get(sampling.filterMethod, sampling.wrapMethod, true));
 		}
 		else
 			pipeline->SetTexture(s_RendererData.whiteTexture, BINDING_ALBEDO);

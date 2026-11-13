@@ -1,0 +1,68 @@
+name: Render golden images
+
+# Renders every render test scene on the reference runner and uploads the images, to be
+# looked at and committed to Tests/Render/Golden by hand;
+on:
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  goldens:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: "recursive"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --fix-missing libx11-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev libxcursor-dev mesa-common-dev
+          sudo apt-get install -y --fix-missing xvfb libgl1-mesa-dri mesa-vulkan-drivers libvulkan1
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DATTERCOP_ENABLE_UNITY_BUILD=ON -DATTERCOP_STRICT_RENDER_TESTS=ON -S ${{ github.workspace }}
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --target SceneTest
+
+      # OpenGL writes the goldens; the render tests then check both backends against them
+      - name: Render goldens
+        env:
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          # Same llvmpipe vector width on every x64 CPU
+          LP_NATIVE_VECTOR_WIDTH: "128"
+        run: |
+          rm -f Tests/Render/Golden/*.png
+          for scene in Tests/Render/Scenes/*RenderTest.scene; do
+            name=$(basename "$scene" .scene)
+            xvfb-run -a -s "-screen 0 1280x720x24" build/Tests/SceneTest --project Tests/Render/Render.proj \
+              --scene "$scene" --api opengl --size 320x180 --frames 600 --timeout 60 --require-verdict \
+              --golden Tests/Render/Golden --update-goldens --log "build/Tests/logs/Golden.$name.txt"
+          done
+          ls -l Tests/Render/Golden
+
+      - name: Check both backends
+        continue-on-error: true
+        working-directory: build
+        env:
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          # Same llvmpipe vector width on every x64 CPU
+          LP_NATIVE_VECTOR_WIDTH: "128"
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure -L render
+
+      - name: Upload goldens
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-goldens
+          path: |
+            Tests/Render/Golden
+            build/Tests/render
+            build/Tests/logs
+          retention-days: 14

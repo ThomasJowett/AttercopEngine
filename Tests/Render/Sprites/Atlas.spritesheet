@@ -1,0 +1,4 @@
+<SpriteSheet EngineVersion="1" SpriteWidth="8" SpriteHeight="8">
+    <Texture Filepath="Sprites/Atlas.png" FilterMethod="1" WrapMethod="0"/>
+    <Animation Name="Cycle" StartFrame="0" FrameCount="4" HoldTime="0.1"/>
+</SpriteSheet>
