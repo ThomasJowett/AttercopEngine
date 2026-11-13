@@ -5,7 +5,7 @@
 class OpenGLSampler : public Sampler
 {
 public:
-	OpenGLSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod);
+	OpenGLSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod, bool anisotropic);
 	virtual ~OpenGLSampler();
 
 	// Overrides the filter and wrap state of whatever texture is bound to this unit

@@ -32,6 +32,8 @@ public:
 
 	virtual void SetFilterMethod(FilterMethod filterMethod) override;
 	virtual void SetWrapMethod(WrapMethod wrapMethod) override;
+	// Sets filter, wrap and anisotropy with one new sampler
+	void SetSampling(FilterMethod filterMethod, WrapMethod wrapMethod, bool anisotropic);
 
 	int ReadPixel(uint32_t x, uint32_t y);
 
@@ -79,6 +81,7 @@ private:
 
 	// Entity-id picking readback, kept alive and reused across calls instead of leaking a new buffer per ReadPixel() call
 	wgpu::Buffer m_ReadbackBuffer;
+	bool m_Anisotropic = true;
 	bool m_ReadbackBufferCreated = false;
 	bool m_ReadPixelPending = false;
 	int m_LastReadPixelValue = -1;

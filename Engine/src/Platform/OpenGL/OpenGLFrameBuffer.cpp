@@ -149,6 +149,8 @@ void OpenGLFrameBuffer::Generate()
 			bool isIntegerFormat = m_ColourAttachmentSpecifications[i].textureFormat == FrameBufferTextureFormat::RED_INTEGER;
 			m_ColourAttachments[i]->SetFilterMethod(isIntegerFormat ? Texture::FilterMethod::Nearest : Texture::FilterMethod::Linear);
 			m_ColourAttachments[i]->SetWrapMethod(Texture::WrapMethod::Clamp);
+			// No anisotropic filtering, as on WebGPU
+			glTextureParameterf(id, GL_TEXTURE_MAX_ANISOTROPY, 1.0f);
 		}
 	}
 

@@ -359,7 +359,7 @@ bool Renderer2D::Init()
 
 	uint32_t whiteTextureData = Colour(Colours::WHITE).HexValue();
 	s_Data.whiteTexture = Texture2D::Create(1, 1, Texture2D::Format::RGBA, 1u, &whiteTextureData);
-	s_Data.quadSampler = Sampler::Get(Texture::FilterMethod::Nearest, Texture::WrapMethod::Repeat);
+	s_Data.quadSampler = Sampler::Get(Texture::FilterMethod::Nearest, Texture::WrapMethod::Repeat, false);
 	s_Data.pendingQuadSampler = s_Data.quadSampler;
 
 	s_Data.quadShader = Shader::Create("Renderer2D_Quad");
@@ -602,7 +602,7 @@ void Renderer2D::FlushLines()
 
 	// Textures repeat along the line, with the filtering of the batch's first texture
 	Ref<Texture> samplerSource = s_Data.lineTextureSlots[s_Data.lineTextureSlotIndex > 1 ? 1 : 0];
-	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), Texture::WrapMethod::Repeat);
+	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), Texture::WrapMethod::Repeat, false);
 	s_Data.linePipeline->SetTextureArray({ s_Data.lineTextureSlots.begin(), s_Data.lineTextureSlots.end() }, BINDING_TEXTURE_SLOTS, sampler);
 
 	s_Data.linePipeline->Bind();
@@ -649,7 +649,7 @@ void Renderer2D::FlushText()
 	// Binding 0 is Camera below, so atlases start at 1. Prefer a real (Linear-filtered) atlas
 	// as the sampler source over whiteTexture (Nearest) when one is active.
 	Ref<Texture> samplerSource = s_Data.fontAtlasSlotIndex > 1 ? s_Data.fontAtlasSlots[1] : s_Data.fontAtlasSlots[0];
-	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), samplerSource->GetWrapMethod());
+	Ref<Sampler> sampler = Sampler::Get(samplerSource->GetFilterMethod(), samplerSource->GetWrapMethod(), false);
 	s_Data.textPipeline->SetTextureArray({ s_Data.fontAtlasSlots.begin(), s_Data.fontAtlasSlots.end() }, BINDING_TEXTURE_SLOTS, sampler);
 
 	s_Data.textPipeline->Bind();
@@ -1032,7 +1032,7 @@ void Renderer2D::UseQuadSampler(Texture::FilterMethod filterMethod, Texture::Wra
 	PROFILE_FUNCTION();
 	if (IsDrawingDisabled())
 		return;
-	s_Data.pendingQuadSampler = Sampler::Get(filterMethod, wrapMethod);
+	s_Data.pendingQuadSampler = Sampler::Get(filterMethod, wrapMethod, false);
 }
 
 void Renderer2D::ApplyQuadSampler()

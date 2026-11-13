@@ -2,7 +2,7 @@
 
 #include <glad/glad.h>
 
-OpenGLSampler::OpenGLSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod)
+OpenGLSampler::OpenGLSampler(Texture::FilterMethod filterMethod, Texture::WrapMethod wrapMethod, bool anisotropic)
 	:Sampler(filterMethod, wrapMethod)
 {
 	glCreateSamplers(1, &m_RendererID);
@@ -10,7 +10,7 @@ OpenGLSampler::OpenGLSampler(Texture::FilterMethod filterMethod, Texture::WrapMe
 	GLint filter = filterMethod == Texture::FilterMethod::Linear ? GL_LINEAR : GL_NEAREST;
 	glSamplerParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, filter);
 	glSamplerParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, filter);
-	glSamplerParameterf(m_RendererID, GL_TEXTURE_MAX_ANISOTROPY, filterMethod == Texture::FilterMethod::Linear ? 8.0f : 1.0f);
+	glSamplerParameterf(m_RendererID, GL_TEXTURE_MAX_ANISOTROPY, anisotropic && filterMethod == Texture::FilterMethod::Linear ? 8.0f : 1.0f);
 
 	GLint wrap = GL_REPEAT;
 	if (wrapMethod == Texture::WrapMethod::Clamp)

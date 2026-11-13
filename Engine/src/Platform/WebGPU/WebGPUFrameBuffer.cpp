@@ -77,6 +77,9 @@ void WebGPUFrameBuffer::Generate()
 				m_Specification.width, m_Specification.height,
 				FrameBufferFormatToTextureFormat(spec.textureFormat),
 				m_Specification.samples, nullptr);
+			// Linear, clamped and not anisotropic, as on OpenGL
+			bool isInteger = spec.textureFormat == FrameBufferTextureFormat::RED_INTEGER;
+			colorTex->SetSampling(isInteger ? Texture::FilterMethod::Nearest : Texture::FilterMethod::Linear, Texture::WrapMethod::Clamp, false);
 			m_ColourViews.push_back(colorTex->GetTextureView());
 			m_ColourAttachments.push_back(colorTex);
 		}
