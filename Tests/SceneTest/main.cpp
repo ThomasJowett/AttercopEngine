@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 	if (input.CmdOptionExists("-h") || input.CmdOptionExists("--help"))
 	{
 		std::cout << "usage: SceneTest --project <file.proj> --scene <file.scene> [--frames N] [--timeout S]"
-			" [--log <path>] [--expect-errors N] [--require-verdict] [--display]\n"
+			" [--log <path>] [--frame-log <path>] [--expect-errors N] [--require-verdict] [--display]\n"
 			"       render tests: [--api <opengl|webgpu>] [--size 320x180] [--golden <dir>] [--output <dir>] [--update-goldens] [--strict]\n"
 			"       SceneTest --compare <a.png|dir> --against <b.png|dir> [--output <dir>]" << std::endl;
 		return EXIT_SUCCESS;
@@ -93,6 +93,7 @@ int main(int argc, char* argv[])
 	SceneTestOptions options;
 	options.scene = option("--scene");
 	std::string log = option("--log");
+	std::string frameLog = option("--frame-log");
 	std::string frames = option("--frames");
 	std::string timeout = option("--timeout");
 	std::string expectErrors = option("--expect-errors");
@@ -156,6 +157,11 @@ int main(int argc, char* argv[])
 	{
 		appArgs.push_back("--log");
 		appArgs.push_back(log);
+	}
+	if (!frameLog.empty())
+	{
+		appArgs.push_back("--frame-log");
+		appArgs.push_back(frameLog);
 	}
 	std::vector<char*> appArgv;
 	for (std::string& arg : appArgs)
