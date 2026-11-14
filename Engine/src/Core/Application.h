@@ -112,6 +112,7 @@ private:
 	Window* CreateDesktopWindowImpl(const WindowProps& props);
 	void Tick();
 	void Run();
+	void WriteFrameLog();
 	// Settings and the log go in a per-user folder named userFolderName, or after the executable when empty
 	int Init(int argc, char* argv[], const std::string& userFolderName = {});
 	int Init(const InputParser& inputParser, const std::string& userFolderName = {});
@@ -158,6 +159,9 @@ private:
 	std::string m_APIOverride;
 	uint64_t m_FrameCount = 0;
 	std::string m_SceneOverride;
+	// Frame times recorded for --frame-log, written when Run() returns
+	std::string m_FrameLogPath;
+	std::vector<double> m_FrameTimes;
 	// Duration in seconds from --exit-after; negative means disabled. m_ExitDeadline is the
 	// absolute GetTime() value computed from it once Run() starts.
 	double m_ExitAfterSeconds = -1.0;

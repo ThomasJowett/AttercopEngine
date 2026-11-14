@@ -1,5 +1,7 @@
 #include "Application.h"
 
+#include <fstream>
+
 #include "Logging/Instrumentor.h"
 #include "Settings.h"
 #include "InputParser.h"
@@ -181,6 +183,7 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 			<< " [--api <OpenGL|WebGPU>] "
 			<< " [--fixed-step] "
 			<< " [--log <path>] "
+			<< " [--frame-log <path>] "
 			<< std::endl;
 		return EXIT_SUCCESS;
 	}
@@ -202,6 +205,12 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 		const std::string& value = input.GetCmdOption("--exit-after");
 		if (!value.empty())
 			m_ExitAfterSeconds = std::stod(value);
+	}
+
+	if (input.CmdOptionExists("--frame-log"))
+	{
+		m_FrameLogPath = input.GetCmdOption("--frame-log");
+		m_FrameTimes.reserve(1 << 20);
 	}
 
 	if (input.CmdOptionExists("--scene"))
@@ -293,6 +302,8 @@ void Application::Tick() {
 	// --fixed-step: exactly one fixed update per frame, independent of how long the frame took
 	double frameTime = m_FixedStep ? (double)m_FixedUpdateInterval : GetTime() - m_CurrentTime;
 	m_CurrentTime += frameTime;
+	if (!m_FrameLogPath.empty())
+		m_FrameTimes.push_back(frameTime);
 
 	// --exit-after: let this frame finish normally, just don't schedule another one.
 	if (m_ExitDeadline >= 0.0 && m_CurrentTime >= m_ExitDeadline)
@@ -408,7 +419,24 @@ void Application::Run()
 	{
 		Tick();
 	}
+	WriteFrameLog();
 #endif
+}
+
+void Application::WriteFrameLog()
+{
+	if (m_FrameLogPath.empty())
+		return;
+
+	// One frame time in seconds per line
+	std::ofstream frameLog(m_FrameLogPath);
+	if (!frameLog)
+	{
+		ENGINE_ERROR("Could not write the frame log {0}", m_FrameLogPath);
+		return;
+	}
+	for (double time : m_FrameTimes)
+		frameLog << time << '\n';
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
