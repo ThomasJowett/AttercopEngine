@@ -165,9 +165,10 @@ set_target_properties(lua PROPERTIES
     C_STANDARD_REQUIRED ON
 )
 
-target_compile_definitions(freetype PRIVATE
-    LUA_COMPAT_MATHLIB=1
-)
+# os.tmpname uses mkstemp rather than tmpnam
+if (UNIX AND NOT EMSCRIPTEN)
+    target_compile_definitions(lua PRIVATE LUA_USE_POSIX)
+endif()
 
 file(GLOB MSDFGEN_FILES
     msdf-atlas-gen/msdfgen/core/*.h
