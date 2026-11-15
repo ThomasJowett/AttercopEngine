@@ -39,7 +39,7 @@ EM_JS(void, Window_CaptureMouse, (), {
 
 EM_JS(void, Window_ReleaseMouse, (), {
 	const canvas = Module.canvas;
-	canvas.style.cursor = '';
+	canvas.style.cursor = "";
 	if (Module.lastPointerId !== undefined && canvas.hasPointerCapture(Module.lastPointerId))
 		canvas.releasePointerCapture(Module.lastPointerId);
 });
