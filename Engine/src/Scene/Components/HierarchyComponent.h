@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene/Entity.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct HierarchyComponent
 {
@@ -8,6 +9,8 @@ struct HierarchyComponent
 	entt::entity previousSibling = entt::null;
 	entt::entity nextSibling = entt::null;
 	bool isActive = true;
+
+	static void Describe(Reflection::Builder<HierarchyComponent>& c);
 
 private:
 	friend cereal::access;

@@ -10,6 +10,7 @@
 #include "Scene/AssetManager.h"
 #include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct SpriteComponent
 {
@@ -31,6 +32,8 @@ struct SpriteComponent
 			texture = AssetManager::GetTexture(texturePath);
 		return texture;
 	}
+
+	static void Describe(Reflection::Builder<SpriteComponent>& c);
 
 	REFLECT_LUA_BEGIN(SpriteComponent)
 		Lua::SetEnum(state, "FilterMethod", "Texture filtering, for SpriteComponent.FilterMethod", {

@@ -8,6 +8,7 @@
 #include "Asset/LuaScript.h"
 #include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaErrorEvent.h"
+#include "Reflection/ReflectionFwd.h"
 
 class Entity;
 class PhysicsEngine2D;
@@ -60,6 +61,8 @@ struct LuaScriptComponent
 	const std::vector<b2Fixture*>& GetFixtures() const { return m_Fixtures; }
 	void ClearFixtures() { m_Fixtures.clear(); }
 	//const std::vector<b2Fixture*>& GetContacts() const { return m_Contacts; }
+
+	static void Describe(Reflection::Builder<LuaScriptComponent>& c);
 
 private:
 	friend cereal::access;

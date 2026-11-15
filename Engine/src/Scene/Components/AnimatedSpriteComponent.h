@@ -9,6 +9,7 @@
 #include "Utilities/FileUtils.h"
 #include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct FiredAnimationEvent
 {
@@ -29,6 +30,8 @@ struct AnimatedSpriteComponent
 
 	// Returns the events crossed this call in frame order, plus Finished each time the last frame ends
 	std::vector<FiredAnimationEvent> Animate(float deltaTime);
+	static void Describe(Reflection::Builder<AnimatedSpriteComponent>& c);
+
 	REFLECT_LUA_BEGIN(AnimatedSpriteComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Tint", "Colour multiplied over the sprite sheet", "Colour",
 			([](Self& c) -> Colour& { return c.tint; }),

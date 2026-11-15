@@ -15,6 +15,7 @@
 #include <mutex>
 #include <vector>
 #include <array>
+#include "Reflection/ReflectionFwd.h"
 
 class b2Body;
 
@@ -166,6 +167,8 @@ struct TilemapComponent
 
 	bool SupportsPathfinding() const { return orientation != Orientation::staggered; }
 	void InvalidatePathfindingGrid() { m_PathfindingGrid.reset(); }
+
+	static void Describe(Reflection::Builder<TilemapComponent>& c);
 
 	REFLECT_LUA_BEGIN(TilemapComponent)
 		REFLECT_LUA_PROPERTY(tileset, "The tileset this map draws its tiles from")

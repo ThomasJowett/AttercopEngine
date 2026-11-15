@@ -3,6 +3,7 @@
 #include "Core/UUID.h"
 
 #include "cereal/cereal.hpp"
+#include "Reflection/ReflectionFwd.h"
 
 struct IDComponent
 {
@@ -13,6 +14,9 @@ struct IDComponent
 		:ID(other.ID) {}
 	IDComponent(Uuid id)
 		:ID(id) {}
+
+	static void Describe(Reflection::Builder<IDComponent>& c);
+
 private:
 	friend cereal::access;
 		template <typename Archive>

@@ -5,6 +5,7 @@
 
 #include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct TransformComponent
 {
@@ -86,6 +87,8 @@ struct TransformComponent
 
 	// Replaces the world matrix until the next scene graph update, without changing the local transform
 	void OverrideWorldMatrix(const Matrix4x4& worldMatrix) { m_WorldMatrix = worldMatrix; m_Dirty = true; }
+
+	static void Describe(Reflection::Builder<TransformComponent>& c);
 
 	REFLECT_LUA_BEGIN(TransformComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Position", "Position relative to the parent entity, or to the world if it has no parent", "Vec3",

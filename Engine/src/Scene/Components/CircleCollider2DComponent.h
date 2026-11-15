@@ -8,6 +8,7 @@
 #include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Physics/CollisionLayers.h"
+#include "Reflection/ReflectionFwd.h"
 
 class b2Body;
 
@@ -38,6 +39,8 @@ struct CircleCollider2DComponent
       ([](Self& c, const Ref<PhysicsMaterial>& v) { c.physicsMaterial = v; }))
     REFLECT_LUA_COLLISION_FILTER()
   REFLECT_LUA_END()
+
+  static void Describe(Reflection::Builder<CircleCollider2DComponent>& c);
 
 private:
   friend cereal::access;

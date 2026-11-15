@@ -16,6 +16,7 @@
 
 #include "Scene/SceneManager.h"
 #include "Scene/AssetManager.h"
+#include "Scene/Components.h"
 
 #include "Logging/Logger.h"
 #include "Input/Input.h"
@@ -236,6 +237,7 @@ int Application::Init(const InputParser& inputParser, const std::string& userFol
 	}
 
 	Random::Init();
+	RegisterComponents();
 	LuaManager::Init();
 
 	if (m_Headless)

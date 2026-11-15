@@ -1,5 +1,7 @@
 #include "WidgetComponent.h"
 
+#include "Reflection/Describe.h"
+
 void WidgetComponent::SetAnchorLeft(float left)
 {
 	anchorLeft = left;
@@ -120,4 +122,36 @@ void WidgetComponent::SetSizeY(float sizeY)
 	size.y = sizeY;
 
 	marginBottom = marginTop + size.y;
+}
+
+namespace WidgetComponentReflection
+{
+	Vector2f GetPosition(const WidgetComponent& c) { return c.position; }
+	void SetPosition(WidgetComponent& c, const Vector2f& position) { c.SetPositionX(position.x); c.SetPositionY(position.y); }
+	Vector2f GetSize(const WidgetComponent& c) { return c.size; }
+	void SetSize(WidgetComponent& c, const Vector2f& size) { c.SetSizeX(size.x); c.SetSizeY(size.y); }
+}
+
+void WidgetComponent::Describe(Reflection::Builder<WidgetComponent>& c)
+{
+	using namespace WidgetComponentReflection;
+
+	c.Name("Widget").Category("UI")
+		.Description("Places the entity on its canvas, anchored to its parent widget");
+
+	c.Field<&WidgetComponent::disabled>("Disabled", "Whether the widget ignores input and draws in its disabled state");
+	c.Field<&WidgetComponent::fixedWidth>("FixedWidth", "Keep the width when the parent resizes, instead of stretching between the anchors");
+	c.Field<&WidgetComponent::fixedHeight>("FixedHeight", "Keep the height when the parent resizes, instead of stretching between the anchors");
+	// The setters move the margins, so these come before the margins
+	c.Property<&GetPosition, &SetPosition>("Position", "The widget's position, in reference-resolution pixels");
+	c.Property<&GetSize, &SetSize>("Size", "The widget's size, in reference-resolution pixels");
+	c.Field<&WidgetComponent::anchorLeft>("AnchorLeft", "Left anchor, as a fraction of the parent's width");
+	c.Field<&WidgetComponent::anchorRight>("AnchorRight", "Right anchor, as a fraction of the parent's width");
+	c.Field<&WidgetComponent::anchorTop>("AnchorTop", "Top anchor, as a fraction of the parent's height");
+	c.Field<&WidgetComponent::anchorBottom>("AnchorBottom", "Bottom anchor, as a fraction of the parent's height");
+	c.Field<&WidgetComponent::marginLeft>("MarginLeft", "Distance from the left anchor to the left edge, in pixels");
+	c.Field<&WidgetComponent::marginRight>("MarginRight", "Distance from the right anchor to the right edge, in pixels");
+	c.Field<&WidgetComponent::marginTop>("MarginTop", "Distance from the top anchor to the top edge, in pixels");
+	c.Field<&WidgetComponent::marginBottom>("MarginBottom", "Distance from the bottom anchor to the bottom edge, in pixels");
+	c.Field<&WidgetComponent::rotation>("Rotation", "Rotation in radians");
 }

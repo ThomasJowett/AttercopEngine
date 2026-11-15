@@ -1,4 +1,7 @@
 #include "TilemapComponent.h"
+
+#include "Reflection/Describe.h"
+#include "TinyXml2/tinyxml2.h"
 #include "Utilities/GeometryGenerator.h"
 
 Vector2f TilemapComponent::IsoToWorld(uint32_t x, uint32_t y) const
@@ -419,4 +422,76 @@ Vector2f TilemapComponent::CellToLocal(Astar::GridCoord cell) const
 		return Vector2f((x - y) / 2.0f, -(x + y) / 4.0f);
 
 	return Vector2f(x, -y);
+}
+
+namespace TilemapComponentReflection
+{
+	// Rows of comma-separated tile indices, as the element's text
+	void SaveTiles(const TilemapComponent& c, tinyxml2::XMLElement* element)
+	{
+		std::string csv = "\n";
+		for (size_t y = 0; y < c.tiles.size(); ++y)
+		{
+			for (size_t x = 0; x < c.tiles[y].size(); ++x)
+			{
+				csv += std::to_string(c.tiles[y][x]);
+				if (x + 1 < c.tiles[y].size() || y + 1 < c.tiles.size())
+					csv += ',';
+			}
+			csv += '\n';
+		}
+		element->SetText(csv.c_str());
+	}
+
+	// Sized by TilesWide and TilesHigh, which are restored first; missing tiles are 0
+	void LoadTiles(TilemapComponent& c, const tinyxml2::XMLElement* element)
+	{
+		c.tiles.assign(c.tilesHigh, std::vector<uint32_t>(c.tilesWide, 0));
+		const char* text = element->GetText();
+		if (!text)
+			return;
+
+		std::vector<std::string> values = SplitString(text, ',');
+		for (size_t i = 0; i < values.size() && i < (size_t)c.tilesWide * c.tilesHigh; ++i)
+			c.tiles[i / c.tilesWide][i % c.tilesWide] = (uint32_t)std::strtoul(values[i].c_str(), nullptr, 10);
+	}
+
+	// Keeps the tile grid the size TilesWide and TilesHigh say
+	void ResizeTiles(Entity, TilemapComponent& c)
+	{
+		c.tiles.resize(c.tilesHigh);
+		for (std::vector<uint32_t>& row : c.tiles)
+			row.resize(c.tilesWide);
+	}
+
+	void RebuildMesh(Entity, TilemapComponent& c) { c.Rebuild(); }
+}
+
+void TilemapComponent::Describe(Reflection::Builder<TilemapComponent>& c)
+{
+	using namespace TilemapComponentReflection;
+
+	Reflection::Enum<Orientation>("TilemapOrientation", "Tile layouts, for TilemapComponent.Orientation", {
+		{ "Orthogonal", Orientation::orthogonal },
+		{ "Isometric", Orientation::isometric },
+		{ "Staggered", Orientation::staggered },
+		{ "Hexagonal", Orientation::hexagonal },
+	});
+
+	c.Name("Tilemap").Category("Rendering 2D")
+		.Description("A grid of tiles from a tileset, with collision from the tileset's shapes");
+
+	c.Field<&TilemapComponent::tileset>("Tileset", "The tileset this map draws its tiles from").MainAsset();
+	c.Field<&TilemapComponent::tilesWide>("TilesWide", "Number of tile columns").Label("Width").OnChanged(&ResizeTiles);
+	c.Field<&TilemapComponent::tilesHigh>("TilesHigh", "Number of tile rows").Label("Height").OnChanged(&ResizeTiles);
+	c.Field<&TilemapComponent::tileWidth>("TileWidth", "Width of a single tile, in pixels");
+	c.Field<&TilemapComponent::tileHeight>("TileHeight", "Height of a single tile, in pixels");
+	c.Field<&TilemapComponent::tint>("Tint", "Colour multiplied over every tile");
+	c.Field<&TilemapComponent::orientation>("Orientation", "How tiles are laid out: orthogonal, isometric, staggered or hexagonal");
+	c.Field<&TilemapComponent::isTrigger>("IsTrigger", "Whether this tilemap's collision only reports overlaps instead of physically blocking");
+	c.Layer<&TilemapComponent::layer>("Layer", "The collision layer this tilemap is on");
+	c.Mask<&TilemapComponent::mask>("Mask", "The collision layers this tilemap collides with");
+	c.Custom<&SaveTiles, &LoadTiles>("Tiles", "The tile index of each cell, row by row");
+
+	c.OnChanged(&RebuildMesh);
 }

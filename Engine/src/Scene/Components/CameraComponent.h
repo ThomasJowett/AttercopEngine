@@ -4,6 +4,7 @@
 
 #include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct CameraComponent
 {
@@ -16,6 +17,8 @@ struct CameraComponent
 
 	operator SceneCamera& () { return camera; }
 	operator const SceneCamera& () const { return camera; }
+	static void Describe(Reflection::Builder<CameraComponent>& c);
+
 	REFLECT_LUA_BEGIN(CameraComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Camera", "The camera's projection settings. Returns a copy - assign it back after changing it", "Camera",
 			([](Self& c) { return c.camera; }),

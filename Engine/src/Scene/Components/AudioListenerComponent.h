@@ -1,4 +1,5 @@
 #include "cereal/cereal.hpp"
+#include "Reflection/ReflectionFwd.h"
 
 struct AudioListenerComponent
 {
@@ -6,6 +7,8 @@ struct AudioListenerComponent
 	AudioListenerComponent(const AudioListenerComponent&) = default;
 
 	bool primary = true;
+	static void Describe(Reflection::Builder<AudioListenerComponent>& c);
+
 private:
 	friend cereal::access;
 	template<typename Archive>

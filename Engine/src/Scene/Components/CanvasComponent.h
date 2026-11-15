@@ -2,6 +2,7 @@
 
 #include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct CanvasComponent
 {
@@ -9,6 +10,8 @@ struct CanvasComponent
 	CanvasComponent(const CanvasComponent&) = default;
 
 	float pixelPerUnit = 1.0f;
+
+	static void Describe(Reflection::Builder<CanvasComponent>& c);
 
 	REFLECT_LUA_BEGIN(CanvasComponent)
 		REFLECT_LUA_PROPERTY(pixelPerUnit, "Pixels per world unit this canvas's UI is drawn at")

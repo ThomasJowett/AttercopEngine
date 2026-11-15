@@ -1,6 +1,9 @@
 
 #include "RigidBody2DComponent.h"
 
+#include "Reflection/Describe.h"
+#include "Physics/PhysicsEngine2D.h"
+
 #include "Scene/SceneManager.h"
 #include "box2d/box2d.h"
 #include "Scene/Entity.h"
@@ -85,4 +88,33 @@ void RigidBody2DComponent::GetTransform(Vector2f& position, float& rotation)
 		position = { (float)runtimeBody->GetPosition().x, (float)runtimeBody->GetPosition().y };
 		rotation = (float)runtimeBody->GetAngle();
 	}
+}
+
+namespace RigidBody2DComponentReflection
+{
+	bool IsDynamic(const RigidBody2DComponent& c) { return c.type == RigidBody2DComponent::BodyType::DYNAMIC; }
+
+	void ApplyToBody(Entity, RigidBody2DComponent& c) { PhysicsEngine2D::ApplyRigidBodySettings(c); }
+}
+
+void RigidBody2DComponent::Describe(Reflection::Builder<RigidBody2DComponent>& c)
+{
+	using namespace RigidBody2DComponentReflection;
+
+	Reflection::Enum<BodyType>("BodyType", "Rigid body types, for RigidBody2DComponent.Type", {
+		{ "Static", BodyType::STATIC },
+		{ "Kinematic", BodyType::KINEMATIC },
+		{ "Dynamic", BodyType::DYNAMIC },
+	});
+
+	c.Name("RigidBody2D").Category("Physics 2D")
+		.Description("Makes the entity a Box2D body that moves under physics");
+
+	c.Field<&RigidBody2DComponent::type>("Type", "BodyType.Static, BodyType.Kinematic or BodyType.Dynamic");
+	c.Field<&RigidBody2DComponent::fixedRotation>("FixedRotation", "Stop the body from rotating").ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::gravityScale>("GravityScale", "Multiplier on the scene's gravity for this body").ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::angularDamping>("AngularDamping", "How quickly the body's spin slows down").ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::linearDamping>("LinearDamping", "How quickly the body's movement slows down").ShowIf(&IsDynamic);
+
+	c.OnChanged(&ApplyToBody);
 }
