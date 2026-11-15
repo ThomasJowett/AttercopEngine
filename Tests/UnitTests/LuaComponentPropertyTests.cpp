@@ -133,7 +133,8 @@ TEST_CASE("Each component has the same Lua properties")
 
 	for (const auto& [component, properties] : k_LuaProperties)
 	{
-		CAPTURE(component);
+		const auto& componentName = component;
+		CAPTURE(componentName);
 		CHECK(actual[component] == properties);
 	}
 	CHECK(actual.size() == k_LuaProperties.size());
