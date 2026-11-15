@@ -237,3 +237,25 @@ target_link_libraries(msdf-atlas-gen PUBLIC
 add_library(miniaudio STATIC miniaudio/miniaudio.c)
 
 target_include_directories(miniaudio PUBLIC miniaudio)
+
+# miniz's sources and the export header its own CMakeLists.txt would generate
+include(GenerateExportHeader)
+add_library(miniz STATIC
+    miniz/miniz.c
+    miniz/miniz_zip.c
+    miniz/miniz_tinfl.c
+    miniz/miniz_tdef.c
+)
+generate_export_header(miniz)
+target_include_directories(miniz PUBLIC miniz ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(miniz PUBLIC MINIZ_STATIC_DEFINE)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_definitions(miniz PRIVATE _GNU_SOURCE)
+endif()
+
+# stb_image, stb_image_write and stb_rect_pack implementations
+add_library(stb STATIC stb/stb.cpp)
+
+foreach(target imgui glad freetype lua msdfgen msdf-atlas-gen miniaudio miniz stb)
+    attercop_third_party_target(${target})
+endforeach()

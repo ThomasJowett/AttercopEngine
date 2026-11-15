@@ -30,7 +30,8 @@ endif()
 
 add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
 
-add_library(Engine ${ENGINE_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/stb/stb.cpp)
+add_library(Engine ${ENGINE_FILES})
+attercop_target_warnings(Engine)
 
 group_files_by_directory("ENGINE_FILES")
 
@@ -45,6 +46,7 @@ target_link_libraries(Engine PRIVATE
                       msdf-atlas-gen
                       miniaudio
                       miniz
+                      stb
                       webgpu
                       glfw3webgpu
                       )
@@ -53,7 +55,6 @@ target_link_libraries(Engine PUBLIC miniz)
 
 add_definitions(
     -DGLFW_INCLUDE_NONE
-    -D_CRT_SECURE_NO_WARNINGS
 )
 
 target_compile_definitions(Engine PUBLIC UNICODE _UNICODE)
@@ -72,8 +73,8 @@ if(XCODE)
         XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal")
 endif()
 
-target_include_directories(Engine PUBLIC
-                            src
+target_include_directories(Engine PUBLIC src)
+target_include_directories(Engine SYSTEM PUBLIC
                             vendor
                             vendor/GLFW/include
                             vendor/GLFW/deps

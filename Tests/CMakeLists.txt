@@ -10,6 +10,7 @@ file(GLOB_RECURSE DATA_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Editor/data/
 add_executable(SceneTest ${SCENE_TEST_SOURCES} ${DATA_FILES})
 target_link_libraries(SceneTest PRIVATE Engine)
 attercop_target_shaders(SceneTest)
+attercop_target_warnings(SceneTest)
 target_copy_webgpu_binaries(SceneTest)
 
 add_custom_command(
@@ -72,6 +73,7 @@ if (NOT MSVC)
     set_source_files_properties(UnitTests/main.cpp PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 endif()
 target_link_libraries(UnitTests PRIVATE Engine)
+attercop_target_warnings(UnitTests)
 target_compile_definitions(UnitTests PRIVATE ATTERCOP_SOURCE_DIR="${CMAKE_SOURCE_DIR}" DOCTEST_CONFIG_USE_STD_HEADERS)
 target_copy_webgpu_binaries(UnitTests)
 
