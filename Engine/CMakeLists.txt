@@ -9,6 +9,7 @@ file(GLOB_RECURSE ENGINE_FILES
     src/Math/*.cpp
     src/Particles/*.cpp
     src/Physics/*.cpp
+    src/Reflection/*.cpp
     src/Platform/Null/*.cpp
     src/Platform/OpenGL/*.cpp
     src/Platform/WebGPU/*.cpp
