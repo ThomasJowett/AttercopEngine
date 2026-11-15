@@ -61,8 +61,6 @@ private:
 
 
 	bool m_ShowPlayPauseToolbar;
-	bool m_ShowLightsToolbar;
-	bool m_ShowVolumesToolbar;
 	bool m_ShowLandscapeToolbar;
 	bool m_ShowFoliageToolbar;
 	bool m_ShowMultiplayerToolbar;

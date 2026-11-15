@@ -66,8 +66,6 @@ MainDockSpace::MainDockSpace()
 	m_ShowTilemapEditor = false;
 
 	m_ShowPlayPauseToolbar = true;
-	m_ShowLightsToolbar = false;
-	m_ShowVolumesToolbar = false;
 	m_ShowLandscapeToolbar = false;
 	m_ShowFoliageToolbar = false;
 	m_ShowMultiplayerToolbar = false;
@@ -442,8 +440,6 @@ void MainDockSpace::OnImGuiRender()
 		{
 			//TODO: create a toolbar for these tools
 			ImGui::MenuItem(ICON_FA_PLAY" Play", "", &m_ShowPlayPauseToolbar);
-			ImGui::MenuItem(ICON_FA_LIGHTBULB" Lights", "", &m_ShowLightsToolbar, false); //TODO: create a lights tool
-			ImGui::MenuItem(ICON_FA_VECTOR_SQUARE" Volumes", "", &m_ShowVolumesToolbar, false); //TODO: Create a Volumes tool e.g. blocking volumes
 			ImGui::MenuItem(ICON_FA_MOUNTAIN" Landscape", "", &m_ShowLandscapeToolbar, false); //TODO: create landscape tool
 			ImGui::MenuItem(ICON_FA_SEEDLING" Foliage", "", &m_ShowFoliageToolbar, false); //TODO: create a foliage tool
 			ImGui::MenuItem(ICON_FA_NETWORK_WIRED" Multiplayer", "", &m_ShowMultiplayerToolbar, false); //TODO: Create multiplayer tool
