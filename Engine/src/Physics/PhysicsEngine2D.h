@@ -3,6 +3,7 @@
 #include "Contact2D.h"
 
 class Entity;
+struct RigidBody2DComponent;
 class Scene;
 class b2World;
 class b2Draw;
@@ -29,6 +30,11 @@ public:
 	bool HasPhysicsComponents(Entity entity);
 	// Registry on_destroy handler for RigidBody2D, collider and tilemap components
 	void OnPhysicsComponentRemoved(entt::registry& registry, entt::entity entity);
+
+	// Copies a rigid body's type, damping and gravity scale to its Box2D body
+	static void ApplyRigidBodySettings(RigidBody2DComponent& rigidBodyComp);
+	// Recreates an entity's body and fixtures from its components, keeping its velocity
+	void RebuildBody(Entity entity);
 
 	void SetGravity(Vector2f gravity);
 

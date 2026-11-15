@@ -236,24 +236,55 @@ void PhysicsEngine2D::OnFixedUpdate()
 			}
 			else
 			{
-				// Change the existing body's type; re-initialising would leave the old body behind in the world
-				b2BodyType bodyType = (b2BodyType)GetRigidBodyBox2DType(rigidBodyComp.type);
-				if (rigidBodyComp.runtimeBody->GetType() != bodyType)
-					rigidBodyComp.runtimeBody->SetType(bodyType);
-
-				if (rigidBodyComp.type == RigidBody2DComponent::BodyType::DYNAMIC)
-				{
-					rigidBodyComp.runtimeBody->SetFixedRotation(rigidBodyComp.fixedRotation);
-					rigidBodyComp.runtimeBody->SetAngularDamping(rigidBodyComp.angularDamping);
-					rigidBodyComp.runtimeBody->SetLinearDamping(rigidBodyComp.linearDamping);
-					rigidBodyComp.runtimeBody->SetGravityScale(rigidBodyComp.gravityScale);
-				}
+				ApplyRigidBodySettings(rigidBodyComp);
 			}
 			const b2Vec2& position = rigidBodyComp.runtimeBody->GetPosition();
 			const Vector3f& rotation = transformComp.GetRotation();
 			transformComp.SetPosition(Vector3f(position.x, position.y, transformComp.GetPosition().z));
 			transformComp.SetRotation(Vector3f(rotation.x, rotation.y, (float)rigidBodyComp.runtimeBody->GetAngle()));
 		});
+}
+
+void PhysicsEngine2D::ApplyRigidBodySettings(RigidBody2DComponent& rigidBodyComp)
+{
+	if (!rigidBodyComp.runtimeBody)
+		return;
+
+	// Change the existing body's type; re-initialising would leave the old body behind in the world
+	b2BodyType bodyType = (b2BodyType)GetRigidBodyBox2DType(rigidBodyComp.type);
+	if (rigidBodyComp.runtimeBody->GetType() != bodyType)
+		rigidBodyComp.runtimeBody->SetType(bodyType);
+
+	if (rigidBodyComp.type == RigidBody2DComponent::BodyType::DYNAMIC)
+	{
+		rigidBodyComp.runtimeBody->SetFixedRotation(rigidBodyComp.fixedRotation);
+		rigidBodyComp.runtimeBody->SetAngularDamping(rigidBodyComp.angularDamping);
+		rigidBodyComp.runtimeBody->SetLinearDamping(rigidBodyComp.linearDamping);
+		rigidBodyComp.runtimeBody->SetGravityScale(rigidBodyComp.gravityScale);
+	}
+}
+
+void PhysicsEngine2D::RebuildBody(Entity entity)
+{
+	PROFILE_FUNCTION();
+	entt::registry& registry = m_Scene->GetRegistry();
+	b2Body* body = FindBody(registry, entity.GetHandle());
+	if (!body)
+		return;
+
+	const b2Vec2 linearVelocity = body->GetLinearVelocity();
+	const float angularVelocity = body->GetAngularVelocity();
+
+	m_ContactListener->OnBodyDestroyed(body);
+	m_Box2DWorld->DestroyBody(body);
+	ClearBodyPointers(registry, entity.GetHandle());
+	InitializeBody(entity);
+
+	if (b2Body* rebuilt = FindBody(registry, entity.GetHandle()))
+	{
+		rebuilt->SetLinearVelocity(linearVelocity);
+		rebuilt->SetAngularVelocity(angularVelocity);
+	}
 }
 
 void PhysicsEngine2D::OnRender()
