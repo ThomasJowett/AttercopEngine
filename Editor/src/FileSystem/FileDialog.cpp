@@ -300,8 +300,7 @@ std::optional<std::wstring> FileDialog::SaveAs(const wchar_t *title, const std::
 
 #elif defined(__EMSCRIPTEN__)
 #include <emscripten.h>
-#include <codecvt> // Required for std::codecvt_utf8
-#include <locale>  // Required for std::wstring_convert
+#include <filesystem>
 
 EM_ASYNC_JS(char*, TriggerWebFileDialog, (), {
 	try
@@ -378,7 +377,7 @@ std::optional<std::wstring> FileDialog::Open(const wchar_t *title, const std::ve
 	{
 		std::string virtualPath(virtualPathPtr);
 		free(virtualPathPtr);
-		return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(virtualPath);
+		return std::filesystem::u8path(virtualPath).wstring();
 	}
 	return std::nullopt;
 }
@@ -395,7 +394,7 @@ std::optional<std::vector<std::wstring>> FileDialog::MultiOpen(const wchar_t *ti
 		std::vector<std::wstring> results;
 		for (const std::string& path : pathList)
 		{
-			results.push_back(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(path));
+			results.push_back(std::filesystem::u8path(path).wstring());
 		}
 		return results;
 	}
@@ -408,7 +407,7 @@ std::optional<std::wstring> FileDialog::SaveAs(const wchar_t *title, const std::
 	std::string extension;
 	if (!filters.empty())
 	{
-		std::string spec = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(filters.front().Spec);
+		std::string spec = std::filesystem::path(filters.front().Spec).u8string();
 		size_t dot = spec.find('.');
 		if (dot != std::string::npos && spec.find('*', dot) == std::string::npos)
 			extension = spec.substr(dot, spec.find(';', dot) - dot);
@@ -419,7 +418,7 @@ std::optional<std::wstring> FileDialog::SaveAs(const wchar_t *title, const std::
 	{
 		std::string virtualPath(virtualPathPtr);
 		free(virtualPathPtr);
-		return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(virtualPath);
+		return std::filesystem::u8path(virtualPath).wstring();
 	}
 	return std::nullopt;
 }
