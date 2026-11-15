@@ -33,8 +33,6 @@ private:
 	void UpdateProjection();
 
 private:
-	PerspectiveCamera m_Camera;
-
 	Vector3f m_Target;
 	float m_Distance = 5.0f;
 	float m_Pitch = -0.4f;
@@ -48,4 +46,7 @@ private:
 	float m_ViewportHeight = 480.0f;
 
 	float m_Sensitivity = 0.005f;
+
+	// Declared after the members its constructor reads
+	PerspectiveCamera m_Camera;
 };
