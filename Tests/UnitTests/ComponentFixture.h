@@ -101,7 +101,7 @@ namespace ComponentFixture
 		box.offset = Vector2f(0.5f, -0.5f);
 		box.size = Vector2f(1.5f, 2.5f);
 		box.isTrigger = true;
-		box.layer = 3;
+		box.layer = 8;
 		box.mask = 6;
 
 		CircleCollider2DComponent& circle = root.AddComponent<CircleCollider2DComponent>();
@@ -117,7 +117,7 @@ namespace ComponentFixture
 		polygon.offset = Vector2f(0.25f, 0.75f);
 		polygon.vertices = { Vector2f(0.0f, 0.0f), Vector2f(2.0f, 0.0f), Vector2f(2.0f, 1.0f), Vector2f(0.0f, 1.5f) };
 		polygon.isTrigger = true;
-		polygon.layer = 5;
+		polygon.layer = 16;
 		polygon.mask = 8;
 
 		CapsuleCollider2DComponent& capsule = root.AddComponent<CapsuleCollider2DComponent>();
@@ -127,7 +127,7 @@ namespace ComponentFixture
 		capsule.height = 3.5f;
 		capsule.offset = Vector2f(1.0f, 2.0f);
 		capsule.isTrigger = true;
-		capsule.layer = 6;
+		capsule.layer = 32;
 		capsule.mask = 9;
 
 		CircleRendererComponent& circleRenderer = root.AddComponent<CircleRendererComponent>();
@@ -318,7 +318,7 @@ namespace ComponentFixture
 		CHECK(box.offset == Vector2f(0.5f, -0.5f));
 		CHECK(box.size == Vector2f(1.5f, 2.5f));
 		CHECK(box.isTrigger);
-		CHECK(box.layer == 3);
+		CHECK(box.layer == 8);
 		CHECK(box.mask == 6);
 
 		REQUIRE(root.HasComponent<CircleCollider2DComponent>());
@@ -338,7 +338,7 @@ namespace ComponentFixture
 		CHECK(polygon.vertices[1] == Vector2f(2.0f, 0.0f));
 		CHECK(polygon.vertices[3] == Vector2f(0.0f, 1.5f));
 		CHECK(polygon.isTrigger);
-		CHECK(polygon.layer == 5);
+		CHECK(polygon.layer == 16);
 		CHECK(polygon.mask == 8);
 
 		REQUIRE(root.HasComponent<CapsuleCollider2DComponent>());
@@ -349,7 +349,7 @@ namespace ComponentFixture
 		CHECK(capsule.height == 3.5f);
 		CHECK(capsule.offset == Vector2f(1.0f, 2.0f));
 		CHECK(capsule.isTrigger);
-		CHECK(capsule.layer == 6);
+		CHECK(capsule.layer == 32);
 		CHECK(capsule.mask == 9);
 
 		REQUIRE(root.HasComponent<CircleRendererComponent>());
