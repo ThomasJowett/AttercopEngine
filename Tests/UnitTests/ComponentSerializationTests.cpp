@@ -48,7 +48,7 @@ namespace
 <Tint R="0.75" G="0.5" B="0.25" A="1"/></Tilemap>
     <Text MaxWidth="7.5">Hello, world<Font Filepath="Fonts/Title.ttf"/><Colour R="0.25" G="0.75" B="0.5" A="1"/></Text>
     <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="0.5" AngularDamping="0.25" LinearDamping="0.75"/>
-    <BoxCollider2D IsTrigger="true" Layer="3" Mask="6">
+    <BoxCollider2D IsTrigger="true" Layer="8" Mask="6">
         <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
         <Offset X="0.5" Y="-0.5"/>
         <Size X="1.5" Y="2.5"/>
@@ -57,7 +57,7 @@ namespace
         <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
         <Offset X="-1" Y="1"/>
     </CircleCollider2D>
-    <PolygonCollider2D IsTrigger="true" Layer="5" Mask="8">
+    <PolygonCollider2D IsTrigger="true" Layer="16" Mask="8">
         <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
         <Offset X="0.25" Y="0.75"/>
         <Vertex X="0" Y="0"/>
@@ -65,7 +65,7 @@ namespace
         <Vertex X="2" Y="1"/>
         <Vertex X="0" Y="1.5"/>
     </PolygonCollider2D>
-    <CapsuleCollider2D Direction="1" Radius="0.75" Height="3.5" IsTrigger="true" Layer="6" Mask="9">
+    <CapsuleCollider2D Direction="1" Radius="0.75" Height="3.5" IsTrigger="true" Layer="32" Mask="9">
         <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
         <Offset X="1" Y="2"/>
     </CapsuleCollider2D>
