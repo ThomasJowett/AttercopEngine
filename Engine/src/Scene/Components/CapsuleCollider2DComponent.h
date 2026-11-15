@@ -6,8 +6,10 @@
 #include "math/Vector2f.h"
 
 #include "Asset/PhysicsMaterial.h"
+#include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Physics/CollisionLayers.h"
+#include "Reflection/ReflectionFwd.h"
 
 class b2Body;
 
@@ -33,6 +35,8 @@ struct CapsuleCollider2DComponent
 	RuntimePointer<b2Body> runtimeBody;
 
 	CapsuleCollider2DComponent() = default;
+	static void Describe(Reflection::Builder<CapsuleCollider2DComponent>& c);
+
 	REFLECT_LUA_BEGIN(CapsuleCollider2DComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Offset", "Offset of the shape from the entity's position", "Vec2",
 			([](Self& c) -> Vector2f& { return c.offset; }),

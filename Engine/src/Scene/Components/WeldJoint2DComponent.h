@@ -5,6 +5,7 @@
 #include "math/Vector2f.h"
 #include "Physics/RuntimePointer.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 class b2Body;
 class b2WeldJoint;
@@ -22,6 +23,8 @@ struct WeldJoint2DComponent
 	b2Body* bodyB = nullptr;
 
 	RuntimePointer<b2WeldJoint> joint;
+	static void Describe(Reflection::Builder<WeldJoint2DComponent>& c);
+
 	REFLECT_LUA_BEGIN(WeldJoint2DComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("CollideConnected", "Whether the two welded bodies can still collide with each other", "boolean",
 			([](Self& c) { return c.collideConnected; }),

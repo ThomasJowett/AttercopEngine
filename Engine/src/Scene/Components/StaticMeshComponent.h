@@ -4,6 +4,7 @@
 #include "Asset/StaticMesh.h"
 #include "Asset/Material.h"
 #include "Scene/AssetManager.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct StaticMeshComponent
 {
@@ -65,6 +66,8 @@ struct StaticMeshComponent
 		while (!materialOverrides.empty() && !materialOverrides.back())
 			materialOverrides.pop_back();
 	}
+
+	static void Describe(Reflection::Builder<StaticMeshComponent>& c);
 
 private:
 	friend cereal::access;

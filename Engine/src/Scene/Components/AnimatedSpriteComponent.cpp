@@ -1,5 +1,7 @@
 #include "AnimatedSpriteComponent.h"
 
+#include "Reflection/Describe.h"
+
 std::vector<FiredAnimationEvent> AnimatedSpriteComponent::Animate(float deltaTime)
 {
 	std::vector<FiredAnimationEvent> fired;
@@ -43,4 +45,14 @@ void AnimatedSpriteComponent::EnterFrame(const Animation& animationRef, std::vec
 		else if (event.frame > localFrame)
 			break;
 	}
+}
+
+void AnimatedSpriteComponent::Describe(Reflection::Builder<AnimatedSpriteComponent>& c)
+{
+	c.Name("AnimatedSprite").Category("Rendering 2D")
+		.Description("Plays animations from a sprite sheet");
+
+	c.Field<&AnimatedSpriteComponent::spriteSheet>("SpriteSheet", "The sprite sheet the animation frames come from");
+	c.Field<&AnimatedSpriteComponent::tint>("Tint", "Colour multiplied over the sprite sheet");
+	c.Field<&AnimatedSpriteComponent::animation>("Animation", "Name of the sprite sheet animation to play");
 }

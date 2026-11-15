@@ -2,6 +2,7 @@
 
 #include "cereal/access.hpp"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct WidgetComponent
 {
@@ -75,6 +76,8 @@ struct WidgetComponent
 
 	static const uint32_t s_referenceWidth = 1920;
 	static const uint32_t s_referenceHeight = 1080;
+
+	static void Describe(Reflection::Builder<WidgetComponent>& c);
 
 	REFLECT_LUA_BEGIN(WidgetComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Position", "The widget's position, in reference-resolution pixels", "Vec2",

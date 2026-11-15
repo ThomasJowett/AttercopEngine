@@ -3,6 +3,7 @@
 #include "cereal/cereal.hpp"
 
 #include "math/Vector2f.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct GridLayoutComponent
 {
@@ -19,6 +20,8 @@ struct GridLayoutComponent
 
 	bool uniformCellSize = true;
 	float fixedRowHeight = 0.0f;
+
+	static void Describe(Reflection::Builder<GridLayoutComponent>& c);
 
 private:
 	friend cereal::access;

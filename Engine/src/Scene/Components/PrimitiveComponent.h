@@ -3,6 +3,7 @@
 #include "Math/BoundingBox.h"
 #include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct PrimitiveComponent
 {
@@ -196,6 +197,8 @@ struct PrimitiveComponent
 
 	operator PrimitiveComponent::Shape& () { return type; }
 	operator const PrimitiveComponent::Shape& () { return type; }
+	static void Describe(Reflection::Builder<PrimitiveComponent>& c);
+
 	REFLECT_LUA_BEGIN(PrimitiveComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Type", "Shape as an integer: 0 Cube, 1 Sphere, 2 Plane, 3 Cylinder, 4 Cone, 5 Torus", "integer (enum)",
 			([](Self& c) { return c.type; }),

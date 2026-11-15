@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cereal/cereal.hpp"
+#include "Reflection/ReflectionFwd.h"
 
 struct BillboardComponent
 {
@@ -14,6 +15,8 @@ struct BillboardComponent
 	BillboardComponent(const BillboardComponent&) = default;
 
 	Orientation orientation = Orientation::Camera;
+	static void Describe(Reflection::Builder<BillboardComponent>& c);
+
 private:
 
 	friend cereal::access;

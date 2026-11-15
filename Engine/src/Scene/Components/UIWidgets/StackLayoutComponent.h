@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cereal/cereal.hpp"
+#include "Reflection/ReflectionFwd.h"
 
 struct StackLayoutComponent
 {
@@ -16,6 +17,8 @@ struct StackLayoutComponent
 	float paddingTop = 0.0f;
 	float paddingRight = 0.0f;
 	float paddingBottom = 0.0f;
+
+	static void Describe(Reflection::Builder<StackLayoutComponent>& c);
 
 private:
 	friend cereal::access;

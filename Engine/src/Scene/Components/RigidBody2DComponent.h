@@ -3,6 +3,7 @@
 #include "cereal/cereal.hpp"
 #include "Physics/RuntimePointer.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 class b2Body;
 class b2World;
@@ -43,6 +44,8 @@ struct RigidBody2DComponent
 
 	void SetTransform(const Vector2f& position, const float& angle);
 	void GetTransform(Vector2f& position, float& rotation);
+
+	static void Describe(Reflection::Builder<RigidBody2DComponent>& c);
 
 	REFLECT_LUA_BEGIN(RigidBody2DComponent)
 		Lua::SetEnum(state, "BodyType", "Rigid body types, for RigidBody2DComponent.Type", {

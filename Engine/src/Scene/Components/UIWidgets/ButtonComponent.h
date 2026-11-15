@@ -8,6 +8,7 @@
 
 #include "Utilities/SerializationUtils.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct ButtonComponent
 {
@@ -30,6 +31,8 @@ struct ButtonComponent
 	Texture::WrapMethod hoveredWrapMethod = Texture::WrapMethod::Repeat;
 	Texture::WrapMethod clickedWrapMethod = Texture::WrapMethod::Repeat;
 	Texture::WrapMethod disabledWrapMethod = Texture::WrapMethod::Repeat;
+
+	static void Describe(Reflection::Builder<ButtonComponent>& c);
 
 	REFLECT_LUA_BEGIN(ButtonComponent)
 		REFLECT_LUA_PROPERTY(normalTint, "Tint applied to the normal state's texture")

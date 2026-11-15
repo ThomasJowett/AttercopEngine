@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Core/Colour.h"
+#include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct CircleRendererComponent
 {
@@ -12,6 +14,8 @@ struct CircleRendererComponent
 
 	CircleRendererComponent() = default;
 	CircleRendererComponent(const CircleRendererComponent&) = default;
+	static void Describe(Reflection::Builder<CircleRendererComponent>& c);
+
 	REFLECT_LUA_BEGIN(CircleRendererComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Colour", "Colour of the circle", "Colour",
 			([](Self& c) -> Colour& { return c.colour; }),

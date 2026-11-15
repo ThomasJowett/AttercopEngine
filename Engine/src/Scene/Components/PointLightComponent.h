@@ -2,6 +2,7 @@
 
 #include "cereal/access.hpp"
 #include "Core/Colour.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct PointLightComponent
 {
@@ -11,6 +12,8 @@ struct PointLightComponent
 	float attenuation = 1.0f;
 	PointLightComponent() = default;
 	PointLightComponent(const PointLightComponent&) = default;
+
+	static void Describe(Reflection::Builder<PointLightComponent>& c);
 
 private:
 	friend cereal::access;

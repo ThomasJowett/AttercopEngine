@@ -3,6 +3,7 @@
 #include "cereal/cereal.hpp"
 
 #include "math/Vector2f.h"
+#include "Reflection/ReflectionFwd.h"
 
 // Expects exactly one child as its scrollable content
 // offsets that child, doesn't arrange multiple children itself.
@@ -18,6 +19,8 @@ struct ScrollBoxComponent
 
 	// Derived each frame from the content child, used to clamp scrollOffset - not persisted.
 	Vector2f contentSize = Vector2f(0.0f, 0.0f);
+
+	static void Describe(Reflection::Builder<ScrollBoxComponent>& c);
 
 private:
 	friend cereal::access;

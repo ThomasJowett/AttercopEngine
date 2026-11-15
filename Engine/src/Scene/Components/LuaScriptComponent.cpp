@@ -1,5 +1,6 @@
 
 #include "LuaScriptComponent.h"
+#include "Reflection/Describe.h"
 #include "Scripting/Lua/LuaManager.h"
 #include "Scripting/Lua/LuaCoroutines.h"
 #include "Scene/SceneManager.h"
@@ -425,4 +426,12 @@ void LuaScriptComponent::OnAnimationFinished(const std::string& animationName)
 bool LuaScriptComponent::IsContactListener()
 {
 	return m_OnBeginContactFunc || m_OnEndContactFunc;
+}
+
+void LuaScriptComponent::Describe(Reflection::Builder<LuaScriptComponent>& c)
+{
+	c.Name("LuaScript").Category("Scripting")
+		.Description("Runs a Lua script's OnCreate, OnUpdate and other functions for this entity");
+
+	c.Field<&LuaScriptComponent::script>("Script", "The Lua script this entity runs").MainAsset();
 }

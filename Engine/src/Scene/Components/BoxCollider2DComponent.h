@@ -12,6 +12,9 @@
 #include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Physics/CollisionLayers.h"
+#include "Reflection/ReflectionFwd.h"
+
+class b2Body;
 
 struct BoxCollider2DComponent
 {
@@ -27,6 +30,8 @@ struct BoxCollider2DComponent
 	RuntimePointer<b2Body> runtimeBody;
 
 	BoxCollider2DComponent() = default;
+	static void Describe(Reflection::Builder<BoxCollider2DComponent>& c);
+
 	REFLECT_LUA_BEGIN(BoxCollider2DComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Offset", "Offset of the shape from the entity's position", "Vec2",
 			([](Self& c) -> Vector2f& { return c.offset; }),

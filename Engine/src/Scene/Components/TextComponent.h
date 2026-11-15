@@ -4,6 +4,7 @@
 #include "Asset/Font.h"
 #include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct TextComponent
 {
@@ -30,6 +31,8 @@ struct TextComponent
 		}
 		return m_Bounds;
 	}
+
+	static void Describe(Reflection::Builder<TextComponent>& c);
 
 	REFLECT_LUA_BEGIN(TextComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Text", "The string to draw", "string",

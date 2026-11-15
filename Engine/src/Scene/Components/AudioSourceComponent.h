@@ -3,6 +3,7 @@
 #include "Utilities/SerializationUtils.h"
 #include "Utilities/BundleAudioStream.h"
 #include "Scripting/Lua/LuaBindings.h"
+#include "Reflection/ReflectionFwd.h"
 
 struct ma_sound;
 
@@ -32,6 +33,8 @@ struct AudioSourceComponent
 	void Play() { play = true; }
 	void Pause() { pause = true; }
 	void Stop() { stop = true; }
+
+	static void Describe(Reflection::Builder<AudioSourceComponent>& c);
 
 	REFLECT_LUA_BEGIN(AudioSourceComponent)
 		REFLECT_LUA_PROPERTY_CUSTOM("Clip", "The audio clip to play", "AudioClip",
