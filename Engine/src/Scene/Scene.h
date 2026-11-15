@@ -8,6 +8,7 @@
 #include "Core/UUID.h"
 #include "math/Vector2f.h"
 #include "Physics/PhysicsEngine2D.h"
+#include "Reflection/Reflection.h"
 
 class Entity;
 class FrameBuffer;
@@ -70,6 +71,16 @@ public:
 	void MakeDirty() { m_Dirty = true; }
 	bool IsDirty() const { return m_Dirty; }
 	void MakeClean() { m_Dirty = false; }
+
+	// Between OnRuntimeStart and OnRuntimeStop
+	bool IsRunning() const { return m_PhysicsEngine2D != nullptr; }
+	// Null unless the scene is running
+	PhysicsEngine2D* GetPhysicsEngine2D() { return m_PhysicsEngine2D.get(); }
+
+	// Sent for each property changed through Reflection::Set or Restore
+	entt::sink<entt::sigh<void(const Reflection::PropertyChanged&)>> OnPropertyChanged() { return { m_PropertyChanged }; }
+	bool HasPropertyChangedListeners() const { return !m_PropertyChanged.empty(); }
+	void SendPropertyChanged(const Reflection::PropertyChanged& change) { m_PropertyChanged.publish(change); }
 
 	bool IsSaving() const { return m_IsSaving; }
 	bool IsUpdating() const { return m_IsUpdating; }
@@ -141,6 +152,8 @@ private:
 	bool m_IsSaving = false;
 
 	Ref<PhysicsEngine2D> m_PhysicsEngine2D;
+
+	entt::sigh<void(const Reflection::PropertyChanged&)> m_PropertyChanged;
 
 	Vector2f m_Gravity = { 0.0f, -9.81f };
 
