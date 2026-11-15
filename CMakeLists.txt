@@ -17,10 +17,9 @@ if (EMSCRIPTEN)
     add_link_options("$<$<CONFIG:Debug>:-sASSERTIONS=1>" "$<$<CONFIG:Release>:-O2>")
 endif()
 
+# Applied to the engine's own targets by attercop_target_warnings
 option(ATTERCOP_ENABLE_UNITY_BUILD "Enable unity build" OFF)
-if(ATTERCOP_ENABLE_UNITY_BUILD)
-    set(CMAKE_UNITY_BUILD ON)
-endif()
+include(cmake/Warnings.cmake)
 
 # Local fixes for the vendored imgui WebGPU backend that aren't reachable via a submodule version
 # bump yet (see the patch file for why - it covers two logically separate fixes, kept in one file
@@ -54,8 +53,8 @@ function(group_files_by_directory FILE_LIST)
     endforeach()
 endfunction()
 
-include_directories(Engine/vendor
-Engine/src
+include_directories(Engine/src)
+include_directories(SYSTEM
 Engine/vendor
 Engine/vendor/spdlog/include
 Engine/vendor/cereal/include
@@ -118,7 +117,12 @@ add_subdirectory(Engine/vendor/glfw3webgpu)
 add_subdirectory(Engine/vendor/tracy)
 add_subdirectory(Engine/vendor/sol)
 add_subdirectory(Engine/vendor/WebGPU-distribution)
-add_subdirectory(Engine/vendor/miniz)
+
+foreach(target glfw tinyxml2 box2d glfw3webgpu TracyClient sol2)
+    if (TARGET ${target})
+        attercop_third_party_target(${target})
+    endif()
+endforeach()
 
 add_subdirectory(Engine)
 include(cmake/Slang.cmake)
@@ -146,6 +150,7 @@ set_target_properties(glad PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})
 set_target_properties(imgui PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})
 set_target_properties(lua PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})
 set_target_properties(miniz PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})
+set_target_properties(stb PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})
 set_target_properties(msdf-atlas-gen PROPERTIES FOLDER ${THIRD_PARTY_FOLDER}/msdfgen)
 set_target_properties(msdfgen PROPERTIES FOLDER ${THIRD_PARTY_FOLDER}/msdfgen)
 set_target_properties(miniaudio PROPERTIES FOLDER ${THIRD_PARTY_FOLDER})

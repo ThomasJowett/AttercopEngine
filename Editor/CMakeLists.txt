@@ -84,9 +84,10 @@ source_group("Data" FILES ${DATA_FILES})
 
 target_link_libraries(Editor PRIVATE Engine)
 attercop_target_shaders(Editor)
+attercop_target_warnings(Editor)
 
-target_include_directories(Editor PUBLIC
-                            ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(Editor PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(Editor SYSTEM PUBLIC
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/IconFont
                             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/json
@@ -103,7 +104,6 @@ target_include_directories(Editor PUBLIC
 target_precompile_headers(Editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/stdafx.hpp)
 
 add_definitions(
-    -D_CRT_SECURE_NO_WARNINGS
     -DUNICODE
 )
 
