@@ -81,7 +81,8 @@ IF(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
 ENDIF()
 
 if (MSVC)
-    add_compile_options(/MP /ZI /JMC)
+    # Edit and Continue (/ZI) and Just My Code in Debug only
+    add_compile_options(/MP $<IF:$<CONFIG:Debug>,/ZI,/Zi> $<$<CONFIG:Debug>:/JMC>)
     set(DEFAULT_STARTUP_TARGET Editor)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
