@@ -1,12 +1,5 @@
 # Warning settings for third-party and engine targets
 
-# MSVC: remove the /W3 CMake puts in the default flags, so each target sets its own level
-if (MSVC)
-	foreach(flags CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-		string(REGEX REPLACE "/W[0-4]" "" ${flags} "${${flags}}")
-	endforeach()
-endif()
-
 # Third-party targets: no warnings, no unity build, and their headers count as system headers
 function(attercop_third_party_target target)
 	get_target_property(type ${target} TYPE)
