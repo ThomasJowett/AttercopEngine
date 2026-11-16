@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cereal/cereal.hpp"
 #include "Asset/AudioClip.h"
 #include "Utilities/SerializationUtils.h"

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cereal/cereal.hpp"
 #include "Reflection/ReflectionFwd.h"
 
