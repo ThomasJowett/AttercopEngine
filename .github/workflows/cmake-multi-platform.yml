@@ -54,6 +54,7 @@ jobs:
       - name: Configure CMake
         run: >
           cmake -B ${{ steps.strings.outputs.build-output-dir }}
+          -Werror=dev -Werror=deprecated
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DATTERCOP_ENABLE_UNITY_BUILD=ON
           -DATTERCOP_STRICT_RENDER_TESTS=ON
@@ -111,7 +112,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build_web -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -S ${{ github.workspace }}
+        run: emcmake cmake -B build_web -Werror=dev -Werror=deprecated -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -S ${{ github.workspace }}
 
       # Building Editor builds Runtime too, and copies it next to the Editor for Export Game
       - name: Build
