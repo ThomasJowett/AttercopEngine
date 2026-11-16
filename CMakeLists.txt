@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-cmake_policy(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 # Oldest macOS the builds run on, the minimum of the prebuilt wgpu-native library; must be set before project()
 if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
