@@ -96,6 +96,8 @@ void StateMachineView::OnAttach()
 	Ref<StateMachine> stateMachine = StateMachineSerializer::Deserialize(m_SavePath);
 
 	if (stateMachine) {
+		if (stateMachine->IsNewerFormat())
+			m_NewerFormatPath = m_SavePath;
 		BuildGraph(stateMachine);
 	}
 	else {
@@ -1217,6 +1219,12 @@ bool StateMachineView::IsReadOnly() const
 
 void StateMachineView::Save()
 {
+	if (!m_NewerFormatPath.empty() && m_SavePath == m_NewerFormatPath)
+	{
+		ENGINE_ERROR("Not saving {0}: it was saved by a newer version of Attercop, and saving would lose what this version can't read", m_SavePath);
+		return;
+	}
+
 	Ref<StateMachine> stateMachine = BuildStateMachine();
 	if (StateMachineSerializer::Serialize(m_SavePath, stateMachine.get()))
 		m_SavedUndoIndex = m_UndoIndex;
