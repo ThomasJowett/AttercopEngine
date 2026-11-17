@@ -309,6 +309,13 @@ namespace Reflection
 			Field().showIf = { reinterpret_cast<ErasedFunction>(predicate), &Detail::CallPredicate<T> };
 			return *this;
 		}
+		// Written to scene files only when the predicate holds, for a value that's otherwise derived, such as a
+		// camera's aspect ratio from the viewport; read whenever it's there
+		FieldBuilder& SaveIf(bool(*predicate)(const T&))
+		{
+			Field().saveIf = { reinterpret_cast<ErasedFunction>(predicate), &Detail::CallPredicate<T> };
+			return *this;
+		}
 		// Saved inside a child element and shown under a heading, only when the predicate holds. The field's
 		// name becomes the group's name followed by its own ("OuterRadius" in "Torus" is "TorusOuterRadius")
 		FieldBuilder& Group(const char* name, bool(*when)(const T&));
