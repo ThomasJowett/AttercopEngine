@@ -41,13 +41,18 @@ RemoveEntityCommand::RemoveEntityCommand(Entity& entity)
 		{
 			m_ParentEntity = Entity(hierarchyComp->parent, m_RemovedEntity.GetScene());
 		}
+		if (hierarchyComp->nextSibling != entt::null)
+			m_NextSiblingID = Entity(hierarchyComp->nextSibling, m_RemovedEntity.GetScene()).GetID();
 	}
 }
 
 void RemoveEntityCommand::Undo()
 {
-	m_RemovedEntity = SceneSerializer::DeserializeEntity(m_RemovedEntity.GetScene(), m_EntityPrefab, false);
-	if (m_ParentEntity)
+	Scene* scene = m_RemovedEntity.GetScene();
+	m_RemovedEntity = SceneSerializer::DeserializeEntity(scene, m_EntityPrefab, false);
+	if (Entity nextSibling = m_NextSiblingID ? scene->GetEntityByID(*m_NextSiblingID) : Entity())
+		SceneGraph::MoveBefore(m_RemovedEntity, nextSibling);
+	else if (m_ParentEntity)
 		SceneGraph::Reparent(m_RemovedEntity, m_ParentEntity);
 }
 
@@ -69,12 +74,17 @@ ReparentEntityCommand::ReparentEntityCommand(Entity& entity, Entity newParent)
 			m_OldParent = Entity(hierarchyComp->parent, m_Entity.GetScene());
 		else
 			m_OldParent = Entity();
+		if (hierarchyComp->nextSibling != entt::null)
+			m_OldNextSiblingID = Entity(hierarchyComp->nextSibling, m_Entity.GetScene()).GetID();
 	}
 }
 
 void ReparentEntityCommand::Undo()
 {
-	if (m_OldParent)
+	Scene* scene = m_Entity.GetScene();
+	if (Entity nextSibling = m_OldNextSiblingID ? scene->GetEntityByID(*m_OldNextSiblingID) : Entity())
+		SceneGraph::MoveBefore(m_Entity, nextSibling);
+	else if (m_OldParent)
 		SceneGraph::Reparent(m_Entity, m_OldParent);
 	else
 		SceneGraph::Unparent(m_Entity);

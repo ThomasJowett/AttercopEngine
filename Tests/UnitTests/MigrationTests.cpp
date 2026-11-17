@@ -2,12 +2,17 @@
 #include "ComponentFixture.h"
 #include "TestHelpers.h"
 
+#include "Core/Application.h"
 #include "Core/Version.h"
+#include "Logging/Logger.h"
 #include "Migration/Migration.h"
+#include "Physics/CollisionLayers.h"
 #include "Scene/Scene.h"
 #include "Scene/SceneSerializer.h"
 
 #include "TinyXml2/tinyxml2.h"
+
+#include <spdlog/sinks/ostream_sink.h>
 
 #include <fstream>
 #include <sstream>
@@ -119,6 +124,9 @@ namespace MigrationTests
 		return false;
 	}
 
+	// No steps: every type at format 1
+	const Migration::StepList k_NoSteps = { 1, 1, {} };
+
 	const Migration::StepList k_TestSteps = { 3, 2, {
 		{ FileType::Scene, 1, "Entities marked", &MarkEntities },
 		{ FileType::Scene, 2, "Marks counted", &CountMarks },
@@ -134,21 +142,70 @@ namespace MigrationTests
 		~TemporaryProject() { std::filesystem::remove_all(directory); }
 	};
 
-	TEST_CASE("Every file type is at format 1 while there are no steps")
+	// Collects the engine's warnings while it exists
+	struct WarningCapture
 	{
-		CHECK(Migration::CurrentVersion(FileType::Scene) == 1);
-		CHECK(Migration::CurrentVersion(FileType::StateMachine) == 1);
-		CHECK(Migration::CurrentVersion(FileType::Project) == 1);
+		std::ostringstream stream;
+		std::shared_ptr<spdlog::sinks::ostream_sink_mt> sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(stream);
+
+		WarningCapture()
+		{
+			sink->set_level(spdlog::level::warn);
+			Logger::GetEngineLogger()->sinks().push_back(sink);
+		}
+		~WarningCapture()
+		{
+			std::vector<spdlog::sink_ptr>& sinks = Logger::GetEngineLogger()->sinks();
+			sinks.erase(std::remove(sinks.begin(), sinks.end(), sink), sinks.end());
+		}
+		std::string Text()
+		{
+			Logger::GetEngineLogger()->flush();
+			return stream.str();
+		}
+	};
+
+	// A format 1 scene upgraded by the engine's steps, printed
+	std::string UpgradeScene(const std::string& before, Migration::Report& report)
+	{
+		tinyxml2::XMLDocument document;
+		REQUIRE(document.Parse(before.c_str()) == tinyxml2::XML_SUCCESS);
+		REQUIRE(Migration::Upgrade(FileType::Scene, document, "Step.scene", report) == Result::Upgraded);
+		return Print(document);
 	}
 
-	TEST_CASE("A version 1 document is up to date and unchanged")
+	std::string Printed(const std::string& xml)
+	{
+		tinyxml2::XMLDocument document;
+		REQUIRE(document.Parse(xml.c_str()) == tinyxml2::XML_SUCCESS);
+		return Print(document);
+	}
+
+	// One entity's components, before and after the step from format 1
+	void CheckStep(const std::string& before, const std::string& after, size_t warnings = 0)
+	{
+		Migration::Report report;
+		CHECK(UpgradeScene("<Scene EngineVersion=\"3\"><Entity Name=\"E\" ID=\"1-2\">" + before + "</Entity></Scene>", report)
+			== Printed("<Scene FormatVersion=\"2\"><Entity Name=\"E\" ID=\"1-2\">" + after + "</Entity></Scene>"));
+		CHECK(report.warnings.size() == warnings);
+	}
+
+	TEST_CASE("Scenes are at format 2 and the project number follows")
+	{
+		CHECK(Migration::CurrentVersion(FileType::Scene) == 2);
+		CHECK(Migration::CurrentVersion(FileType::StateMachine) == 1);
+		CHECK(Migration::CurrentVersion(FileType::Project) == 2);
+		CHECK(Migration::CurrentVersion(FileType::Project, k_NoSteps) == 1);
+	}
+
+	TEST_CASE("A document at the current format is up to date and unchanged")
 	{
 		tinyxml2::XMLDocument document;
 		REQUIRE(document.Parse(k_SceneVersion1) == tinyxml2::XML_SUCCESS);
 		const std::string before = Print(document);
 
 		Migration::Report report;
-		CHECK(Migration::Upgrade(FileType::Scene, document, "Version1.scene", report) == Result::UpToDate);
+		CHECK(Migration::Upgrade(FileType::Scene, document, "Version1.scene", report, k_NoSteps) == Result::UpToDate);
 		CHECK(Print(document) == before);
 		CHECK(report.steps.empty());
 		CHECK(report.errors.empty());
@@ -381,7 +438,7 @@ namespace MigrationTests
 		WriteFile(projectFile, k_Project);
 		WriteFile(project.directory / "Scenes/Good.scene", k_SceneVersion1);
 
-		Migration::ProjectReport report = Migration::UpgradeProject(projectFile);
+		Migration::ProjectReport report = Migration::UpgradeProject(projectFile, k_NoSteps);
 		CHECK(report.Succeeded());
 		CHECK(report.upgraded.empty());
 		CHECK_FALSE(report.projectRaised);
@@ -425,7 +482,6 @@ namespace MigrationTests
 		const std::filesystem::path format1 = RepositoryPath("Tests/UnitTests/Data/Format1");
 		const std::filesystem::path counterparts[] = {
 			RepositoryPath("Tests/Scenes/Scenes"),
-			RepositoryPath("Tests/Render/Scenes"),
 			RepositoryPath("Tests/Scenes/StateMachines"),
 		};
 
@@ -445,6 +501,9 @@ namespace MigrationTests
 					counterpart = directory / path.filename();
 			REQUIRE_FALSE(counterpart.empty());
 
+			// The project's layer names, as SceneTest --upgrade-project loads them
+			CollisionLayers::LoadNames(counterpart.parent_path().parent_path() / CollisionLayers::FilePath);
+
 			tinyxml2::XMLDocument old, current;
 			REQUIRE(old.LoadFile(path.string().c_str()) == tinyxml2::XML_SUCCESS);
 			REQUIRE(current.LoadFile(counterpart.string().c_str()) == tinyxml2::XML_SUCCESS);
@@ -454,6 +513,7 @@ namespace MigrationTests
 			CHECK(Print(old) == Print(current));
 			++compared;
 		}
+		CollisionLayers::SetNames(CollisionLayers::DefaultNames());
 		CHECK(compared == 9);
 	}
 
@@ -470,5 +530,165 @@ namespace MigrationTests
 		tinyxml2::XMLElement* entity = document.RootElement()->FirstChildElement("Entity");
 		REQUIRE(entity);
 		ComponentFixture::Check(SceneSerializer::DeserializeEntity(&scene, entity));
+	}
+
+	TEST_CASE("The scene step from format 1 rewrites each difference in the table")
+	{
+		SUBCASE("Camera: <SceneCamera> folded in, ProjectionType as Projection by name, FOV as Fov")
+		{
+			CheckStep(R"(<Camera Primary="true" FixedAspectRatio="true"><SceneCamera ProjectionType="1" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819" AspectRatio="2"/></Camera>)",
+				R"(<Camera Primary="true" FixedAspectRatio="true" Projection="Orthographic" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819" AspectRatio="2"/>)");
+			CheckStep(R"(<Camera Primary="false" FixedAspectRatio="false"><SceneCamera ProjectionType="0" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.5" PerspectiveFar="100" FOV="1"/></Camera>)",
+				R"(<Camera Primary="false" FixedAspectRatio="false" Projection="Perspective" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.5" PerspectiveFar="100" Fov="1"/>)");
+		}
+
+		SUBCASE("Sprite: filter and wrap moved onto <Sprite> as names")
+		{
+			CheckStep(R"(<Sprite TilingFactor="1"><Texture Filepath="Sprites/Player.png" FilterMethod="1" WrapMethod="2"/><Tint R="1" G="1" B="1" A="1"/></Sprite>)",
+				R"(<Sprite TilingFactor="1" FilterMethod="Nearest" WrapMethod="Repeat"><Texture Filepath="Sprites/Player.png"/><Tint R="1" G="1" B="1" A="1"/></Sprite>)");
+			CheckStep(R"(<Sprite TilingFactor="2"><Texture Filepath="a.png" FilterMethod="0" WrapMethod="1"/></Sprite>)",
+				R"(<Sprite TilingFactor="2" FilterMethod="Linear" WrapMethod="Mirror"><Texture Filepath="a.png"/></Sprite>)");
+			CheckStep(R"(<Sprite TilingFactor="1"><Tint R="1" G="1" B="1" A="1"/></Sprite>)",
+				R"(<Sprite TilingFactor="1"><Tint R="1" G="1" B="1" A="1"/></Sprite>)");
+		}
+
+		SUBCASE("RigidBody2D: BodyType as Type, by name")
+		{
+			CheckStep(R"(<RigidBody2D BodyType="2" FixedRotation="true"/>)", R"(<RigidBody2D Type="Dynamic" FixedRotation="true"/>)");
+			CheckStep(R"(<RigidBody2D BodyType="0"/>)", R"(<RigidBody2D Type="Static"/>)");
+			CheckStep(R"(<RigidBody2D BodyType="1"/>)", R"(<RigidBody2D Type="Kinematic"/>)");
+		}
+
+		SUBCASE("Primitive: Type by name")
+		{
+			const char* shapes[] = { "Cube", "Sphere", "Plane", "Cylinder", "Cone", "Torus" };
+			for (int i = 0; i < 6; ++i)
+				CheckStep("<Primitive Type=\"" + std::to_string(i) + "\"/>", std::string("<Primitive Type=\"") + shapes[i] + "\"/>");
+		}
+
+		SUBCASE("CapsuleCollider2D: Direction by name")
+		{
+			CheckStep(R"(<CapsuleCollider2D Direction="0" Radius="0.5"/>)", R"(<CapsuleCollider2D Direction="Vertical" Radius="0.5"/>)");
+			CheckStep(R"(<CapsuleCollider2D Direction="1"/>)", R"(<CapsuleCollider2D Direction="Horizontal"/>)");
+		}
+
+		SUBCASE("Billboard: Orientation by name")
+		{
+			CheckStep(R"(<Billboard Orientation="0"/>)", R"(<Billboard Orientation="WorldUp"/>)");
+			CheckStep(R"(<Billboard Orientation="1"/>)", R"(<Billboard Orientation="Camera"/>)");
+		}
+
+		SUBCASE("Button: each texture's filter and wrap moved onto <Button> as names")
+		{
+			CheckStep(R"(<Button><NormalTexture Filepath="n.png" FilterMethod="1" WrapMethod="0"/><ClickedTexture Filepath="c.png" FilterMethod="0" WrapMethod="2"/><NormalTint R="1" G="1" B="1" A="1"/></Button>)",
+				R"(<Button NormalFilterMethod="Nearest" ClickedFilterMethod="Linear" NormalWrapMethod="Clamp" ClickedWrapMethod="Repeat"><NormalTexture Filepath="n.png"/><ClickedTexture Filepath="c.png"/><NormalTint R="1" G="1" B="1" A="1"/></Button>)");
+		}
+
+		SUBCASE("BehaviourTree: an absolute path made relative to the project")
+		{
+			const std::filesystem::path absolute = std::filesystem::absolute(Application::GetOpenDocumentDirectory()) / "AI" / "Enemy.behaviourtree";
+			CheckStep("<BehaviourTree Filepath=\"" + absolute.generic_string() + "\"/>", R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)");
+			CheckStep(R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)", R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)");
+		}
+
+		SUBCASE("Colliders and tilemaps: Layer and Mask by name")
+		{
+			CollisionLayers::Names names = CollisionLayers::DefaultNames();
+			names[1] = "Player";
+			names[3] = "Enemy";
+			CollisionLayers::SetNames(names);
+
+			for (const char* component : { "BoxCollider2D", "CircleCollider2D", "CapsuleCollider2D", "PolygonCollider2D", "Tilemap" })
+			{
+				CAPTURE(component);
+				const std::string name = component;
+				CheckStep("<" + name + R"( IsTrigger="false" Layer="2" Mask="13"/>)", "<" + name + R"( IsTrigger="false" Layer="Player" Mask="Default, Layer 2, Enemy"/>)");
+				CheckStep("<" + name + R"( Layer="1" Mask="65535"/>)", "<" + name + R"( Layer="Default" Mask="Everything"/>)");
+				CheckStep("<" + name + R"( Layer="32" Mask="0"/>)", "<" + name + R"( Layer="Layer 5" Mask="Nothing"/>)");
+			}
+			// Not one layer: the lowest, or Default for none, with a warning
+			CheckStep(R"(<BoxCollider2D Layer="10" Mask="2"/>)", R"(<BoxCollider2D Layer="Player" Mask="Player"/>)", 1);
+			CheckStep(R"(<BoxCollider2D Layer="0"/>)", R"(<BoxCollider2D Layer="Default"/>)", 1);
+
+			CollisionLayers::SetNames(CollisionLayers::DefaultNames());
+		}
+
+		SUBCASE("StaticMesh: 0.0.1's <MaterialOverride> per submesh as slots, with a warning")
+		{
+			CheckStep(R"(<StaticMesh Filepath="m.staticmesh"><MaterialOverride Filepath="a.material"/><MaterialOverride Filepath="b.material"/></StaticMesh>)",
+				R"(<StaticMesh Filepath="m.staticmesh"><Material Slot="0" Filepath="a.material"/><Material Slot="1" Filepath="b.material"/></StaticMesh>)", 1);
+			CheckStep(R"(<StaticMesh Filepath="m.staticmesh"><Material Slot="2" Filepath="a.material"/></StaticMesh>)",
+				R"(<StaticMesh Filepath="m.staticmesh"><Material Slot="2" Filepath="a.material"/></StaticMesh>)");
+		}
+
+		SUBCASE("An unknown number is kept, with a warning, for the loader to report")
+		{
+			CheckStep(R"(<RigidBody2D BodyType="7"/>)", R"(<RigidBody2D Type="7"/>)", 1);
+		}
+
+		SUBCASE("Child entities and pasted entities are upgraded too")
+		{
+			CheckStep(R"(<Entity Name="Child" ID="3-4"><Billboard Orientation="1"/></Entity>)",
+				R"(<Entity Name="Child" ID="3-4"><Billboard Orientation="Camera"/></Entity>)");
+
+			tinyxml2::XMLDocument document;
+			REQUIRE(document.Parse(R"(<Entity Name="E" ID="1-2"><Billboard Orientation="1"/></Entity>)") == tinyxml2::XML_SUCCESS);
+			Migration::Report report;
+			CHECK(Migration::Upgrade(FileType::Scene, document, "the pasted entity", report) == Result::Upgraded);
+			CHECK(Print(document) == Printed(R"(<Entity Name="E" ID="1-2" FormatVersion="2"><Billboard Orientation="Camera"/></Entity>)"));
+		}
+
+		SUBCASE("Everything else is left as it was")
+		{
+			const std::string same = R"(<Transform><Position X="1" Y="2" Z="3"/></Transform><Text MaxWidth="5">Hi<Colour R="1" G="1" B="1" A="1"/></Text><Tilemap Orientation="Isometric" TilesWide="2" TilesHigh="1">1,2</Tilemap><AudioSource Filepath="a.wav" Volume="0.5"/>)";
+			CheckStep(same, same);
+		}
+	}
+
+	TEST_CASE("An unknown collision layer name loads as Default with a warning naming the file and line")
+	{
+		CollisionLayers::SetNames(CollisionLayers::DefaultNames());
+		WarningCapture warnings;
+
+		Scene scene("");
+		Entity entity = SceneSerializer::DeserializeEntity(&scene, R"(<Entity Name="E" ID="1-2" FormatVersion="2">
+<BoxCollider2D Layer="Nope" Mask="Default, Gone"/>
+</Entity>)");
+		REQUIRE(entity.HasComponent<BoxCollider2DComponent>());
+		CHECK(entity.GetComponent<BoxCollider2DComponent>().layer == CollisionLayers::DefaultLayer);
+		CHECK(entity.GetComponent<BoxCollider2DComponent>().mask == CollisionLayers::DefaultLayer);
+
+		const std::string text = warnings.Text();
+		CHECK(text.find("Unknown collision layer \"Nope\" (the pasted entity, line 2), using Default") != std::string::npos);
+		CHECK(text.find("Unknown collision layer \"Gone\" in a mask (the pasted entity, line 2), left out") != std::string::npos);
+	}
+
+	TEST_CASE("Unknown components, attributes and elements are warned about with the file and line")
+	{
+		WarningCapture warnings;
+
+		Scene scene("");
+		Entity entity = SceneSerializer::DeserializeEntity(&scene, R"(<Entity Name="E" ID="1-2" FormatVersion="2" Colour="red">
+<Sprite TilingFactr="2">
+<Tint R="0.5" Q="1"/>
+<Shadow/>
+</Sprite>
+<Sparkles/>
+</Entity>)");
+		REQUIRE(entity.HasComponent<SpriteComponent>());
+		CHECK(entity.GetComponent<SpriteComponent>().tint.r == 0.5f);
+		CHECK(entity.GetComponent<SpriteComponent>().tilingFactor == 1.0f);
+
+		const std::string text = warnings.Text();
+		for (const char* expected : {
+			"Unknown attribute Colour on <Entity>, ignored (the pasted entity, line 1)",
+			"Unknown attribute TilingFactr on <Sprite>, ignored (the pasted entity, line 2)",
+			"Unknown attribute Q on <Tint>, ignored (the pasted entity, line 3)",
+			"Unknown element <Shadow> in <Sprite>, ignored (the pasted entity, line 4)",
+			"Unknown component <Sparkles>, ignored (the pasted entity, line 6)" })
+		{
+			INFO(expected);
+			CHECK(text.find(expected) != std::string::npos);
+		}
 	}
 }

@@ -31,9 +31,17 @@ public:
 	static void Remove(Entity entity);
 	static void MoveBefore(Entity entity, Entity before);
 	static void MoveAfter(Entity entity, Entity after);
+	// Links an entity with no parent as the scene's last root
+	static void AppendRoot(Entity entity);
+	// The scene's roots, in order
+	static std::vector<Entity> GetRoots(Scene& scene);
+	// Links every entity with no parent as a root, in registry order
+	static void RelinkRoots(Scene& scene);
 	static std::vector<Entity> GetChildren(Entity entity);
 	static entt::entity FindEntity(const std::vector<std::string>& path, entt::registry& registry);
 private:
+	// Unlinks the entity from its parent's children, or from the roots
+	static void Detach(Entity entity);
 	static entt::entity FindDirtyRoot(entt::registry& registry, entt::entity entity);
 	static void UpdateSubtree(entt::registry& registry, entt::entity root, std::vector<entt::entity>& stack);
 	static void MarkDirty(entt::registry& registry, entt::entity entity);

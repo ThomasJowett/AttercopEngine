@@ -84,6 +84,8 @@ Entity Scene::CreateEntity(Uuid id, const std::string& name)
 	Entity entity(m_Registry.create(), this, name);
 	entity.AddComponent<IDComponent>(id);
 	entity.AddComponent<NameComponent>(name.empty() ? "Unnamed Entity" : name);
+	entity.AddComponent<HierarchyComponent>();
+	SceneGraph::AppendRoot(entity);
 	m_Dirty = true;
 	return entity;
 }
@@ -91,14 +93,8 @@ Entity Scene::CreateEntity(Uuid id, const std::string& name)
 void Scene::InstantiateScene(const Ref<Scene> prefab, const Vector3f& position)
 {
 	PROFILE_FUNCTION();
-	prefab->GetRegistry().each([=](const entt::entity entity) {
-		Entity prefabEntity(entity, prefab.get());
-		if (HierarchyComponent* hierarchyComp = prefabEntity.TryGetComponent<HierarchyComponent>())
-			if (hierarchyComp->parent != entt::null)
-				return;
-
-		InstantiateEntity(prefabEntity, position);
-		});
+	for (Entity root : SceneGraph::GetRoots(*prefab))
+		InstantiateEntity(root, position);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -242,6 +238,8 @@ void Scene::OnRuntimeStart(bool createSnapshot)
 		std::stringstream().swap(m_Snapshot);
 		cereal::BinaryOutputArchive output(m_Snapshot);
 		entt::snapshot(m_Registry).entities(output).component<COMPONENTS>(output);
+		m_SnapshotFirstRoot = m_FirstRoot;
+		m_SnapshotLastRoot = m_LastRoot;
 	}
 
 	m_Registry.view<LuaScriptComponent>().each(
@@ -368,6 +366,8 @@ void Scene::OnRuntimeStop()
 		m_Registry = entt::registry();
 		cereal::BinaryInputArchive input(m_Snapshot);
 		entt::snapshot_loader(m_Registry).entities(input).component<COMPONENTS>(input);
+		m_FirstRoot = m_SnapshotFirstRoot;
+		m_LastRoot = m_SnapshotLastRoot;
 	}
 	std::stringstream().swap(m_Snapshot);
 
@@ -1036,6 +1036,7 @@ bool Scene::Load(bool binary)
 		cereal::BinaryInputArchive input(file);
 		entt::snapshot_loader(m_Registry).entities(input).component<COMPONENTS>(input);
 		file.close();
+		SceneGraph::RelinkRoots(*this);
 	}
 	else
 	{

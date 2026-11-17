@@ -1,6 +1,9 @@
 #pragma once
 #include "HistoryManager.h"
 #include "Scene/Entity.h"
+#include "Core/UUID.h"
+
+#include <optional>
 
 class AddEntityCommand : public HistoryRecord
 {
@@ -28,6 +31,8 @@ public:
 private:
 	Entity m_RemovedEntity;
 	Entity m_ParentEntity;
+	// The sibling or root after it, so undo puts it back in place
+	std::optional<Uuid> m_NextSiblingID;
 	std::string m_EntityPrefab;
 };
 
@@ -45,6 +50,8 @@ private:
 	Entity m_Entity;
 	Entity m_NewParent;
 	Entity m_OldParent;
+	// The sibling or root it was before, so undo puts it back in place
+	std::optional<Uuid> m_OldNextSiblingID;
 };
 
 class MoveSiblingCommand : public HistoryRecord
