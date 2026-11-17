@@ -95,6 +95,7 @@ Put new code in the folder that matches what it does; `Core/` is only for the ap
 - `Renderer/`: the renderer, `Renderer2D`, render pipeline, post-processing and the abstract GPU types (buffers, framebuffers, pipelines, textures).
 - `Platform/`: backend implementations: `OpenGL/`, `WebGPU/`, `Null/` (headless) and `Web/` (browser-only code, only compiled in Emscripten builds).
 - `Scene/`: scenes, entities, components, the scene graph, serialisation and the asset manager.
+- `Migration/`: upgrades scenes, assets and project files from older formats, one step per format change.
 - `Physics/`: 2D physics, collision layers and physics debug drawing.
 - `Scripting/`: Lua bindings and the Lua manager.
 - `AI/`, `Animation/`, `Events/`, `Logging/`, `ImGui/`: behaviour trees and pathfinding, animation, the event system, logging and profiling, and Dear ImGui integration.

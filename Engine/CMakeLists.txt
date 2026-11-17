@@ -7,6 +7,7 @@ file(GLOB_RECURSE ENGINE_FILES
     src/Input/*.cpp
     src/Logging/*.cpp
     src/Math/*.cpp
+    src/Migration/*.cpp
     src/Particles/*.cpp
     src/Physics/*.cpp
     src/Reflection/*.cpp
