@@ -135,6 +135,8 @@ private:
 
 	std::filesystem::path m_Filepath; // Key the viewer is registered under
 	std::filesystem::path m_SavePath;
+	// The file it was opened from, when that's in a newer format and mustn't be saved over
+	std::filesystem::path m_NewerFormatPath;
 
 	NodeEditor::EditorContext* m_NodeEditorContext = nullptr;
 
