@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8"/>
     <Entity Name="Camera" ID="7516283163723574846-10447636184718803802">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Orthogonal" ID="1730772980358328161-12096636223097118286">
         <Transform>
@@ -16,7 +14,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Tilemap Filepath="Tilesets/Square.tileset" TilesWide="8" TilesHigh="8" TileWidth="10" TileHeight="10" Orientation="Orthogonal" IsTrigger="false">
+        <Tilemap Filepath="Tilesets/Orthogonal.tileset" TilesWide="8" TilesHigh="8" TileWidth="10" TileHeight="10" Orientation="Orthogonal" IsTrigger="false">
 0,2,1,2,1,0,1,2,
 2,1,2,1,0,1,2,1,
 1,2,1,0,1,2,1,2,

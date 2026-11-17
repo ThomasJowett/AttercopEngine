@@ -1,3 +1,0 @@
-<Tileset EngineVersion="1" TileWidth="32" TileHeight="32">
-    <Texture Filepath="Tiles/Isometric.png" FilterMethod="1" WrapMethod="0"/>
-</Tileset>

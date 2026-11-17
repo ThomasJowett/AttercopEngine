@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-1"/>
     <Entity Name="Camera" ID="17485029721327973432-7283207964119141687">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="16" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="16" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Level" ID="890727360438182992-15149836622520594227">
         <Transform>
@@ -16,7 +14,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Tilemap Filepath="Tilesets/Pathfinding.tileset" TilesWide="24" TilesHigh="14" TileWidth="16" TileHeight="16" Orientation="Orthogonal" IsTrigger="false" Layer="2" Mask="65535">
+        <Tilemap Filepath="Tilesets/Orthogonal.tileset" TilesWide="24" TilesHigh="14" TileWidth="16" TileHeight="16" Orientation="Orthogonal" IsTrigger="false" Layer="World" Mask="Everything">
 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,
 2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,2,2,2,2,1,1,1,2,
@@ -49,8 +47,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="0.80000001" Y="0.80000001" Z="1"/>
         </Transform>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="0" AngularDamping="0" LinearDamping="0"/>
-        <CircleCollider2D Radius="0.5" IsTrigger="false" Layer="4" Mask="65531">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="0" AngularDamping="0" LinearDamping="0"/>
+        <CircleCollider2D Radius="0.5" IsTrigger="false" Layer="Player" Mask="Default, World, Enemy, Pickup, Layer 5, Layer 6, Layer 7, Layer 8, Layer 9, Layer 10, Layer 11, Layer 12, Layer 13, Layer 14, Layer 15">
             <Offset X="0" Y="0"/>
         </CircleCollider2D>
         <CircleRenderer Radius="0.5" Thickness="1" Fade="0.02">

@@ -26,8 +26,9 @@ if (MSVC)
     target_compile_options(SceneTest PRIVATE "/utf-8")
 endif()
 
-# Every scene in Scenes/Scenes ending in Test.scene is one test
+# Every scene in Scenes/Scenes ending in Test.scene is one test, apart from the render tests below
 file(GLOB TEST_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Scenes/Scenes/*Test.scene)
+list(FILTER TEST_SCENES EXCLUDE REGEX "RenderTest\\.scene$")
 foreach(scene ${TEST_SCENES})
     get_filename_component(name ${scene} NAME_WE)
     add_test(NAME ${name}
@@ -36,8 +37,8 @@ foreach(scene ${TEST_SCENES})
     set_tests_properties(${name} PROPERTIES TIMEOUT 60 LABELS scene)
 endforeach()
 
-# Every scene in Render/Scenes ending in RenderTest.scene is drawn on each backend and compared with the same image in Render/Golden
-file(GLOB RENDER_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Render/Scenes/*RenderTest.scene)
+# Every scene in Scenes/Scenes ending in RenderTest.scene is drawn on each backend and compared with the same image in Render/Golden
+file(GLOB RENDER_SCENES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Scenes/Scenes/*RenderTest.scene)
 option(ATTERCOP_STRICT_RENDER_TESTS "Fail render tests on any difference from the goldens, as on the reference CI runner" OFF)
 set(RENDER_STRICT)
 if (ATTERCOP_STRICT_RENDER_TESTS)
@@ -51,7 +52,7 @@ foreach(api ${RENDER_APIS})
     foreach(scene ${RENDER_SCENES})
         get_filename_component(name ${scene} NAME_WE)
         add_test(NAME Render.${api}.${name}
-            COMMAND SceneTest --project ${CMAKE_CURRENT_SOURCE_DIR}/Render/Render.proj --scene ${scene}
+            COMMAND SceneTest --project ${CMAKE_CURRENT_SOURCE_DIR}/Scenes/Tests.proj --scene ${scene}
                 --api ${api} --size 320x180 --frames 600 --timeout 60 --require-verdict ${RENDER_STRICT}
                 --golden ${CMAKE_CURRENT_SOURCE_DIR}/Render/Golden --output ${CMAKE_CURRENT_BINARY_DIR}/render/${api}
                 --log ${CMAKE_CURRENT_BINARY_DIR}/logs/Render.${api}.${name}.txt)
@@ -65,7 +66,11 @@ file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
     UnitTests/*.h
 )
 
-add_executable(UnitTests ${UNIT_TEST_SOURCES})
+add_executable(UnitTests ${UNIT_TEST_SOURCES}
+    # The Editor's history commands only use the engine, so undo is tested here
+    ${CMAKE_SOURCE_DIR}/Editor/src/History/HistoryCommands.cpp
+)
+target_include_directories(UnitTests PRIVATE ${CMAKE_SOURCE_DIR}/Editor/src)
 # main.cpp holds doctest's implementation, compiled outside unity batches
 set_source_files_properties(UnitTests/main.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 if (NOT MSVC)

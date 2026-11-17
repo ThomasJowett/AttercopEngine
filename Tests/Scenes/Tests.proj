@@ -1,5 +1,5 @@
-<Project EngineVersion="1">
+<Project EngineVersion="3" FormatVersion="2">
     <DefaultScene Filepath="Scenes/AppQuitTest.scene"/>
-    <Description>Automated scene tests, run headless by SceneTest through CTest</Description>
-    <SpriteAtlasPageSize>2048</SpriteAtlasPageSize>
+    <Description>Automated scene and render tests, run by SceneTest through CTest; render tests are compared with Render/Golden</Description>
+    <SpriteAtlasPageSize>256</SpriteAtlasPageSize>
 </Project>
