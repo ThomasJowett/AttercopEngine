@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8"/>
     <Entity Name="Camera" ID="8085345776290805043-8298225868178858041">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Backdrop" ID="9054630760525187379-166258074481852583">
         <Transform>
@@ -26,8 +24,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="8" Y="8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Linear" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Soft.png"/>
             <Tint R="1" G="0.2" B="0.2" A="0.8"/>
         </Sprite>
     </Entity>
@@ -37,8 +35,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="8" Y="8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Linear" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Soft.png"/>
             <Tint R="0.2" G="1" B="0.2" A="0.6"/>
         </Sprite>
     </Entity>
@@ -48,8 +46,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="8" Y="8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Soft.png" FilterMethod="0" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Linear" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Soft.png"/>
             <Tint R="0.2" G="0.4" B="1" A="0.4"/>
         </Sprite>
     </Entity>

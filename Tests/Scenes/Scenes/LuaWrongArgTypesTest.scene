@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8100004"/>
     <Entity Name="Main Camera" ID="7524800600701863497-3271288061027817505">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="0" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Title" ID="2686472687874111083-5741093644855839958">
         <Transform>
@@ -27,8 +25,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.7" G="0.7" B="0.7" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>

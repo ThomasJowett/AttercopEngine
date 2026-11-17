@@ -1,0 +1,6 @@
+<SpriteAtlas PageSize="256">
+    <Page Index="0" File="Page0.png"/>
+    <Region Path="Sprites/Colours.png" Page="0" X="34" Y="2" W="4" H="4" MTime="1794688263317279333" Size="136"/>
+    <Region Path="Sprites/Letter.png" Page="0" X="22" Y="2" W="8" H="8" MTime="1794688263317583625" Size="121"/>
+    <Region Path="Sprites/Soft.png" Page="0" X="2" Y="2" W="16" H="16" MTime="1794688263317761166" Size="342"/>
+</SpriteAtlas>

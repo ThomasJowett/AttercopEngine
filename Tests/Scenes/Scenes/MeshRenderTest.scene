@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8"/>
     <Entity Name="Camera" ID="17835588207939346872-6055322847075048399">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="-0.25" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="0" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Cube" ID="13681125585053631226-2926487001836714625">
         <Transform>
@@ -16,7 +14,7 @@
             <Rotation X="0.4" Y="0.6" Z="0"/>
             <Scale X="1.5" Y="1.5" Z="1.5"/>
         </Transform>
-        <Primitive Type="0">
+        <Primitive Type="Cube">
             <Material Filepath="Materials/Colours.material"/>
             <Cube Width="1" Height="1" Depth="1"/>
         </Primitive>
@@ -27,7 +25,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Primitive Type="1">
+        <Primitive Type="Sphere">
             <Sphere Radius="0.75" LongitudeLines="16" LatitudeLines="32"/>
         </Primitive>
     </Entity>
@@ -37,7 +35,7 @@
             <Rotation X="1.0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Primitive Type="5">
+        <Primitive Type="Torus">
             <Torus OuterRadius="0.8" InnerRadius="0.3" SliceCount="32"/>
         </Primitive>
     </Entity>

@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8"/>
     <Entity Name="Camera" ID="3515999735428679573-16049958269883192001">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Large" ID="13630619707938725459-3184917165540757861">
         <Transform>

@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8"/>
     <Entity Name="Camera" ID="1754635577279035425-18290247976235496409">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Colours Nearest" ID="6995835857261290832-14580842913755687223">
         <Transform>
@@ -16,8 +14,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Colours.png" FilterMethod="1" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Nearest" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Colours.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -27,8 +25,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Colours.png" FilterMethod="0" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Linear" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Colours.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -38,8 +36,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Nearest" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -49,8 +47,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="0" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Linear" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -71,8 +69,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="2">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="2"/>
+        <Sprite TilingFactor="2" FilterMethod="Nearest" WrapMethod="Repeat">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -82,8 +80,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="2">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="1"/>
+        <Sprite TilingFactor="2" FilterMethod="Nearest" WrapMethod="Mirror">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -93,8 +91,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="2">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="0"/>
+        <Sprite TilingFactor="2" FilterMethod="Nearest" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="1" B="1" A="1"/>
         </Sprite>
     </Entity>
@@ -104,8 +102,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="4.8" Y="4.8" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Letter.png" FilterMethod="1" WrapMethod="0"/>
+        <Sprite TilingFactor="1" FilterMethod="Nearest" WrapMethod="Clamp">
+            <Texture Filepath="Sprites/Letter.png"/>
             <Tint R="1" G="0.5" B="0.25" A="1"/>
         </Sprite>
     </Entity>

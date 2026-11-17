@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8100004"/>
     <Entity Name="Main Camera" ID="2782515162868888147-6086489932850137559">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="0" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Title" ID="7969660371267714795-6001557516962662372">
         <Transform>
@@ -35,8 +33,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.2" G="0.4" B="0.9" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -49,8 +47,8 @@
             <Sprite TilingFactor="1">
                 <Tint R="0.9" G="0.6" B="0.2" A="1"/>
             </Sprite>
-            <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-            <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+            <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+            <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
                 <Offset X="0" Y="0"/>
                 <Size X="0.5" Y="0.5"/>
             </BoxCollider2D>
@@ -66,8 +64,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.3" G="0.3" B="0.35" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>

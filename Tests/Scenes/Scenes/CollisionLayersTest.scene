@@ -1,4 +1,4 @@
-<Scene EngineVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.8100004"/>
     <Entity Name="Main Camera" ID="1026847926404610461-6839596180442651345">
         <Transform>
@@ -6,9 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="0" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
     </Entity>
     <Entity Name="Title" ID="2258728696626565719-1287010195568088798">
         <Transform>
@@ -43,8 +41,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -59,8 +57,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -82,8 +80,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -98,8 +96,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="2" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="World" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -121,8 +119,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="65533">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Default, Player, Enemy, Pickup, Layer 5, Layer 6, Layer 7, Layer 8, Layer 9, Layer 10, Layer 11, Layer 12, Layer 13, Layer 14, Layer 15">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -137,8 +135,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="2" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="World" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -160,8 +158,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -176,8 +174,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="2" Mask="65531">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="World" Mask="Default, World, Enemy, Pickup, Layer 5, Layer 6, Layer 7, Layer 8, Layer 9, Layer 10, Layer 11, Layer 12, Layer 13, Layer 14, Layer 15">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -199,8 +197,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -215,8 +213,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.94999999" G="0.80000001" B="0.1" A="0.5"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="true" Layer="16" Mask="4">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="true" Layer="Pickup" Mask="Player">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -238,8 +236,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -254,8 +252,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.94999999" G="0.80000001" B="0.1" A="0.5"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="true" Layer="16" Mask="65531">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="true" Layer="Pickup" Mask="Default, World, Enemy, Pickup, Layer 5, Layer 6, Layer 7, Layer 8, Layer 9, Layer 10, Layer 11, Layer 12, Layer 13, Layer 14, Layer 15">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -277,8 +275,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="0">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="Nothing">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -293,8 +291,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="1" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -313,8 +311,8 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <CircleCollider2D Radius="0.5" IsTrigger="false" Layer="8" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <CircleCollider2D Radius="0.5" IsTrigger="false" Layer="Enemy" Mask="Everything">
             <Offset X="0" Y="0"/>
         </CircleCollider2D>
         <CircleRenderer Radius="0.5" Thickness="1" Fade="0.0049999999">
@@ -331,8 +329,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <PolygonCollider2D IsTrigger="false" Layer="2" Mask="65527">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <PolygonCollider2D IsTrigger="false" Layer="World" Mask="Default, World, Player, Pickup, Layer 5, Layer 6, Layer 7, Layer 8, Layer 9, Layer 10, Layer 11, Layer 12, Layer 13, Layer 14, Layer 15">
             <Offset X="0" Y="0"/>
             <Vertex X="-0.5" Y="-0.5"/>
             <Vertex X="0.5" Y="-0.5"/>
@@ -357,8 +355,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.7019608" G="0.7019608" B="0.7019608" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <CapsuleCollider2D Direction="0" Radius="0.34999999" Height="1" IsTrigger="false" Layer="8" Mask="65535">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <CapsuleCollider2D Direction="Vertical" Radius="0.34999999" Height="1" IsTrigger="false" Layer="Enemy" Mask="Everything">
             <Offset X="0" Y="0"/>
         </CapsuleCollider2D>
         <LuaScript Filepath="Scripts/CollisionLayers/ExpectContact.lua"/>
@@ -372,8 +370,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.30000001" G="0.30000001" B="0.34999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="2" Mask="65535">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="World" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
@@ -395,8 +393,8 @@
         <Sprite TilingFactor="1">
             <Tint R="0.69999999" G="0.69999999" B="0.69999999" A="1"/>
         </Sprite>
-        <RigidBody2D BodyType="0" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
-        <BoxCollider2D IsTrigger="false" Layer="4" Mask="18">
+        <RigidBody2D Type="Static" FixedRotation="true" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Player" Mask="World, Pickup">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>
