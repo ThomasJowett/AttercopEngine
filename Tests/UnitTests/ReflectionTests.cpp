@@ -4,10 +4,20 @@
 
 #include "Reflection/Describe.h"
 #include "Reflection/Reflection.h"
+#include "Reflection/SceneXml.h"
+#include "History/HistoryCommands.h"
 #include "Physics/CollisionLayers.h"
 #include "Scene/Components.h"
+#include "Scene/SceneGraph.h"
+#include "Scene/SceneSerializer.h"
 #include "Utilities/GeometryGenerator.h"
 
+#include "TinyXml2/tinyxml2.h"
+
+#include <cfloat>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
 #include <set>
 #include <string>
 #include <vector>
@@ -592,10 +602,9 @@ TEST_CASE("Set checks enums, assets and layers fit the field")
 	CHECK(Set(root, Path("Primitive.Material"), AssetValue{}, ChangeSource::Lua));
 	CHECK(root.GetComponent<PrimitiveComponent>().material == nullptr);
 
-	// A path alone isn't loaded until the sprite is drawn
+	// A path is loaded, as there's no sprite atlas to draw it from
 	CHECK(Set(root, Path("Sprite.Texture"), AssetPath("Textures/Other.png"), ChangeSource::Lua));
-	CHECK(root.GetComponent<SpriteComponent>().texture == nullptr);
-	CHECK(ComponentFixture::HasAsset(root.GetComponent<SpriteComponent>().GetTexture(), "Textures/Other.png"));
+	CHECK(ComponentFixture::HasAsset(root.GetComponent<SpriteComponent>().texture, "Textures/Other.png"));
 
 	CHECK(Set(root, Path("BoxCollider2D.Layer"), LayerValue{ 16 }, ChangeSource::Lua));
 	CHECK(root.GetComponent<BoxCollider2DComponent>().layer == 16);
@@ -861,5 +870,152 @@ TEST_CASE("Setting each field of a tilemap rebuilds it")
 
 	REQUIRE(Set(root, Path("Tilemap.TilesWide"), 2u, ChangeSource::Editor));
 	CHECK(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1, 2 }, { 4, 5 }, { 0, 0 } });
+}
+
+TEST_CASE("Floats are written in the shortest form that reads back to the same bits")
+{
+	using SceneXml::FloatToText;
+	CHECK(FloatToText(0.1f) == "0.1");
+	CHECK(FloatToText(-9.81f) == "-9.81");
+	CHECK(FloatToText(1.0f) == "1");
+	CHECK(FloatToText(0.0f) == "0");
+	CHECK(FloatToText(0.00999999978f) == "0.01");
+	CHECK(FloatToText(FLT_MAX) == "3.4028235e+38");
+	CHECK(FloatToText(std::numeric_limits<float>::denorm_min()) == "1.4013e-45");
+
+	const float samples[] = { 0.1f, -9.81f, 1.0f / 3.0f, 0.78539819f, 123456.789f, 16777217.0f, 1e10f, -1e-10f, -0.0f,
+		FLT_MIN, FLT_MAX, -FLT_MAX, FLT_EPSILON, std::numeric_limits<float>::denorm_min(), 1e-40f, 3.0e-39f };
+	for (float value : samples)
+	{
+		const std::string text = FloatToText(value);
+		INFO(text);
+		const float read = std::strtof(text.c_str(), nullptr);
+		CHECK(std::memcmp(&read, &value, sizeof(float)) == 0);
+		CHECK(text.size() <= 15);
+	}
+}
+
+namespace
+{
+	std::string RootNames(Scene& scene)
+	{
+		std::vector<std::string> names;
+		for (Entity root : SceneGraph::GetRoots(scene))
+		{
+			std::string name = root.GetName();
+			std::vector<Entity> children = SceneGraph::GetChildren(root);
+			for (size_t i = 0; i < children.size(); ++i)
+				name += (i == 0 ? "(" : " ") + children[i].GetName() + (i + 1 == children.size() ? ")" : "");
+			names.push_back(name);
+		}
+		return Names(names);
+	}
+}
+
+TEST_CASE("Roots keep their order through reordering, delete and undo, and save and load")
+{
+	Scene scene("");
+	Entity a = scene.CreateEntity("A");
+	Entity b = scene.CreateEntity("B");
+	Entity c = scene.CreateEntity("C");
+	Entity d = scene.CreateEntity("D");
+	CHECK(RootNames(scene) == "A B C D");
+
+	SceneGraph::MoveBefore(d, a);
+	CHECK(RootNames(scene) == "D A B C");
+	SceneGraph::MoveAfter(a, c);
+	CHECK(RootNames(scene) == "D B C A");
+	CHECK(scene.GetFirstRoot() == d.GetHandle());
+	CHECK(scene.GetLastRoot() == a.GetHandle());
+
+	SceneGraph::Reparent(b, c);
+	CHECK(RootNames(scene) == "D C(B) A");
+	SceneGraph::Unparent(b);
+	CHECK(RootNames(scene) == "D C A B");
+
+	SUBCASE("deleting a root and undoing puts it back in place")
+	{
+		RemoveEntityCommand remove(c);
+		SceneGraph::Remove(c);
+		CHECK(RootNames(scene) == "D A B");
+		remove.Undo();
+		CHECK(RootNames(scene) == "D C A B");
+
+		Entity last = scene.GetEntityByName("B");
+		RemoveEntityCommand removeLast(last);
+		SceneGraph::Remove(last);
+		CHECK(scene.GetLastRoot() == scene.GetEntityByName("A").GetHandle());
+		removeLast.Undo();
+		CHECK(RootNames(scene) == "D C A B");
+	}
+
+	SUBCASE("undoing a reparent puts a root back in place")
+	{
+		ReparentEntityCommand reparent(c, a);
+		SceneGraph::Reparent(c, a);
+		CHECK(RootNames(scene) == "D A(C) B");
+		reparent.Undo();
+		CHECK(RootNames(scene) == "D C A B");
+	}
+
+	SUBCASE("saving and loading keeps the roots' and children's order")
+	{
+		Entity x = scene.CreateEntity("X");
+		Entity y = scene.CreateEntity("Y");
+		SceneGraph::Reparent(y, d);
+		SceneGraph::Reparent(x, d);
+		CHECK(RootNames(scene) == "D(Y X) C A B");
+
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "AttercopRootOrder.scene";
+		REQUIRE(SceneSerializer(&scene).Serialize(path));
+
+		Scene loaded("");
+		REQUIRE(SceneSerializer(&loaded).Deserialize(path));
+		CHECK(RootNames(loaded) == "D(Y X) C A B");
+
+		// A copy goes last
+		loaded.DuplicateEntity(loaded.GetEntityByName("C"), Entity());
+		CHECK(RootNames(loaded) == "D(Y X) C A B C");
+		std::filesystem::remove(path);
+	}
+}
+
+TEST_CASE("Renaming collision layers rewrites scenes so each collider keeps its layers")
+{
+	Setup();
+	CollisionLayers::Names oldNames = CollisionLayers::DefaultNames();
+	oldNames[1] = "Player";
+	oldNames[2] = "Enemy";
+	oldNames[3] = "Ground";
+
+	// Player and Enemy swapped, Ground cleared, slot 5 named
+	CollisionLayers::Names newNames = oldNames;
+	newNames[1] = "Enemy";
+	newNames[2] = "Player";
+	newNames[3] = "";
+	newNames[5] = "Water";
+
+	tinyxml2::XMLDocument document;
+	REQUIRE(document.Parse(R"(<Scene FormatVersion="2">
+<Entity Name="A" ID="1-1"><BoxCollider2D Layer="Player" Mask="Default, Enemy, Ground, Layer 5"/>
+<Entity Name="B" ID="1-2"><Tilemap Layer="Ground" Mask="Everything"/><CircleCollider2D Layer="Typo" Mask="Nothing"/></Entity>
+</Entity></Scene>)") == tinyxml2::XML_SUCCESS);
+
+	CHECK(SceneXml::RenameCollisionLayers(document.RootElement(), oldNames, newNames));
+	const tinyxml2::XMLElement* a = document.RootElement()->FirstChildElement("Entity");
+	CHECK(std::string(a->FirstChildElement("BoxCollider2D")->Attribute("Layer")) == "Enemy");
+	CHECK(std::string(a->FirstChildElement("BoxCollider2D")->Attribute("Mask")) == "Default, Player, Layer 3, Water");
+	const tinyxml2::XMLElement* b = a->FirstChildElement("Entity");
+	CHECK(std::string(b->FirstChildElement("Tilemap")->Attribute("Layer")) == "Layer 3");
+	CHECK(std::string(b->FirstChildElement("Tilemap")->Attribute("Mask")) == "Everything");
+	CHECK(std::string(b->FirstChildElement("CircleCollider2D")->Attribute("Layer")) == "Typo");
+
+	// Read with the new names, the bits are the ones the old names gave
+	CollisionLayers::SetNames(newNames);
+	CHECK(LayerFromText(a->FirstChildElement("BoxCollider2D")->Attribute("Layer")) == (1 << 1));
+	CHECK(MaskFromText(a->FirstChildElement("BoxCollider2D")->Attribute("Mask")) == (1 | (1 << 2) | (1 << 3) | (1 << 5)));
+	CollisionLayers::SetNames(CollisionLayers::DefaultNames());
+
+	CHECK_FALSE(SceneXml::RenameCollisionLayers(document.RootElement(), newNames, newNames));
 }
 }
