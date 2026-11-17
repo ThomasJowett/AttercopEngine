@@ -1,0 +1,62 @@
+<Scene EngineVersion="1">
+    <Gravity X="0" Y="-9.8"/>
+    <Entity Name="Camera" ID="7516283163723574846-10447636184718803802">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false">
+            <SceneCamera ProjectionType="1" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819"/>
+        </Camera>
+    </Entity>
+    <Entity Name="Orthogonal" ID="1730772980358328161-12096636223097118286">
+        <Transform>
+            <Position X="-15" Y="6" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Tilemap Filepath="Tilesets/Square.tileset" TilesWide="8" TilesHigh="8" TileWidth="10" TileHeight="10" Orientation="Orthogonal" IsTrigger="false">
+0,2,1,2,1,0,1,2,
+2,1,2,1,0,1,2,1,
+1,2,1,0,1,2,1,2,
+2,1,0,1,2,1,2,0,
+1,0,1,2,1,2,0,2,
+0,1,2,1,2,0,2,1,
+1,2,1,2,0,2,1,2,
+2,1,2,0,2,1,2,1
+<Tint R="1" G="1" B="1" A="1"/></Tilemap>
+    </Entity>
+    <Entity Name="Isometric" ID="12301038149733440003-18098200686257958035">
+        <Transform>
+            <Position X="-1" Y="6" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="3.2" Y="3.2" Z="1"/>
+        </Transform>
+        <Tilemap Filepath="Tilesets/Isometric.tileset" TilesWide="3" TilesHigh="3" TileWidth="32" TileHeight="32" Orientation="Isometric" IsTrigger="false">
+1,2,1,
+2,0,2,
+1,2,1
+<Tint R="1" G="1" B="1" A="1"/></Tilemap>
+    </Entity>
+    <Entity Name="Hexagonal" ID="5971301268221449775-1900333928681343515">
+        <Transform>
+            <Position X="9" Y="6" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="3.2" Y="3.2" Z="1"/>
+        </Transform>
+        <Tilemap Filepath="Tilesets/Hexagonal.tileset" TilesWide="3" TilesHigh="3" TileWidth="32" TileHeight="28" Orientation="Hexagonal" IsTrigger="false">
+1,2,1,
+1,0,1,
+1,2,1
+<Tint R="1" G="1" B="1" A="1"/></Tilemap>
+    </Entity>
+    <Entity Name="Tilemaps" ID="15458660788307471846-3331990014135490989">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/Screenshot.lua"/>
+    </Entity>
+</Scene>
