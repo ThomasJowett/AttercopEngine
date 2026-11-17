@@ -14,6 +14,7 @@
 #include "Scene/SceneManager.h"
 #include "Renderer/RendererAPI.h"
 #include "Core/Settings.h"
+#include "Migration/Migration.h"
 
 #include "SceneTestLayer.h"
 #include "ImageDiff.h"
@@ -67,6 +68,23 @@ static int CompareImageFiles(const std::filesystem::path& a, const std::filesyst
 	return mismatches == 0 ? (int)SceneTestResult::Passed : (int)SceneTestResult::ImageMismatch;
 }
 
+// Upgrades every scene and state machine in the open project to the current formats; 0 if none failed
+static int RunProjectUpgrade(const std::filesystem::path& project)
+{
+	if (!Application::SetOpenDocument(project))
+	{
+		CLIENT_ERROR("SceneTest: could not open project {0}", project.string());
+		return EXIT_FAILURE;
+	}
+
+	// As the Editor does before upgrading, so steps can read the layer names
+	CollisionLayers::LoadNames(Application::GetOpenDocumentDirectory() / CollisionLayers::FilePath);
+
+	Migration::ProjectReport report = Migration::UpgradeProject(project);
+	Logger::GetEngineLogger()->flush();
+	return report.Succeeded() ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 // Runs one scene headless with a fixed time step and reports the result as the exit code, see SceneTestResult
 int main(int argc, char* argv[])
 {
@@ -77,7 +95,8 @@ int main(int argc, char* argv[])
 		std::cout << "usage: SceneTest --project <file.proj> --scene <file.scene> [--frames N] [--timeout S]"
 			" [--log <path>] [--frame-log <path>] [--expect-errors N] [--require-verdict] [--display]\n"
 			"       render tests: [--api <opengl|webgpu>] [--size 320x180] [--golden <dir>] [--output <dir>] [--update-goldens] [--strict]\n"
-			"       SceneTest --compare <a.png|dir> --against <b.png|dir> [--output <dir>]" << std::endl;
+			"       SceneTest --compare <a.png|dir> --against <b.png|dir> [--output <dir>]\n"
+			"       SceneTest --upgrade-project <file.proj>" << std::endl;
 		return EXIT_SUCCESS;
 	}
 
@@ -88,6 +107,19 @@ int main(int argc, char* argv[])
 
 	if (input.CmdOptionExists("--compare"))
 		return CompareImageFiles(option("--compare"), option("--against"), option("--output"));
+
+	if (input.CmdOptionExists("--upgrade-project"))
+	{
+		// Resolved before Application::Init changes the working directory
+		std::filesystem::path project = std::filesystem::absolute(option("--upgrade-project"));
+		char headless[] = "--headless";
+		char* appArgv[] = { argv[0], headless };
+		Ref<Application> app = CreateRef<Application>();
+		int rCode = app->Init(2, appArgv);
+		if (rCode != -1)
+			return rCode;
+		return RunProjectUpgrade(project);
+	}
 
 	std::filesystem::path project = option("--project");
 	SceneTestOptions options;
