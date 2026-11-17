@@ -95,6 +95,10 @@ public:
 	Vector2f GetEditorPosition() const { return m_EditorPosition; }
 	void SetEditorPosition(Vector2f editorPosition) { m_EditorPosition = editorPosition; }
 
+	// Loaded from a file in a newer format, which the Editor won't save over
+	bool IsNewerFormat() const { return m_NewerFormat; }
+	void SetNewerFormat(bool newerFormat) { m_NewerFormat = newerFormat; }
+
 private:
 	void TransitionTo(Ref<State> newState);
 
@@ -107,6 +111,7 @@ private:
 	Ref<State> m_PendingState;
 	bool m_Started = false;
 	bool m_InCallback = false;
+	bool m_NewerFormat = false;
 
 	Vector2f m_EditorPosition; // Entry node
 };

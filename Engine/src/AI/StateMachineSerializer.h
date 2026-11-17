@@ -23,5 +23,5 @@ public:
 	static Ref<StateMachine> Deserialize(const std::filesystem::path& filepath, const std::vector<uint8_t>& data);
 
 private:
-	static Ref<StateMachine> LoadXML(tinyxml2::XMLDocument* doc);
+	static Ref<StateMachine> LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath);
 };
