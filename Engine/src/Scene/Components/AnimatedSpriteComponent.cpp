@@ -47,12 +47,26 @@ void AnimatedSpriteComponent::EnterFrame(const Animation& animationRef, std::vec
 	}
 }
 
+namespace AnimatedSpriteComponentReflection
+{
+	// Shows the animation's first frame until it plays
+	void ShowStartFrame(Entity, AnimatedSpriteComponent& c)
+	{
+		if (Animation* animation = c.spriteSheet && !c.animation.empty() ? c.spriteSheet->GetAnimation(c.animation) : nullptr)
+			c.currentFrame = animation->GetStartFrame();
+	}
+}
+
 void AnimatedSpriteComponent::Describe(Reflection::Builder<AnimatedSpriteComponent>& c)
 {
+	using namespace AnimatedSpriteComponentReflection;
+
 	c.Name("AnimatedSprite").Category("Rendering 2D")
 		.Description("Plays animations from a sprite sheet");
 
-	c.Field<&AnimatedSpriteComponent::spriteSheet>("SpriteSheet", "The sprite sheet the animation frames come from");
+	c.Field<&AnimatedSpriteComponent::spriteSheet>("SpriteSheet", "The sprite sheet the animation frames come from")
+		.OnChanged(&ShowStartFrame);
 	c.Field<&AnimatedSpriteComponent::tint>("Tint", "Colour multiplied over the sprite sheet");
-	c.Field<&AnimatedSpriteComponent::animation>("Animation", "Name of the sprite sheet animation to play");
+	c.Field<&AnimatedSpriteComponent::animation>("Animation", "Name of the sprite sheet animation to play")
+		.OnChanged(&ShowStartFrame);
 }

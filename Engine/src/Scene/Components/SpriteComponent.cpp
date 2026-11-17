@@ -1,6 +1,7 @@
 #include "SpriteComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Renderer/Renderer2D.h"
 
 namespace SpriteComponentReflection
 {
@@ -27,9 +28,11 @@ namespace SpriteComponentReflection
 		return true;
 	}
 
-	void LoadForTiling(Entity, SpriteComponent& c)
+	// The texture is loaded unless the sprite atlas draws it
+	void LoadTexture(Entity, SpriteComponent& c)
 	{
-		if (c.tilingFactor != 1.0f)
+		Ref<SpriteAtlas> atlas = Renderer2D::GetSpriteAtlas();
+		if (!atlas || c.tilingFactor != 1.0f || !atlas->GetRegion(c.texturePath))
 			c.GetTexture();
 	}
 }
@@ -52,10 +55,10 @@ void SpriteComponent::Describe(Reflection::Builder<SpriteComponent>& c)
 		.Description("Draws a textured, tinted quad");
 
 	c.Field<&SpriteComponent::tilingFactor>("TilingFactor", "How many times the texture repeats across the sprite")
-		.OnChanged(&LoadForTiling);
+		.OnChanged(&LoadTexture);
 	c.Field<&SpriteComponent::filterMethod>("FilterMethod", "FilterMethod.Linear or FilterMethod.Nearest");
 	c.Field<&SpriteComponent::wrapMethod>("WrapMethod", "WrapMethod.Clamp, WrapMethod.Mirror or WrapMethod.Repeat");
 	c.Field<&SpriteComponent::tint>("Tint", "Colour multiplied over the texture");
 	c.Property<&GetTextureValue, &SetTextureValue>("Texture", "The texture drawn on the sprite, or nil for a plain coloured quad")
-		.AssetType("Texture2D");
+		.AssetType("Texture2D").OnChanged(&LoadTexture);
 }
