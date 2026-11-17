@@ -25,6 +25,8 @@ private:
 	void SaveProjectFile();
 	void ReadCollisionLayersFile();
 	void SaveCollisionLayersFile();
+	// Rewrites Layer and Mask in the project's scenes, so each collider keeps its layers
+	static void RenameLayersInScenes(const CollisionLayers::Names& oldNames, const CollisionLayers::Names& newNames);
 
 	void DrawIcon();
 	void DrawCollisionLayers();
