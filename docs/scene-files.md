@@ -11,7 +11,7 @@ A prefab is a scene file too: spawn one from a script with
 ## Layout
 
 ```xml
-<Scene EngineVersion="1">
+<Scene FormatVersion="1">
     <Gravity X="0" Y="-9.81"/>
     <Entity Name="Player" ID="1001-1">
         <Transform>...</Transform>
@@ -26,8 +26,12 @@ A prefab is a scene file too: spawn one from a script with
 </Scene>
 ```
 
-- **`<Scene>`** is the root. `EngineVersion` is the scene format version, and the engine logs a
-  warning if it doesn't match its own (currently `1`).
+- **`<Scene>`** is the root. `FormatVersion` is the scene format version (currently `1`); a file
+  without it is version `1`. A scene in the previous format is upgraded when it's loaded, and
+  written in the current format when it's saved. A scene two or more formats behind is upgraded
+  as far as possible, with a warning: open and save it in each version of Attercop in between to
+  be sure. A scene from a newer version of Attercop loads as far as
+  it can, with an error, and the Editor won't save over it.
 - **`<Gravity>`** is the 2D physics gravity, in world units per second squared.
 - **`<Entity>`** has a `Name` and an `ID` (see [ID](Components/core/IDComponent.md)), and holds
   one element per component.
@@ -61,7 +65,7 @@ Rotations are in radians.
 A 2D scene with a camera, a player that falls under gravity onto the ground, and a pause button:
 
 ```xml
-<Scene EngineVersion="1">
+<Scene FormatVersion="1">
     <Gravity X="0" Y="-9.81"/>
     <Entity Name="Camera" ID="1-1">
         <Transform>

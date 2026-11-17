@@ -126,7 +126,7 @@ end
 `.statemachine` files are XML, so they can also be written by hand:
 
 ```xml
-<StateMachine EngineVersion="1" InitialState="Idle">
+<StateMachine FormatVersion="1" InitialState="Idle">
     <Entry x="0" y="0"/>
     <State Name="Idle" Filepath="Scripts/Player/Idle.lua" x="200" y="0"/>
     <State Name="Walk" Filepath="Scripts/Player/Walk.lua" x="440" y="0"/>
