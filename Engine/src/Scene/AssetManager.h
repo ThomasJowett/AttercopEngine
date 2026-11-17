@@ -131,14 +131,14 @@ public:
 	{
 		PROFILE_FUNCTION();
 
-		AssetManager::Get().m_FileWatcher.SetPathToWatch(directory);
-
-		AssetManager::Get().m_FileWatcher.SetPathToWatch(directory);
+		// Stopped before its path changes, as its thread reads the path
 		AssetManager::Get().m_FileWatcher.Stop();
+		AssetManager::Get().m_FileWatcher.SetPathToWatch(directory);
 		// Just queues the event - Reload()/Remove() touch the GPU, not safe off the main thread.
-		AssetManager::Get().m_FileWatcher.Start([=](std::string path, FileStatus status)
+		// The directory is a copy: the open document's changes on the main thread while this runs
+		AssetManager::Get().m_FileWatcher.Start([directory](std::string path, FileStatus status)
 			{
-				std::filesystem::path relativePath = FileUtils::RelativePath(path, Application::GetOpenDocumentDirectory());
+				std::filesystem::path relativePath = FileUtils::RelativePath(path, directory);
 				std::lock_guard<std::mutex> lock(AssetManager::Get().m_PendingEventsMutex);
 				AssetManager::Get().m_PendingEvents.push_back({ relativePath, status });
 			});
