@@ -13,6 +13,10 @@
 #include "FileSystem/WebProject.h"
 #include "ImGui/ImGuiAssetEdit.h"
 #include "Scene/AssetManager.h"
+#include "Migration/Migration.h"
+#include "Reflection/SceneXml.h"
+
+#include "TinyXml2/tinyxml2.h"
 
 ProjectSettingsPanel::ProjectSettingsPanel(bool* show)
 	:m_Show(show), Layer("Project Settings Panel")
@@ -183,10 +187,33 @@ void ProjectSettingsPanel::SaveCollisionLayersFile()
 		return;
 	}
 
+	RenameLayersInScenes(CollisionLayers::GetNames(), m_CollisionLayers);
 	CollisionLayers::SetNames(m_CollisionLayers);
 	m_CollisionLayersDirty = false;
 
 	WebProject::Sync();
+}
+
+void ProjectSettingsPanel::RenameLayersInScenes(const CollisionLayers::Names& oldNames, const CollisionLayers::Names& newNames)
+{
+	if (oldNames == newNames)
+		return;
+
+	// Older scenes hold numbers, and newer ones aren't written over
+	const int current = Migration::CurrentVersion(Migration::FileType::Scene);
+	for (const std::filesystem::path& sceneFile : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCENE)))
+	{
+		tinyxml2::XMLDocument document;
+		if (document.LoadFile(sceneFile.string().c_str()) != tinyxml2::XML_SUCCESS || !document.RootElement()
+			|| Migration::GetVersion(document.RootElement()) != current)
+			continue;
+		if (!Reflection::SceneXml::RenameCollisionLayers(document.RootElement(), oldNames, newNames))
+			continue;
+		if (document.SaveFile(sceneFile.string().c_str()) == tinyxml2::XML_SUCCESS)
+			ENGINE_INFO("Renamed collision layers in {0}", sceneFile.string());
+		else
+			ENGINE_ERROR("Could not rename collision layers in {0}: {1}", sceneFile.string(), document.ErrorName());
+	}
 }
 
 void ProjectSettingsPanel::DrawIcon()
