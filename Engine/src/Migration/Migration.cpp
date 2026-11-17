@@ -167,8 +167,10 @@ namespace Migration
 		}
 
 		SetVersion(root, current);
-		if (root->FindAttribute("EngineVersion"))
+		if (type == FileType::Project)
 			root->SetAttribute("EngineVersion", VERSION);
+		else
+			root->DeleteAttribute("EngineVersion");
 		return Result::Upgraded;
 	}
 

@@ -47,7 +47,7 @@ namespace Migration
 	// The root's FormatVersion, 1 when it has none
 	int GetVersion(const tinyxml2::XMLElement* root);
 
-	// Sets FormatVersion, placed after EngineVersion as the writers place it
+	// Sets FormatVersion after EngineVersion when there is one, otherwise last
 	void SetVersion(tinyxml2::XMLElement* root, int version);
 
 	enum class Result { UpToDate, Upgraded, TooNew, Failed };
