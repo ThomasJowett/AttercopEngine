@@ -56,7 +56,7 @@ void CameraComponent::Describe(Reflection::Builder<CameraComponent>& c)
 	c.Property<&GetFov, &SetFov>("Fov", "Vertical field of view of the perspective view, in radians")
 		.Label("Field of View").ShowIf(&IsPerspective);
 	c.Property<&GetAspectRatio, &SetAspectRatio>("AspectRatio", "Width divided by height, when FixedAspectRatio is set")
-		.ShowIf(&HasFixedAspectRatio);
+		.ShowIf(&HasFixedAspectRatio).SaveIf(&HasFixedAspectRatio);
 
 	c.OnChanged(&Recalculate);
 }

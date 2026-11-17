@@ -106,6 +106,8 @@ namespace Reflection
 		bool (*set)(void* component, const Value& value) = nullptr;
 
 		Predicate showIf;
+		// Written to files only when it holds; read whenever it's there
+		Predicate saveIf;
 		ChangeHook onChanged;
 
 		// For .Custom fields: written into and read from the component's XML element
