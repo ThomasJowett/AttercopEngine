@@ -5,6 +5,7 @@
 #include "TinyXml2/tinyxml2.h"
 #include "Core/Application.h"
 #include "Core/Version.h"
+#include "Migration/Migration.h"
 #include "Logging/Instrumentor.h"
 #include "Utilities/SerializationUtils.h"
 #include "Utilities/FileUtils.h"
@@ -18,6 +19,7 @@ bool StateMachineSerializer::Serialize(const std::filesystem::path& filepath, St
 	tinyxml2::XMLElement* pRoot = doc.NewElement("StateMachine");
 
 	pRoot->SetAttribute("EngineVersion", VERSION);
+	pRoot->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::StateMachine));
 	pRoot->SetAttribute("InitialState", stateMachine->GetInitialState().c_str());
 
 	doc.InsertFirstChild(pRoot);
@@ -72,7 +74,7 @@ Ref<StateMachine> StateMachineSerializer::Deserialize(const std::filesystem::pat
 
 	if (doc.LoadFile(filepath.string().c_str()) == tinyxml2::XML_SUCCESS)
 	{
-		return LoadXML(&doc);
+		return LoadXML(doc, filepath);
 	}
 
 	ENGINE_ERROR("could not load state machine {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
@@ -85,25 +87,31 @@ Ref<StateMachine> StateMachineSerializer::Deserialize(const std::filesystem::pat
 	tinyxml2::XMLDocument doc;
 	if (doc.Parse((const char*)data.data(), data.size()) == tinyxml2::XML_SUCCESS)
 	{
-		return LoadXML(&doc);
+		return LoadXML(doc, filepath);
 	}
 	ENGINE_ERROR("could not load state machine {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
 
 	return nullptr;
 }
 
-Ref<StateMachine> StateMachineSerializer::LoadXML(tinyxml2::XMLDocument* doc)
+Ref<StateMachine> StateMachineSerializer::LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath)
 {
 	PROFILE_FUNCTION();
 
-	tinyxml2::XMLElement* pRoot = doc->FirstChildElement("StateMachine");
-	if (!pRoot) {
+	if (!doc.FirstChildElement("StateMachine")) {
 		ENGINE_ERROR("Not a state machine file");
 		return nullptr;
 	}
 
+	Migration::Report report;
+	Migration::Result result = Migration::Upgrade(Migration::FileType::StateMachine, doc, filepath, report);
+
+	tinyxml2::XMLElement* pRoot = doc.FirstChildElement("StateMachine");
+	if (!pRoot)
+		return nullptr;
 
 	Ref<StateMachine> stateMachine = CreateRef<StateMachine>();
+	stateMachine->SetNewerFormat(result == Migration::Result::TooNew);
 
 	if (const char* initialState = pRoot->Attribute("InitialState"))
 		stateMachine->SetInitialState(initialState);
