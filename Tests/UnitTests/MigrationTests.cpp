@@ -181,7 +181,7 @@ namespace MigrationTests
 
 	TEST_CASE("Upgrading runs the chain from the document's version")
 	{
-		SUBCASE("from version 1, writing FormatVersion after EngineVersion")
+		SUBCASE("from version 1, replacing EngineVersion with FormatVersion")
 		{
 			tinyxml2::XMLDocument document;
 			REQUIRE(document.Parse(k_SceneVersion1) == tinyxml2::XML_SUCCESS);
@@ -194,10 +194,9 @@ namespace MigrationTests
 
 			const tinyxml2::XMLElement* root = document.RootElement();
 			const tinyxml2::XMLAttribute* first = root->FirstAttribute();
-			CHECK(std::string(first->Name()) == "EngineVersion");
-			CHECK(first->IntValue() == VERSION);
-			CHECK(std::string(first->Next()->Name()) == "FormatVersion");
-			CHECK(first->Next()->IntValue() == 3);
+			CHECK(std::string(first->Name()) == "FormatVersion");
+			CHECK(first->IntValue() == 3);
+			CHECK_FALSE(root->Attribute("EngineVersion"));
 
 			const tinyxml2::XMLElement* player = root->FirstChildElement("Entity");
 			CHECK(player->IntAttribute("Counted") == 1);
@@ -234,10 +233,24 @@ namespace MigrationTests
 			Migration::Report report;
 			CHECK(Migration::Upgrade(FileType::StateMachine, document, "Switch.statemachine", report, k_TestSteps) == Result::Upgraded);
 			const tinyxml2::XMLAttribute* attribute = document.RootElement()->FirstAttribute();
+			CHECK(std::string(attribute->Name()) == "FormatVersion");
+			CHECK(attribute->IntValue() == 2);
+			CHECK(std::string(attribute->Next()->Name()) == "Initial");
+			CHECK_FALSE(attribute->Next()->Next());
+		}
+
+		SUBCASE("a project, keeping EngineVersion as this engine's")
+		{
+			tinyxml2::XMLDocument document;
+			REQUIRE(document.Parse(k_Project) == tinyxml2::XML_SUCCESS);
+
+			Migration::Report report;
+			CHECK(Migration::Upgrade(FileType::Project, document, "Project.proj", report, k_TestSteps) == Result::Upgraded);
+			const tinyxml2::XMLAttribute* attribute = document.RootElement()->FirstAttribute();
 			CHECK(std::string(attribute->Name()) == "EngineVersion");
+			CHECK(attribute->IntValue() == VERSION);
 			CHECK(std::string(attribute->Next()->Name()) == "FormatVersion");
-			CHECK(attribute->Next()->IntValue() == 2);
-			CHECK(std::string(attribute->Next()->Next()->Name()) == "Initial");
+			CHECK(attribute->Next()->IntValue() == 4);
 		}
 	}
 
@@ -394,6 +407,7 @@ namespace MigrationTests
 		tinyxml2::XMLDocument document;
 		REQUIRE(document.LoadFile(copy.string().c_str()) == tinyxml2::XML_SUCCESS);
 		CHECK(Migration::GetVersion(document.RootElement()) == Migration::CurrentVersion(FileType::Scene));
+		CHECK_FALSE(document.RootElement()->Attribute("EngineVersion"));
 	}
 
 	TEST_CASE("Copied entities carry their format version")

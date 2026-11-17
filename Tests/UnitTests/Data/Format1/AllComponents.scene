@@ -1,0 +1,98 @@
+<Scene EngineVersion="3">
+    <Gravity X="0" Y="-9.8100004"/>
+    <Entity Name="Root" ID="1001-2002">
+        <Transform>
+            <Position X="1" Y="2" Z="3"/>
+            <Rotation X="0.25" Y="0.5" Z="0.75"/>
+            <Scale X="2" Y="3" Z="4"/>
+        </Transform>
+        <Camera Primary="false" FixedAspectRatio="true">
+            <SceneCamera ProjectionType="1" OrthoSize="12" OrthoNear="-2" OrthoFar="3" PerspectiveNear="0.5" PerspectiveFar="250" FOV="0.75" AspectRatio="2"/>
+        </Camera>
+        <Sprite TilingFactor="3">
+            <Texture Filepath="Textures/Brick.png" FilterMethod="0" WrapMethod="1"/>
+            <Tint R="0.5" G="0.25" B="0.75" A="0.5"/>
+        </Sprite>
+        <AnimatedSprite Animation="Run">
+            <SpriteSheet Filepath="Sprites/Hero.spritesheet"/>
+            <Tint R="0.25" G="0.5" B="0.75" A="1"/>
+        </AnimatedSprite>
+        <StaticMesh Filepath="Meshes/Rock.staticmesh">
+            <Material Slot="2" Filepath="Materials/Moss.material"/>
+        </StaticMesh>
+        <Primitive Type="5">
+            <Material Filepath="Materials/Wall.material"/>
+            <Torus OuterRadius="2.5" InnerRadius="0.75" SliceCount="12"/>
+        </Primitive>
+        <Tilemap Filepath="Tilesets/Grass.tileset" TilesWide="3" TilesHigh="2" TileWidth="16" TileHeight="24" Orientation="Hexagonal" IsTrigger="true" Layer="2" Mask="5">
+    1,2,3,
+    4,5,6
+    <Tint R="0.75" G="0.5" B="0.25" A="1"/></Tilemap>
+        <Text MaxWidth="7.5">Hello, world<Font Filepath="Fonts/Title.ttf"/><Colour R="0.25" G="0.75" B="0.5" A="1"/></Text>
+        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="0.5" AngularDamping="0.25" LinearDamping="0.75"/>
+        <BoxCollider2D IsTrigger="true" Layer="8" Mask="6">
+            <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
+            <Offset X="0.5" Y="-0.5"/>
+            <Size X="1.5" Y="2.5"/>
+        </BoxCollider2D>
+        <CircleCollider2D Radius="1.25" IsTrigger="true" Layer="4" Mask="7">
+            <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
+            <Offset X="-1" Y="1"/>
+        </CircleCollider2D>
+        <PolygonCollider2D IsTrigger="true" Layer="16" Mask="8">
+            <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
+            <Offset X="0.25" Y="0.75"/>
+            <Vertex X="0" Y="0"/>
+            <Vertex X="2" Y="0"/>
+            <Vertex X="2" Y="1"/>
+            <Vertex X="0" Y="1.5"/>
+        </PolygonCollider2D>
+        <CapsuleCollider2D Direction="1" Radius="0.75" Height="3.5" IsTrigger="true" Layer="32" Mask="9">
+            <PhysicsMaterial Filepath="Materials/Bouncy.physicsmaterial"/>
+            <Offset X="1" Y="2"/>
+        </CapsuleCollider2D>
+        <CircleRenderer Radius="2.5" Thickness="0.25" Fade="0.125">
+            <Colour R="1" G="0.5" B="0.25" A="0.75"/>
+        </CircleRenderer>
+        <BehaviourTree Filepath="AI/Enemy.behaviourtree"/>
+        <StateMachine Filepath="AI/Door.statemachine"/>
+        <LuaScript Filepath="Scripts/Player.lua"/>
+        <PointLight Range="25" Attenuation="2.5" CastShadows="false">
+            <Colour R="1" G="0.75" B="0.5" A="1"/>
+        </PointLight>
+        <Billboard Orientation="0"/>
+        <Canvas PixelPerUnit="32"/>
+        <Widget Disabled="true" FixedWidth="false" FixedHeight="false" AnchorLeft="0.25" AnchorRight="0.75" AnchorTop="0.125" AnchorBottom="0.875" MarginLeft="-460" MarginRight="-300" MarginTop="-95" MarginBottom="-47" Rotation="0.5">
+            <Position X="20" Y="40"/>
+            <Size X="160" Y="48"/>
+        </Widget>
+        <Button>
+            <NormalTexture Filepath="Textures/Normal.png" FilterMethod="0" WrapMethod="2"/>
+            <HoveredTexture Filepath="Textures/Hovered.png" FilterMethod="1" WrapMethod="0"/>
+            <ClickedTexture Filepath="Textures/Clicked.png" FilterMethod="1" WrapMethod="1"/>
+            <DisabledTexture Filepath="Textures/Disabled.png" FilterMethod="0" WrapMethod="2"/>
+            <NormalTint R="0.5" G="0.5" B="0.5" A="1"/>
+            <HoveredTint R="0.75" G="0.75" B="0.75" A="1"/>
+            <ClickedTint R="0.25" G="0.25" B="0.25" A="1"/>
+            <DisabledTint R="0.5" G="0.5" B="0.5" A="0.5"/>
+        </Button>
+        <StackLayout Horizontal="true" Spacing="6" StretchCrossAxis="false" PaddingLeft="1" PaddingTop="2" PaddingRight="3" PaddingBottom="4"/>
+        <GridLayout Columns="4" UniformCellSize="false" FixedRowHeight="30" PaddingLeft="5" PaddingTop="6" PaddingRight="7" PaddingBottom="8">
+            <CellSpacing X="5" Y="7"/>
+        </GridLayout>
+        <ScrollBox HorizontalScroll="true" VerticalScroll="false" ClipContent="false">
+            <ScrollOffset X="10" Y="15"/>
+        </ScrollBox>
+        <Hidden Hidden="false"/>
+        <AudioSource Filepath="Audio/Jump.wav" Volume="0.5" Pitch="1.5" Loop="true" MinDistance="2" MaxDistance="20" Rolloff="0.5" Stream="true" PlayOnStart="true"/>
+        <AudioListener Primary="false"/>
+        <Entity Name="Child" ID="3003-4004">
+            <Transform>
+                <Position X="5" Y="6" Z="7"/>
+                <Rotation X="0" Y="0" Z="0"/>
+                <Scale X="1" Y="1" Z="1"/>
+            </Transform>
+            <WeldJoint2D CollideConnected="true" Damping="0.5" Stiffness="4"/>
+        </Entity>
+    </Entity>
+</Scene>
