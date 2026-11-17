@@ -16,7 +16,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Tilemap Filepath="Tilesets/Square.tileset" TilesWide="8" TilesHigh="8" TileWidth="10" TileHeight="10" Orientation="Orthogonal" IsTrigger="false">
+        <Tilemap Filepath="Tilesets/Orthogonal.tileset" TilesWide="8" TilesHigh="8" TileWidth="10" TileHeight="10" Orientation="Orthogonal" IsTrigger="false">
 0,2,1,2,1,0,1,2,
 2,1,2,1,0,1,2,1,
 1,2,1,0,1,2,1,2,
