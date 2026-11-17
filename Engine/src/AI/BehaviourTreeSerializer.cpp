@@ -474,10 +474,6 @@ Ref<BehaviourTree> Serializer::LoadXML(tinyxml2::XMLDocument* doc)
 		return nullptr;
 	}
 
-	// Version
-	if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-		ENGINE_WARN("Loading behaviour tree created with a different version of the engine");
-
 	// Blackboard
 	tinyxml2::XMLElement* pBlackboardElement = pRoot->FirstChildElement("Blackboard");
 

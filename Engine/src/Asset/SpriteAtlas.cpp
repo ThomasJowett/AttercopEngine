@@ -113,9 +113,6 @@ bool SpriteAtlas::LoadXML(tinyxml2::XMLDocument* doc, const std::filesystem::pat
 		return false;
 	}
 
-	if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-		ENGINE_WARN("Sprite atlas manifest created with a different version of the engine");
-
 	uint32_t pageSize = 0;
 	pRoot->QueryUnsignedAttribute("PageSize", &pageSize);
 
