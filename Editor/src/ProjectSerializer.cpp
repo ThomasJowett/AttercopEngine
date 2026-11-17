@@ -11,16 +11,25 @@ namespace ProjectSerializer
 	{
 		ENGINE_WARN("Replacing {0} with a new project file", filepath.string());
 		data = ProjectData();
+		// The project's other files may be old, so the next upgrade checks them
+		data.formatVersion = 1;
 		return Serialize(data, filepath);
 	}
 
 	bool Serialize(const ProjectData& data, const std::filesystem::path& filepath)
 	{
+		if (data.formatVersion > Migration::CurrentVersion(Migration::FileType::Project))
+		{
+			ENGINE_ERROR("Not saving {0}: it was saved by a newer version of Attercop, and saving would lose what this version can't read", filepath.string());
+			return false;
+		}
+
 		tinyxml2::XMLDocument doc;
 		tinyxml2::XMLElement* pRoot = doc.NewElement("Project");
 		doc.InsertFirstChild(pRoot);
 
 		pRoot->SetAttribute("EngineVersion", VERSION);
+		pRoot->SetAttribute("FormatVersion", data.formatVersion);
 
 		if (!data.defaultScene.empty())
 			SerializationUtils::Encode(pRoot->InsertNewChildElement("DefaultScene"), std::filesystem::path(data.defaultScene));
@@ -56,8 +65,15 @@ namespace ProjectSerializer
 			return ReplaceWithDefaultProject(data, filepath);
 		}
 
+		const int formatVersion = Migration::GetVersion(pRoot);
+		Migration::Report report;
+		Migration::Upgrade(Migration::FileType::Project, doc, filepath, report);
+		pRoot = doc.FirstChildElement("Project");
+		if (!pRoot)
+			return false;
 
 		data = ProjectData();
+		data.formatVersion = formatVersion;
 
 		std::filesystem::path defaultScene;
 		SerializationUtils::Decode(pRoot->FirstChildElement("DefaultScene"), defaultScene);
