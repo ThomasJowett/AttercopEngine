@@ -179,14 +179,10 @@ PhysicsEngine2D::PhysicsEngine2D(const Vector2f& gravity, Scene* scene)
 
 	// Collected first, as initialising unparents rigid bodies
 	std::vector<entt::entity> roots;
-	for (auto entityHandle : registry.view<TransformComponent>(entt::exclude<HierarchyComponent>))
-		roots.push_back(entityHandle);
-
-	auto view = registry.view<TransformComponent, HierarchyComponent>();
-	for (auto entityHandle : view)
+	for (auto entityHandle : registry.view<TransformComponent>())
 	{
-		auto& hierarchyComp = view.get<HierarchyComponent>(entityHandle);
-		if (hierarchyComp.parent == entt::null && hierarchyComp.isActive)
+		const HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entityHandle);
+		if (!hierarchyComp || (hierarchyComp->parent == entt::null && hierarchyComp->isActive))
 			roots.push_back(entityHandle);
 	}
 

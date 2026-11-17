@@ -61,5 +61,5 @@ void StaticMeshComponent::Describe(Reflection::Builder<StaticMeshComponent>& c)
 		.Description("Draws an imported mesh, with its own materials or overrides per slot");
 
 	c.Property<&GetMesh, &StaticMeshComponent::SetMesh>("Mesh", "The mesh to draw").MainAsset();
-	c.Custom<&SaveMaterials, &LoadMaterials>("Materials", "Materials that replace the mesh's own, by slot");
+	c.Custom<&SaveMaterials, &LoadMaterials>("Materials", "Materials that replace the mesh's own, by slot").Item("Material");
 }

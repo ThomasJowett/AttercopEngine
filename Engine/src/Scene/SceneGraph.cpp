@@ -198,49 +198,41 @@ void SceneGraph::Reparent(Entity entity, Entity parent)
 {
 	PROFILE_FUNCTION();
 	ASSERT(entity.BelongsToScene(parent.GetScene()), "Entities must belong to the same scene");
-	entt::registry& registry = entity.GetScene()->GetRegistry();
-	Unparent(entity);
-
 	ASSERT(parent.GetHandle() != entt::null, "Parent must not be null");
 	ASSERT(entity.IsSceneValid(), "Entity must be valid!");
+	entt::registry& registry = entity.GetScene()->GetRegistry();
 
-	//is the parent a child of this entity
-	entt::entity parentCheck = parent.GetHandle();
-	while (parentCheck != entt::null)
+	// Not under itself or one of its descendants
+	for (entt::entity ancestor = parent.GetHandle(); ancestor != entt::null;)
 	{
-		if (parentCheck == entity.GetHandle())
+		if (ancestor == entity.GetHandle())
 			return;
-		HierarchyComponent* parentCheckHierarchyComp = registry.try_get<HierarchyComponent>(parentCheck);
-		if (parentCheckHierarchyComp == nullptr)
-			break;
-		parentCheck = parentCheckHierarchyComp->parent;
+		HierarchyComponent* ancestorHierarchyComp = registry.try_get<HierarchyComponent>(ancestor);
+		ancestor = ancestorHierarchyComp ? ancestorHierarchyComp->parent : entt::null;
 	}
 
-	HierarchyComponent& hierarchyComp = entity.GetOrAddComponent<HierarchyComponent>();
+	Detach(entity);
 
-	hierarchyComp.parent = entt::null;
-	hierarchyComp.nextSibling = entt::null;
-	hierarchyComp.previousSibling = entt::null;
+	// Fetched after both may be added, as adding one can move the other in memory
+	parent.GetOrAddComponent<HierarchyComponent>();
+	HierarchyComponent& hierarchyComp = entity.GetOrAddComponent<HierarchyComponent>();
+	HierarchyComponent& parentHierarchyComp = parent.GetComponent<HierarchyComponent>();
 	hierarchyComp.parent = parent.GetHandle();
 
-	HierarchyComponent& parentHierarchyComp = parent.GetOrAddComponent<HierarchyComponent>();
 	if (parentHierarchyComp.firstChild == entt::null)
 	{
 		parentHierarchyComp.firstChild = entity.GetHandle();
 	}
 	else
 	{
-		entt::entity previousSibling = parentHierarchyComp.firstChild;
-		HierarchyComponent* currentHierachyComp = registry.try_get<HierarchyComponent>(previousSibling);
-		while (currentHierachyComp && currentHierachyComp->nextSibling != entt::null)
-		{
-			previousSibling = currentHierachyComp->nextSibling;
-			currentHierachyComp = registry.try_get<HierarchyComponent>(previousSibling);
-		}
+		entt::entity lastChild = parentHierarchyComp.firstChild;
+		for (HierarchyComponent* lastHierarchyComp = registry.try_get<HierarchyComponent>(lastChild);
+			lastHierarchyComp && lastHierarchyComp->nextSibling != entt::null;
+			lastHierarchyComp = registry.try_get<HierarchyComponent>(lastChild))
+			lastChild = lastHierarchyComp->nextSibling;
 
-		if (currentHierachyComp)
-			currentHierachyComp->nextSibling = entity.GetHandle();
-		hierarchyComp.previousSibling = previousSibling;
+		registry.get<HierarchyComponent>(lastChild).nextSibling = entity.GetHandle();
+		hierarchyComp.previousSibling = lastChild;
 	}
 	MarkDirty(registry, entity);
 }
@@ -248,60 +240,13 @@ void SceneGraph::Reparent(Entity entity, Entity parent)
 void SceneGraph::Unparent(Entity entity)
 {
 	PROFILE_FUNCTION();
-	entt::registry& registry = entity.GetScene()->GetRegistry();
-	HierarchyComponent* hierachyComp = entity.TryGetComponent<HierarchyComponent>();
+	HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>();
+	if (!hierarchyComp || hierarchyComp->parent == entt::null)
+		return;
 
-	if (hierachyComp != nullptr && hierachyComp->parent != entt::null)
-	{
-		entt::entity parent = hierachyComp->parent;
-		bool removeParentComponent = false;
-		MarkDirty(registry, entity);
-		HierarchyComponent* parentHierachyComp = registry.try_get<HierarchyComponent>(parent);
-
-		if (parentHierachyComp != nullptr)
-		{
-			// if this is the first child of the parent fix update that link
-			if (parentHierachyComp->firstChild == entity.GetHandle())
-				parentHierachyComp->firstChild = hierachyComp->nextSibling;
-
-			removeParentComponent = parentHierachyComp->firstChild == entt::null
-				&& parentHierachyComp->parent == entt::null
-				&& parentHierachyComp->nextSibling == entt::null
-				&& parentHierachyComp->previousSibling == entt::null;
-		}
-
-		// update the links of any siblings
-		if (hierachyComp->nextSibling != entt::null && hierachyComp->previousSibling != entt::null)
-		{
-			HierarchyComponent* nextSiblingHierarchyComp = registry.try_get<HierarchyComponent>(hierachyComp->nextSibling);
-			HierarchyComponent* previousSiblingHierarchyComp = registry.try_get<HierarchyComponent>(hierachyComp->previousSibling);
-			nextSiblingHierarchyComp->previousSibling = hierachyComp->previousSibling;
-			previousSiblingHierarchyComp->nextSibling = hierachyComp->nextSibling;
-		}
-		else if (hierachyComp->nextSibling != entt::null)
-		{
-			HierarchyComponent* nextSiblingHierarchyComp = registry.try_get<HierarchyComponent>(hierachyComp->nextSibling);
-			nextSiblingHierarchyComp->previousSibling = entt::null;
-		}
-		else if (hierachyComp->previousSibling != entt::null)
-		{
-			HierarchyComponent* previousSiblingHierarchyComp = registry.try_get<HierarchyComponent>(hierachyComp->previousSibling);
-			previousSiblingHierarchyComp->nextSibling = entt::null;
-		}
-
-		hierachyComp->parent = entt::null;
-		hierachyComp->nextSibling = entt::null;
-		hierachyComp->previousSibling = entt::null;
-
-		// if there is no children then the HierarchyComponent is not needed
-		bool removeOwnComponent = hierachyComp->firstChild == entt::null;
-
-		// Remove components last: removing one can move others in memory, invalidating the pointers above
-		if (removeParentComponent)
-			registry.remove<HierarchyComponent>(parent);
-		if (removeOwnComponent)
-			entity.RemoveComponent<HierarchyComponent>();
-	}
+	MarkDirty(entity.GetScene()->GetRegistry(), entity);
+	Detach(entity);
+	AppendRoot(entity);
 }
 
 void SceneGraph::Remove(Entity entity)
@@ -322,7 +267,7 @@ void SceneGraph::Remove(Entity entity)
 			Remove(childEntity);
 		}
 	}
-	Unparent(entity);
+	Detach(entity);
 
 	ENGINE_DEBUG("Removed {0}", entity.GetName());
 	entity.GetScene()->OnEntityDestroyed(entity);
@@ -334,29 +279,25 @@ void SceneGraph::MoveBefore(Entity entity, Entity before)
 	PROFILE_FUNCTION();
 	if (entity == before) return;
 	entt::registry& registry = entity.GetScene()->GetRegistry();
+	Scene* scene = entity.GetScene();
 
-	// Remove from current parent/sibling list
-	Unparent(entity);
+	Detach(entity);
 
-	HierarchyComponent& beforeHC = before.GetOrAddComponent<HierarchyComponent>();
-	entt::entity parentHandle = beforeHC.parent;
-	Entity parent(parentHandle, entity.GetScene());
-
-	// Insert as sibling before 'before'
+	before.GetOrAddComponent<HierarchyComponent>();
 	HierarchyComponent& entityHC = entity.GetOrAddComponent<HierarchyComponent>();
+	HierarchyComponent& beforeHC = before.GetComponent<HierarchyComponent>();
+	const entt::entity parentHandle = beforeHC.parent;
+
 	entityHC.parent = parentHandle;
 	entityHC.nextSibling = before.GetHandle();
 	entityHC.previousSibling = beforeHC.previousSibling;
 
-	if (beforeHC.previousSibling != entt::null) {
-		HierarchyComponent* prevHC = registry.try_get<HierarchyComponent>(beforeHC.previousSibling);
-		if (prevHC) prevHC->nextSibling = entity.GetHandle();
-	}
-	else if (parentHandle != entt::null) {
-		// If 'before' was the first child, update parent's firstChild
-		HierarchyComponent* parentHC = registry.try_get<HierarchyComponent>(parentHandle);
-		if (parentHC) parentHC->firstChild = entity.GetHandle();
-	}
+	if (beforeHC.previousSibling != entt::null)
+		registry.get<HierarchyComponent>(beforeHC.previousSibling).nextSibling = entity.GetHandle();
+	else if (parentHandle != entt::null)
+		registry.get<HierarchyComponent>(parentHandle).firstChild = entity.GetHandle();
+	else
+		scene->m_FirstRoot = entity.GetHandle();
 
 	beforeHC.previousSibling = entity.GetHandle();
 	MarkDirty(registry, entity);
@@ -367,26 +308,112 @@ void SceneGraph::MoveAfter(Entity entity, Entity after)
 	PROFILE_FUNCTION();
 	if (entity == after) return;
 	entt::registry& registry = entity.GetScene()->GetRegistry();
+	Scene* scene = entity.GetScene();
 
-	// Remove from current parent/sibling list
-	Unparent(entity);
+	Detach(entity);
 
-	HierarchyComponent& afterHC = after.GetOrAddComponent<HierarchyComponent>();
-	entt::entity parentHandle = afterHC.parent;
-	Entity parent(parentHandle, entity.GetScene());
-
-	// Insert as sibling after 'after'
+	after.GetOrAddComponent<HierarchyComponent>();
 	HierarchyComponent& entityHC = entity.GetOrAddComponent<HierarchyComponent>();
+	HierarchyComponent& afterHC = after.GetComponent<HierarchyComponent>();
+	const entt::entity parentHandle = afterHC.parent;
+
 	entityHC.parent = parentHandle;
 	entityHC.previousSibling = after.GetHandle();
 	entityHC.nextSibling = afterHC.nextSibling;
 
-	if (afterHC.nextSibling != entt::null) {
-		HierarchyComponent* nextHC = registry.try_get<HierarchyComponent>(afterHC.nextSibling);
-		if (nextHC) nextHC->previousSibling = entity.GetHandle();
-	}
+	if (afterHC.nextSibling != entt::null)
+		registry.get<HierarchyComponent>(afterHC.nextSibling).previousSibling = entity.GetHandle();
+	else if (parentHandle == entt::null)
+		scene->m_LastRoot = entity.GetHandle();
+
 	afterHC.nextSibling = entity.GetHandle();
 	MarkDirty(registry, entity);
+}
+
+void SceneGraph::AppendRoot(Entity entity)
+{
+	Scene* scene = entity.GetScene();
+	entt::registry& registry = scene->GetRegistry();
+	HierarchyComponent& hierarchyComp = entity.GetOrAddComponent<HierarchyComponent>();
+	hierarchyComp.parent = entt::null;
+	hierarchyComp.nextSibling = entt::null;
+	hierarchyComp.previousSibling = scene->m_LastRoot;
+
+	if (HierarchyComponent* lastHierarchyComp = scene->m_LastRoot != entt::null ? registry.try_get<HierarchyComponent>(scene->m_LastRoot) : nullptr)
+		lastHierarchyComp->nextSibling = entity.GetHandle();
+	else
+		scene->m_FirstRoot = entity.GetHandle();
+	scene->m_LastRoot = entity.GetHandle();
+}
+
+std::vector<Entity> SceneGraph::GetRoots(Scene& scene)
+{
+	std::vector<Entity> roots;
+	entt::registry& registry = scene.GetRegistry();
+	for (entt::entity root = scene.m_FirstRoot; root != entt::null && registry.valid(root);)
+	{
+		roots.emplace_back(root, &scene);
+		const HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(root);
+		root = hierarchyComp ? hierarchyComp->nextSibling : entt::null;
+	}
+	return roots;
+}
+
+void SceneGraph::RelinkRoots(Scene& scene)
+{
+	scene.m_FirstRoot = entt::null;
+	scene.m_LastRoot = entt::null;
+	std::vector<entt::entity> roots;
+	scene.GetRegistry().each([&](entt::entity entity)
+		{
+			const HierarchyComponent* hierarchyComp = scene.GetRegistry().try_get<HierarchyComponent>(entity);
+			if (!hierarchyComp || hierarchyComp->parent == entt::null)
+				roots.push_back(entity);
+		});
+	for (entt::entity root : roots)
+		AppendRoot(Entity(root, &scene));
+}
+
+void SceneGraph::Detach(Entity entity)
+{
+	Scene* scene = entity.GetScene();
+	entt::registry& registry = scene->GetRegistry();
+	HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>();
+	if (!hierarchyComp)
+		return;
+
+	const entt::entity handle = entity.GetHandle();
+	const entt::entity previous = hierarchyComp->previousSibling;
+	const entt::entity next = hierarchyComp->nextSibling;
+
+	if (previous != entt::null)
+	{
+		if (HierarchyComponent* previousHierarchyComp = registry.try_get<HierarchyComponent>(previous))
+			previousHierarchyComp->nextSibling = next;
+	}
+	if (next != entt::null)
+	{
+		if (HierarchyComponent* nextHierarchyComp = registry.try_get<HierarchyComponent>(next))
+			nextHierarchyComp->previousSibling = previous;
+	}
+
+	if (hierarchyComp->parent != entt::null)
+	{
+		HierarchyComponent* parentHierarchyComp = registry.try_get<HierarchyComponent>(hierarchyComp->parent);
+		if (parentHierarchyComp && parentHierarchyComp->firstChild == handle)
+			parentHierarchyComp->firstChild = next;
+	}
+	else
+	{
+		if (scene->m_FirstRoot == handle)
+			scene->m_FirstRoot = next;
+		if (scene->m_LastRoot == handle)
+			scene->m_LastRoot = previous;
+	}
+
+	hierarchyComp->parent = entt::null;
+	hierarchyComp->previousSibling = entt::null;
+	hierarchyComp->nextSibling = entt::null;
 }
 
 std::vector<Entity> SceneGraph::GetChildren(Entity entity)

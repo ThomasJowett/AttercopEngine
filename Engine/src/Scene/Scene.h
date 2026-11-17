@@ -63,6 +63,10 @@ public:
 
 	entt::registry& GetRegistry() { return m_Registry; }
 
+	// Roots are linked in order through their HierarchyComponent's sibling links, from the first to the last
+	entt::entity GetFirstRoot() const { return m_FirstRoot; }
+	entt::entity GetLastRoot() const { return m_LastRoot; }
+
 	void Save(bool binary = false);
 	void Save(std::filesystem::path filepath, bool binary = false);
 	bool Load(bool binary = false);
@@ -141,6 +145,12 @@ private:
 
 	entt::registry m_Registry;
 
+	entt::entity m_FirstRoot = entt::null;
+	entt::entity m_LastRoot = entt::null;
+	// The root links when the snapshot was taken
+	entt::entity m_SnapshotFirstRoot = entt::null;
+	entt::entity m_SnapshotLastRoot = entt::null;
+
 	std::filesystem::path m_Filepath;
 	// Set when the scene was loaded from a file in a newer format, which saving won't overwrite
 	std::filesystem::path m_NewerFormatFile;
@@ -177,6 +187,7 @@ private:
 
 	friend class Entity;
 	friend class SceneSerializer;
+	friend class SceneGraph;
 
 	//Debug info
 	bool m_DrawDebug = false;

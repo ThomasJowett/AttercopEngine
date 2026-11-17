@@ -200,12 +200,8 @@ void HierarchyPanel::BuildRows(Scene* scene)
 		return;
 	}
 
-	registry.each([&](entt::entity entity)
-		{
-			const HierarchyComponent* hierarchyComp = registry.try_get<HierarchyComponent>(entity);
-			if (!hierarchyComp || hierarchyComp->parent == entt::null)
-				AddRows(registry, entity, 0);
-		});
+	for (Entity root : SceneGraph::GetRoots(*scene))
+		AddRows(registry, root.GetHandle(), 0);
 }
 
 void HierarchyPanel::AddRows(entt::registry& registry, entt::entity entity, int depth)
@@ -363,10 +359,7 @@ void HierarchyPanel::ApplyDrop()
 	if (drop.target && IsSelfOrDescendant(registry, drop.target.GetHandle(), drop.dragged.GetHandle()))
 		return;
 
-	const HierarchyComponent* targetHierarchyComp = drop.target ? drop.target.TryGetComponent<HierarchyComponent>() : nullptr;
-	bool targetIsRoot = !targetHierarchyComp || targetHierarchyComp->parent == entt::null;
-
-	if (drop.position != DropPosition::Onto && !targetIsRoot)
+	if (drop.position != DropPosition::Onto && drop.target)
 	{
 		bool before = drop.position == DropPosition::Before;
 		Ref<MoveSiblingCommand> moveCommand = CreateRef<MoveSiblingCommand>(drop.dragged, drop.target, before);
@@ -379,7 +372,6 @@ void HierarchyPanel::ApplyDrop()
 		return;
 	}
 
-	// Roots are listed in the registry's order, so a drop beside one moves to the root
 	Entity parent = drop.position == DropPosition::Onto ? drop.target : Entity();
 
 	const HierarchyComponent* draggedHierarchyComp = drop.dragged.TryGetComponent<HierarchyComponent>();
