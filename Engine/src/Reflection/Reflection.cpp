@@ -186,14 +186,14 @@ namespace Reflection
 		return CollisionLayers::GetLayerName(layer);
 	}
 
-	uint16_t LayerFromText(std::string_view text, bool* known)
+	uint16_t LayerFromText(std::string_view text, bool* known, std::string_view where)
 	{
 		int index = LayerIndexFromName(Trim(text));
 		if (known)
 			*known = index >= 0;
 		if (index < 0)
 		{
-			ENGINE_WARN("Unknown collision layer \"{0}\", using Default", std::string(text));
+			ENGINE_WARN("Unknown collision layer \"{0}\"{1}, using Default", std::string(text), std::string(where));
 			return CollisionLayers::DefaultLayer;
 		}
 		return (uint16_t)(1u << index);
@@ -218,7 +218,7 @@ namespace Reflection
 		return text;
 	}
 
-	uint16_t MaskFromText(std::string_view text, std::vector<std::string>* unknown)
+	uint16_t MaskFromText(std::string_view text, std::vector<std::string>* unknown, std::string_view where)
 	{
 		text = Trim(text);
 		if (text == "Everything")
@@ -238,7 +238,7 @@ namespace Reflection
 			int index = LayerIndexFromName(name);
 			if (index < 0)
 			{
-				ENGINE_WARN("Unknown collision layer \"{0}\" in a mask, left out", std::string(name));
+				ENGINE_WARN("Unknown collision layer \"{0}\" in a mask{1}, left out", std::string(name), std::string(where));
 				if (unknown)
 					unknown->push_back(std::string(name));
 				continue;
@@ -248,7 +248,7 @@ namespace Reflection
 		return mask;
 	}
 
-	int32_t EnumFromText(const EnumType& type, std::string_view text, int32_t fallback, bool* known)
+	int32_t EnumFromText(const EnumType& type, std::string_view text, int32_t fallback, bool* known, std::string_view where)
 	{
 		std::optional<int32_t> value = type.ValueOf(Trim(text));
 		if (known)
@@ -256,7 +256,7 @@ namespace Reflection
 		if (!value)
 		{
 			const char* fallbackName = type.NameOf(fallback);
-			ENGINE_WARN("Unknown {0} \"{1}\", using {2}", type.name, std::string(text), fallbackName ? fallbackName : "the default");
+			ENGINE_WARN("Unknown {0} \"{1}\"{2}, using {3}", type.name, std::string(text), std::string(where), fallbackName ? fallbackName : "the default");
 			return fallback;
 		}
 		return *value;
