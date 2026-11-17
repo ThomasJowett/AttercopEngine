@@ -29,8 +29,11 @@ into exported games:
 </CollisionLayers>
 ```
 
-Scene files store a collider's layer and mask as bits, not names, so renaming a layer doesn't
-change which colliders are on it.
+Scene files store a collider's layer and mask by name (`Layer="Player" Mask="Default, Enemy"`),
+or `Layer 5` for an unnamed slot. Saving new names in Project Settings rewrites them in every scene
+in the project, so renaming, swapping or clearing a name doesn't change which colliders are on
+which layer. A name a scene doesn't know, such as one deleted by editing the file, is reported in
+the console when the scene loads, and the collider is put on `Default`.
 
 ## Setting a collider's layer and mask
 

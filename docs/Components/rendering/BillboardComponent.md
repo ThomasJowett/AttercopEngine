@@ -19,11 +19,11 @@ instead. For screen-anchored interfaces, use the in-game UI.
 Saved as a `<Billboard>` element inside the entity's `<Entity>` element. Attributes that are left out keep their default. See [Scene Files](../../scene-files.md) for how values like vectors, colours and file paths are written.
 
 ```xml
-<Billboard Orientation="1"/>
+<Billboard Orientation="Camera"/>
 ```
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
-| `Orientation` | attribute | int: `0` stays upright (turns around world up), `1` points at the camera | `1` |
+| `Orientation` | attribute | `WorldUp` stays upright (turns around world up), `Camera` points at the camera | `Camera` |
 
 --8<-- "LuaAPI/_fragments/BillboardComponent.md"

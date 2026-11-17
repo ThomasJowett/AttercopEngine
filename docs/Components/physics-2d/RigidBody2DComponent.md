@@ -18,13 +18,13 @@ physics moves the entity.
 Saved as a `<RigidBody2D>` element inside the entity's `<Entity>` element. Attributes that are left out keep their default. See [Scene Files](../../scene-files.md) for how values like vectors, colours and file paths are written.
 
 ```xml
-<RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1"
+<RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1"
              AngularDamping="0" LinearDamping="0"/>
 ```
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
-| `BodyType` | attribute | int: `0` Static, `1` Kinematic, `2` Dynamic | `0` |
+| `Type` | attribute | `Static`, `Kinematic` or `Dynamic` | `Static` |
 | `FixedRotation` | attribute | bool | `false` |
 | `GravityScale` | attribute | float, multiplier on the scene's `Gravity` | `1` |
 | `AngularDamping` | attribute | float | `0` |

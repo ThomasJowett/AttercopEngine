@@ -11,7 +11,7 @@ loads.
 Saved as a `<Primitive>` element inside the entity's `<Entity>` element. Attributes that are left out keep their default. See [Scene Files](../../scene-files.md) for how values like vectors, colours and file paths are written.
 
 ```xml
-<Primitive Type="0">
+<Primitive Type="Cube">
     <Material Filepath="Materials/Test.material"/>
     <Cube Width="1" Height="1" Depth="1"/>
 </Primitive>
@@ -19,7 +19,7 @@ Saved as a `<Primitive>` element inside the entity's `<Entity>` element. Attribu
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
-| `Type` | attribute | int: `0` Cube, `1` Sphere, `2` Plane, `3` Cylinder, `4` Cone, `5` Torus | `0` |
+| `Type` | attribute | `Cube`, `Sphere`, `Plane`, `Cylinder`, `Cone` or `Torus` | `Cube` |
 | `Material` | child `Filepath`, optional | path to a `.material` | default material |
 | `Cube` | child | `Width` `Height` `Depth` (float) | 1, 1, 1 |
 | `Sphere` | child | `Radius` (float), `LongitudeLines` `LatitudeLines` (int) | 0.5, 16, 32 |

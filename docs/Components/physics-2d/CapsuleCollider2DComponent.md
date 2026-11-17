@@ -10,20 +10,20 @@ instead of catching on them. `Height` is the total length, end to end.
 Saved as a `<CapsuleCollider2D>` element inside the entity's `<Entity>` element. Attributes that are left out keep their default. See [Scene Files](../../scene-files.md) for how values like vectors, colours and file paths are written.
 
 ```xml
-<CapsuleCollider2D Direction="0" Radius="0.5" Height="2" IsTrigger="false" Layer="1" Mask="65535">
+<CapsuleCollider2D Direction="Vertical" Radius="0.5" Height="2" IsTrigger="false" Layer="Default" Mask="Everything">
     <Offset X="0" Y="0"/>
 </CapsuleCollider2D>
 ```
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
-| `Direction` | attribute | int: `0` vertical, `1` horizontal | `0` |
+| `Direction` | attribute | `Vertical` or `Horizontal` | `Vertical` |
 | `Radius` | attribute | float | `0.5` |
 | `Height` | attribute | float, total length | `2` |
 | `Offset` | child `X` `Y` | float, shape offset from the entity's position | 0, 0 |
 | `IsTrigger` | attribute | bool, reports overlaps without blocking | `false` |
-| `Layer` | attribute | int, bit of the [collision layer](../../collision-layers.md) the collider is on | `1` (`Default`) |
-| `Mask` | attribute | int, bits of the collision layers it collides with | `65535` (everything) |
+| `Layer` | attribute | name of the [collision layer](../../collision-layers.md) the collider is on | `Default` |
+| `Mask` | attribute | names of the collision layers it collides with, separated by `, `, or `Everything` or `Nothing` | `Everything` |
 | `PhysicsMaterial` | child `Filepath`, optional | path to a `.physicsmaterial` (density, friction, restitution) | built-in defaults |
 
 Collider sizes are multiplied by the entity's transform scale. Without a
