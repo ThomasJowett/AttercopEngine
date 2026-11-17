@@ -1,7 +1,6 @@
 #include "SpriteAtlas.h"
 
 #include "TinyXml2/tinyxml2.h"
-#include "Core/Version.h"
 #include "Scene/AssetManager.h"
 #include "Logging/Instrumentor.h"
 
@@ -293,7 +292,6 @@ Ref<SpriteAtlas> SpriteAtlas::Build(const std::vector<std::filesystem::path>& so
 
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLElement* pRoot = doc.NewElement("SpriteAtlas");
-	pRoot->SetAttribute("EngineVersion", VERSION);
 	pRoot->SetAttribute("PageSize", pageSize);
 	doc.InsertFirstChild(pRoot);
 

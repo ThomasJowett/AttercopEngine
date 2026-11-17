@@ -3,7 +3,6 @@
 #include "Scene/Entity.h"
 #include "Components.h"
 #include "Core/Application.h"
-#include "Core/Version.h"
 #include "Migration/Migration.h"
 #include "Utilities/SerializationUtils.h"
 #include "Utilities/FileUtils.h"
@@ -28,7 +27,6 @@ bool SceneSerializer::Serialize(const std::filesystem::path& filepath) const
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLElement* pRoot = doc.NewElement("Scene");
 
-	pRoot->SetAttribute("EngineVersion", VERSION);
 	pRoot->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::Scene));
 
 	SerializationUtils::Encode(pRoot->InsertNewChildElement("Gravity"), m_Scene->GetGravity());

@@ -5,7 +5,6 @@
 #include "Tasks.h"
 
 #include "TinyXml2/tinyxml2.h"
-#include "Core/Version.h"
 #include "Logging/Instrumentor.h"
 #include "Utilities/SerializationUtils.h"
 #include "Utilities/FileUtils.h"
@@ -347,7 +346,6 @@ bool Serializer::Serialize(const std::filesystem::path& filepath, BehaviourTree*
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLElement* pRoot = doc.NewElement("BehaviourTree");
 
-	pRoot->SetAttribute("EngineVersion", VERSION);
 
 	doc.InsertFirstChild(pRoot);
 

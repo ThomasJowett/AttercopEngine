@@ -4,7 +4,6 @@
 
 #include "TinyXml2/tinyxml2.h"
 #include "Core/Application.h"
-#include "Core/Version.h"
 #include "Migration/Migration.h"
 #include "Logging/Instrumentor.h"
 #include "Utilities/SerializationUtils.h"
@@ -18,7 +17,6 @@ bool StateMachineSerializer::Serialize(const std::filesystem::path& filepath, St
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLElement* pRoot = doc.NewElement("StateMachine");
 
-	pRoot->SetAttribute("EngineVersion", VERSION);
 	pRoot->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::StateMachine));
 	pRoot->SetAttribute("InitialState", stateMachine->GetInitialState().c_str());
 
