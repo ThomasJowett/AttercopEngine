@@ -11,7 +11,7 @@ A prefab is a scene file too: spawn one from a script with
 ## Layout
 
 ```xml
-<Scene FormatVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.81"/>
     <Entity Name="Player" ID="1001-1">
         <Transform>...</Transform>
@@ -26,8 +26,8 @@ A prefab is a scene file too: spawn one from a script with
 </Scene>
 ```
 
-- **`<Scene>`** is the root. `FormatVersion` is the scene format version (currently `1`); a file
-  without it is version `1`. A scene in the previous format is upgraded when it's loaded, and
+- **`<Scene>`** is the root. `FormatVersion` is the scene format version (currently `2`); A scene
+  in the previous format is upgraded when it's loaded, and
   written in the current format when it's saved. A scene two or more formats behind is upgraded
   as far as possible, with a warning: open and save it in each version of Attercop in between to
   be sure. A scene from a newer version of Attercop loads as far as
@@ -37,13 +37,16 @@ A prefab is a scene file too: spawn one from a script with
   one element per component.
 - **Children** are written as `<Entity>` elements nested inside their parent, in order. This
   is the only way the parent and child relationship is stored.
+- **Order:** entities are listed in the Hierarchy panel in the order they're written, top-level
+  entities included.
 
 An entity only gets an ID and a name automatically. Add a `<Transform>` to almost every entity,
 because rendering, physics, cameras and audio all need one.
 
 Each component element appears at most once per entity, and the order of components inside an
-entity doesn't matter. Elements the engine doesn't recognise are ignored. Attributes that are
-left out keep the component's default value.
+entity doesn't matter. The Editor writes every setting, defaults included. Attributes and elements
+that are left out keep the component's default value. Ones the engine doesn't recognise are
+ignored, with a warning in the console giving the file and line, so a misspelt name is noticed.
 
 ## Values
 
@@ -51,21 +54,24 @@ left out keep the component's default value.
 | --- | --- | --- |
 | Number | attribute | `Radius="0.5"` |
 | Boolean | attribute, `true` or `false` | `IsTrigger="false"` |
-| Enum | attribute, an integer (each component page lists the values) | `BodyType="2"` |
+| Enum | attribute, by name (each component page lists the names) | `Type="Dynamic"` |
+| Collision layer | attribute, the layer's name from the project's [collision layers](collision-layers.md), or `Layer N` for an unnamed one | `Layer="Player"` |
+| Collision mask | attribute, layer names separated by `, `, or `Everything` or `Nothing` | `Mask="Default, Enemy"` |
 | 2D vector | child element with `X` and `Y` | `<Offset X="0" Y="0.5"/>` |
 | 3D vector | child element with `X`, `Y` and `Z` | `<Position X="0" Y="0" Z="0"/>` |
 | Colour | child element with `R`, `G`, `B`, `A` from 0 to 1 | `<Tint R="1" G="0.5" B="0" A="1"/>` |
-| Asset | `Filepath` attribute, relative to the project folder, with `/` separators | `<LuaScript Filepath="Scripts/Player.lua"/>` |
-| Texture | an asset, plus `FilterMethod` (`0` linear, `1` nearest) and `WrapMethod` (`0` clamp, `1` mirror, `2` repeat) | `<Texture Filepath="Sprites/Player.png" FilterMethod="1" WrapMethod="2"/>` |
+| Asset | child element named after the setting, with a `Filepath` relative to the project folder and `/` separators; a component's main asset is a `Filepath` on its own element | `<Texture Filepath="Sprites/Player.png"/>`, `<LuaScript Filepath="Scripts/Player.lua"/>` |
+| List | one child element per item | `<Vertex X="0" Y="1"/>` |
 
-Rotations are in radians.
+An asset that isn't set is left out. An unknown enum or layer name is reported in the console and
+the default is used. Rotations are in radians.
 
 ## A complete example
 
 A 2D scene with a camera, a player that falls under gravity onto the ground, and a pause button:
 
 ```xml
-<Scene FormatVersion="1">
+<Scene FormatVersion="2">
     <Gravity X="0" Y="-9.81"/>
     <Entity Name="Camera" ID="1-1">
         <Transform>
@@ -73,9 +79,7 @@ A 2D scene with a camera, a player that falls under gravity onto the ground, and
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false">
-            <SceneCamera ProjectionType="1" OrthoSize="10" OrthoNear="-1" OrthoFar="1"/>
-        </Camera>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="10" OrthoNear="-1" OrthoFar="1"/>
         <AudioListener Primary="true"/>
     </Entity>
     <Entity Name="Player" ID="1-2">
@@ -84,12 +88,12 @@ A 2D scene with a camera, a player that falls under gravity onto the ground, and
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Sprite TilingFactor="1">
-            <Texture Filepath="Sprites/Player.png" FilterMethod="1" WrapMethod="2"/>
+        <Sprite TilingFactor="1" FilterMethod="Nearest" WrapMethod="Repeat">
             <Tint R="1" G="1" B="1" A="1"/>
+            <Texture Filepath="Sprites/Player.png"/>
         </Sprite>
-        <RigidBody2D BodyType="2" FixedRotation="true" GravityScale="1"/>
-        <CapsuleCollider2D Direction="0" Radius="0.4" Height="1" IsTrigger="false">
+        <RigidBody2D Type="Dynamic" FixedRotation="true" GravityScale="1"/>
+        <CapsuleCollider2D Direction="Vertical" Radius="0.4" Height="1" IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
         </CapsuleCollider2D>
         <LuaScript Filepath="Scripts/Player.lua"/>
@@ -103,7 +107,7 @@ A 2D scene with a camera, a player that falls under gravity onto the ground, and
         <Sprite TilingFactor="1">
             <Tint R="0.3" G="0.6" B="0.3" A="1"/>
         </Sprite>
-        <BoxCollider2D IsTrigger="false">
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
             <Offset X="0" Y="0"/>
             <Size X="0.5" Y="0.5"/>
         </BoxCollider2D>

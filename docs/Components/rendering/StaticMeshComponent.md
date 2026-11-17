@@ -12,17 +12,15 @@ Saved as a `<StaticMesh>` element inside the entity's `<Entity>` element. Attrib
 
 ```xml
 <StaticMesh Filepath="Meshes/Crate.staticmesh">
-    <MaterialOverride Filepath="Materials/Wood.material"/>
+    <Material Slot="2" Filepath="Materials/Wood.material"/>
 </StaticMesh>
 ```
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
 | `Filepath` | attribute: project-relative path | path to a `.staticmesh` | none |
-| `MaterialOverride` | child `Filepath`, repeatable | path to a `.material`, one per submesh in order | the model's own materials |
+| `Material` | child `Slot` `Filepath`, one per overridden slot | the mesh's material slot, and the path to a `.material` that replaces it | the model's own materials |
 
-Overrides set to the default material aren't saved, so the overrides that are saved move up to
-fill the gap. If you need a custom material on a later submesh, give every submesh before it
-an override too.
+Slots without an override aren't written.
 
 --8<-- "LuaAPI/_fragments/StaticMeshComponent.md"

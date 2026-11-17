@@ -11,23 +11,21 @@ entity's transform.
 Saved as a `<Camera>` element inside the entity's `<Entity>` element. Attributes that are left out keep their default. See [Scene Files](../../scene-files.md) for how values like vectors, colours and file paths are written.
 
 ```xml
-<Camera Primary="true" FixedAspectRatio="false">
-    <SceneCamera ProjectionType="1" OrthoSize="10" OrthoNear="-1" OrthoFar="1"
-                 PerspectiveNear="1" PerspectiveFar="1000" FOV="1.5707964"/>
-</Camera>
+<Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic"
+        OrthoSize="10" OrthoNear="-1" OrthoFar="1"
+        PerspectiveNear="1" PerspectiveFar="1000" Fov="1.5707964"/>
 ```
 
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
 | `Primary` | attribute | bool | `true` |
 | `FixedAspectRatio` | attribute | bool | `false` |
-| `SceneCamera` | child | projection settings, below |  |
-| `ProjectionType` | attribute on `SceneCamera` | int: `0` perspective, `1` orthographic | `0` |
-| `OrthoSize` | attribute on `SceneCamera` | float, visible height in world units | `10` |
-| `OrthoNear` / `OrthoFar` | attributes on `SceneCamera` | float | `-1` / `1` |
-| `PerspectiveNear` / `PerspectiveFar` | attributes on `SceneCamera` | float | `1` / `1000` |
-| `FOV` | attribute on `SceneCamera` | float, vertical field of view in radians | `1.5707964` (90°) |
-| `AspectRatio` | attribute on `SceneCamera` | float, width / height; only read when `FixedAspectRatio` is true | `1.7777778` |
+| `Projection` | attribute | `Perspective` or `Orthographic` | `Perspective` |
+| `OrthoSize` | attribute | float, visible height in world units | `10` |
+| `OrthoNear` / `OrthoFar` | attributes | float | `-1` / `1` |
+| `PerspectiveNear` / `PerspectiveFar` | attributes | float | `1` / `1000` |
+| `Fov` | attribute | float, vertical field of view in radians | `1.5707964` (90°) |
+| `AspectRatio` | attribute | float, width / height; only written and used when `FixedAspectRatio` is true | `1.7777778` |
 
 In Lua, `camera.Camera` returns a copy of the projection settings. Change the copy and then
 assign it back:
