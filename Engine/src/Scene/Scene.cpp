@@ -949,10 +949,20 @@ void Scene::Save(std::filesystem::path filepath, bool binary)
 	if (m_Snapshot.rdbuf()->in_avail() != 0)
 		return;
 
-	m_IsSaving = true;
-
 	std::filesystem::path finalPath = filepath;
 	finalPath.replace_extension(".scene");
+
+	if (!m_NewerFormatFile.empty())
+	{
+		std::error_code error;
+		if (std::filesystem::equivalent(finalPath, m_NewerFormatFile, error) || finalPath.lexically_normal() == m_NewerFormatFile.lexically_normal())
+		{
+			ENGINE_ERROR("Not saving {0}: it was saved by a newer version of Attercop, and saving would lose what this version can't read", finalPath.string());
+			return;
+		}
+	}
+
+	m_IsSaving = true;
 
 	ENGINE_INFO("Saving Scene to {0}", finalPath.string());
 

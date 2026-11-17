@@ -4,6 +4,7 @@
 
 namespace tinyxml2
 {
+class XMLDocument;
 class XMLElement;
 }
 
@@ -24,5 +25,7 @@ public:
 	static std::string SerializeEntity(Entity entity);
 	static Entity DeserializeEntity(Scene* scene, const std::string& prefab, bool resetUuid = false);
 private:
+	bool LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath);
+
 	Scene* m_Scene;
 };

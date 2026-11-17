@@ -4,6 +4,7 @@
 #include "Components.h"
 #include "Core/Application.h"
 #include "Core/Version.h"
+#include "Migration/Migration.h"
 #include "Utilities/SerializationUtils.h"
 #include "Utilities/FileUtils.h"
 #include "AssetManager.h"
@@ -28,6 +29,7 @@ bool SceneSerializer::Serialize(const std::filesystem::path& filepath) const
 	tinyxml2::XMLElement* pRoot = doc.NewElement("Scene");
 
 	pRoot->SetAttribute("EngineVersion", VERSION);
+	pRoot->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::Scene));
 
 	SerializationUtils::Encode(pRoot->InsertNewChildElement("Gravity"), m_Scene->GetGravity());
 
@@ -59,88 +61,60 @@ bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
 	PROFILE_FUNCTION();
 
 	tinyxml2::XMLDocument doc;
-
-	if (doc.LoadFile(filepath.string().c_str()) == tinyxml2::XML_SUCCESS)
-	{
-		m_Scene->SetFilepath(filepath);
-
-		tinyxml2::XMLElement* pRoot = doc.FirstChildElement("Scene");
-
-		if (!pRoot)
-		{
-			ENGINE_ERROR("Not a valid scene file. Could not find Scene node");
-			return false;
-		}
-
-		Vector2f gravity = m_Scene->GetGravity();
-		SerializationUtils::Decode(pRoot->FirstChildElement("Gravity"), gravity);
-		m_Scene->SetGravity(gravity);
-
-		// Version
-
-		if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-			ENGINE_WARN("Loading scene created with a different version of the engine");
-
-		// Entities
-		tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity");
-
-		while (pEntityElement)
-		{
-			DeserializeEntity(m_Scene, pEntityElement);
-			pEntityElement = pEntityElement->PreviousSiblingElement("Entity");
-		}
-
-		return true;
-	}
-	else
+	if (doc.LoadFile(filepath.string().c_str()) != tinyxml2::XML_SUCCESS)
 	{
 		ENGINE_ERROR("Could not load scene {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
 		return false;
 	}
+	return LoadXML(doc, filepath);
 }
 
 bool SceneSerializer::Deserialize(const std::filesystem::path& filepath, const std::vector<uint8_t>& data)
 {
 	PROFILE_FUNCTION();
+
 	tinyxml2::XMLDocument doc;
-
-	if (doc.Parse((const char*)data.data(), data.size()) == tinyxml2::XML_SUCCESS)
-	{
-		m_Scene->SetFilepath(filepath);
-		tinyxml2::XMLElement* pRoot = doc.FirstChildElement("Scene");
-
-		if (!pRoot)
-		{
-			ENGINE_ERROR("Not a valid scene file. Could not find Scene node");
-			return false;
-		}
-
-		Vector2f gravity = m_Scene->GetGravity();
-		SerializationUtils::Decode(pRoot->FirstChildElement("Gravity"), gravity);
-		m_Scene->SetGravity(gravity);
-
-		// Version
-
-		if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-			ENGINE_WARN("Loading scene created with a different version of the engine");
-
-		// Entities
-		tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity");
-
-		while (pEntityElement)
-		{
-			DeserializeEntity(m_Scene, pEntityElement);
-			pEntityElement = pEntityElement->PreviousSiblingElement("Entity");
-		}
-
-		return true;
-	}
-	else
+	if (doc.Parse((const char*)data.data(), data.size()) != tinyxml2::XML_SUCCESS)
 	{
 		ENGINE_ERROR("Could not load scene {0}. {1} on line {2}", filepath, doc.ErrorName(), doc.ErrorLineNum());
 		return false;
 	}
-	return false;
+	return LoadXML(doc, filepath);
+}
+
+bool SceneSerializer::LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath)
+{
+	m_Scene->SetFilepath(filepath);
+	m_Scene->m_NewerFormatFile.clear();
+
+	if (!doc.FirstChildElement("Scene"))
+	{
+		ENGINE_ERROR("Not a valid scene file. Could not find Scene node");
+		return false;
+	}
+
+	Migration::Report report;
+	if (Migration::Upgrade(Migration::FileType::Scene, doc, filepath, report) == Migration::Result::TooNew)
+		m_Scene->m_NewerFormatFile = filepath;
+
+	tinyxml2::XMLElement* pRoot = doc.FirstChildElement("Scene");
+	if (!pRoot)
+		return false;
+
+	Vector2f gravity = m_Scene->GetGravity();
+	SerializationUtils::Decode(pRoot->FirstChildElement("Gravity"), gravity);
+	m_Scene->SetGravity(gravity);
+
+	// Entities
+	tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity");
+
+	while (pEntityElement)
+	{
+		DeserializeEntity(m_Scene, pEntityElement);
+		pEntityElement = pEntityElement->PreviousSiblingElement("Entity");
+	}
+
+	return true;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -1392,6 +1366,7 @@ std::string SceneSerializer::SerializeEntity(Entity entity)
 	tinyxml2::XMLElement* pEntityElement = doc.NewElement("Entity");
 	doc.InsertFirstChild(pEntityElement);
 	SceneSerializer::SerializeEntity(pEntityElement, entity);
+	pEntityElement->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::Scene));
 	tinyxml2::XMLPrinter printer;
 	doc.Accept(&printer);
 	return printer.CStr();
@@ -1402,10 +1377,11 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, const std::string& prefa
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLError error = doc.Parse(prefab.c_str());
 
-	if (error == tinyxml2::XMLError::XML_SUCCESS)
+	if (error == tinyxml2::XMLError::XML_SUCCESS && doc.FirstChildElement("Entity"))
 	{
-		tinyxml2::XMLElement* pEntityElement = doc.FirstChildElement("Entity");
-		if (pEntityElement)
+		Migration::Report report;
+		Migration::Upgrade(Migration::FileType::Scene, doc, "the pasted entity", report);
+		if (tinyxml2::XMLElement* pEntityElement = doc.FirstChildElement("Entity"))
 			return SceneSerializer::DeserializeEntity(scene, pEntityElement, resetUuid);
 	}
 	return Entity();
