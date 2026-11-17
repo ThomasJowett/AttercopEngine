@@ -229,10 +229,6 @@ bool Tileset::LoadXML(tinyxml2::XMLDocument* doc)
 		return false;
 	}
 
-	if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION) {
-		ENGINE_WARN("Tileset created with a different version of the engine");
-	}
-
 	m_Tiles.clear();
 	Ref<Texture2D> texture;
 

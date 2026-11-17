@@ -174,10 +174,6 @@ bool SpriteSheet::LoadXML(tinyxml2::XMLDocument* doc, const std::filesystem::pat
 		return false;
 	}
 
-	if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION) {
-		ENGINE_WARN("Tileset created with a different version of the engine");
-	}
-
 	m_Animations.clear();
 
 	Ref<Texture2D> texture;

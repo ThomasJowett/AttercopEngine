@@ -56,8 +56,6 @@ namespace ProjectSerializer
 			return ReplaceWithDefaultProject(data, filepath);
 		}
 
-		if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-			ENGINE_WARN("Loading a project file created with a different version of the engine");
 
 		data = ProjectData();
 

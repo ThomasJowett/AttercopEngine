@@ -102,8 +102,6 @@ Ref<StateMachine> StateMachineSerializer::LoadXML(tinyxml2::XMLDocument* doc)
 		return nullptr;
 	}
 
-	if (const char* version = pRoot->Attribute("EngineVersion"); version && atoi(version) != VERSION)
-		ENGINE_WARN("Loading state machine created with a different version of the engine");
 
 	Ref<StateMachine> stateMachine = CreateRef<StateMachine>();
 
