@@ -161,14 +161,15 @@ namespace Reflection
 
 	// Collision layers and masks as text: a layer's name, or "Layer N" for an unnamed slot
 	std::string LayerToText(uint16_t layer);
-	// An unknown name gives Default, with a warning; known is set to whether the name was found
-	uint16_t LayerFromText(std::string_view text, bool* known = nullptr);
+	// An unknown name gives Default, with a warning ending in where; known is set to whether the name was found
+	uint16_t LayerFromText(std::string_view text, bool* known = nullptr, std::string_view where = {});
 
 	// "Everything", "Nothing", or layer names separated by ", "
 	std::string MaskToText(uint16_t mask);
-	// Unknown names are left out, with a warning; unknown lists them
-	uint16_t MaskFromText(std::string_view text, std::vector<std::string>* unknown = nullptr);
+	// Unknown names are left out, with a warning ending in where; unknown lists them
+	uint16_t MaskFromText(std::string_view text, std::vector<std::string>* unknown = nullptr, std::string_view where = {});
 
-	// An unknown name gives fallback, with a warning; known is set to whether the name was found
-	int32_t EnumFromText(const EnumType& type, std::string_view text, int32_t fallback, bool* known = nullptr);
+	// An unknown name gives fallback, with a warning ending in where; known is set to whether the name was found
+	int32_t EnumFromText(const EnumType& type, std::string_view text, int32_t fallback, bool* known = nullptr,
+		std::string_view where = {});
 }
