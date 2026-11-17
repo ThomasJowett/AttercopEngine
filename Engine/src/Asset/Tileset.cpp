@@ -3,7 +3,6 @@
 #include "TinyXml2/tinyxml2.h"
 #include "Logging/Instrumentor.h"
 #include "Utilities/SerializationUtils.h"
-#include "Core/Version.h"
 
 #include <limits>
 
@@ -88,7 +87,6 @@ bool Tileset::SaveAs(const std::filesystem::path& filepath) const
 	tinyxml2::XMLDocument doc;
 	tinyxml2::XMLElement* pRoot = doc.NewElement("Tileset");
 
-	pRoot->SetAttribute("EngineVersion", VERSION);
 
 	if (m_Texture)
 	{
