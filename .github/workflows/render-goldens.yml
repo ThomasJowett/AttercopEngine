@@ -38,9 +38,9 @@ jobs:
           LP_NATIVE_VECTOR_WIDTH: "128"
         run: |
           rm -f Tests/Render/Golden/*.png
-          for scene in Tests/Render/Scenes/*RenderTest.scene; do
+          for scene in Tests/Scenes/Scenes/*RenderTest.scene; do
             name=$(basename "$scene" .scene)
-            xvfb-run -a -s "-screen 0 1280x720x24" build/Tests/SceneTest --project Tests/Render/Render.proj \
+            xvfb-run -a -s "-screen 0 1280x720x24" build/Tests/SceneTest --project Tests/Scenes/Tests.proj \
               --scene "$scene" --api opengl --size 320x180 --frames 600 --timeout 60 --require-verdict \
               --golden Tests/Render/Golden --update-goldens --log "build/Tests/logs/Golden.$name.txt"
           done

@@ -10,7 +10,7 @@ class XMLDocument;
 class XMLElement;
 }
 
-// Upgrades scene, state machine and project files from older formats, see design/project-migration.md
+// Upgrades scene, state machine and project files from older formats
 namespace Migration
 {
 	enum class FileType { Scene, StateMachine, Project };
