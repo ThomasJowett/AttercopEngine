@@ -60,13 +60,52 @@ static bool InitSound(ma_engine* engine, const AudioClip& clip, ma_uint32 flags,
 Scene::Scene(const std::filesystem::path& filepath)
 	:m_Filepath(filepath)
 {
+	m_Registry.on_construct<IDComponent>().connect<&Scene::OnIDAdded>(this);
+	m_Registry.on_destroy<IDComponent>().connect<&Scene::OnIDRemoved>(this);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 Scene::~Scene()
 {
+	m_Registry.on_construct<IDComponent>().disconnect(this);
+	m_Registry.on_destroy<IDComponent>().disconnect(this);
 	LuaManager::CleanUp();
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void Scene::OnIDAdded(entt::registry& registry, entt::entity entity)
+{
+	IDComponent& idComponent = registry.get<IDComponent>(entity);
+	if (idComponent.ID.IsNil())
+		idComponent.ID = Uuid();
+
+	auto [existing, added] = m_EntitiesByID.try_emplace(idComponent.ID, entity);
+	if (!added)
+	{
+		const NameComponent* name = registry.try_get<NameComponent>(existing->second);
+		ENGINE_WARN("ID {0} is already used by {1}, the new entity gets a new one", idComponent.ID.to_string(), name ? name->name : "another entity");
+		do
+			idComponent.ID = Uuid();
+		while (!m_EntitiesByID.try_emplace(idComponent.ID, entity).second);
+	}
+}
+
+void Scene::OnIDRemoved(entt::registry& registry, entt::entity entity)
+{
+	auto found = m_EntitiesByID.find(registry.get<IDComponent>(entity).ID);
+	if (found != m_EntitiesByID.end() && found->second == entity)
+		m_EntitiesByID.erase(found);
+}
+
+void Scene::SwapIDs(Entity a, Entity b)
+{
+	Uuid& idA = a.GetComponent<IDComponent>().ID;
+	Uuid& idB = b.GetComponent<IDComponent>().ID;
+	std::swap(idA, idB);
+	m_EntitiesByID[idA] = a.GetHandle();
+	m_EntitiesByID[idB] = b.GetHandle();
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -363,7 +402,7 @@ void Scene::OnRuntimeStop()
 	if (m_Snapshot.rdbuf()->in_avail() != 0)
 	{
 		ENGINE_DEBUG("Runtime End");
-		m_Registry = entt::registry();
+		m_Registry.clear();
 		cereal::BinaryInputArchive input(m_Snapshot);
 		entt::snapshot_loader(m_Registry).entities(input).component<COMPONENTS>(input);
 		m_FirstRoot = m_SnapshotFirstRoot;
@@ -1135,13 +1174,8 @@ Entity Scene::GetEntityByName(const std::string& name)
 
 Entity Scene::GetEntityByID(const Uuid& id)
 {
-	auto view = m_Registry.view<IDComponent>();
-	for (auto entity : view)
-	{
-		if (view.get<IDComponent>(entity).ID == id)
-			return Entity(entity, this);
-	}
-	return Entity();
+	auto found = m_EntitiesByID.find(id);
+	return found != m_EntitiesByID.end() ? Entity(found->second, this) : Entity();
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

@@ -171,21 +171,9 @@ void BindEntity(sol::state& state)
 	SetFunction(uuid_type, "UUID", "ToString", "Get the ID as a string, e.g. to save it or use it as a table key", &Uuid::to_string);
 	SetFunction(uuid_type, "UUID", "FromString", Params{ "text" }, "Read back an ID from ToString, or nil if the text isn't one", [](const std::string& string) -> sol::optional<Uuid>
 		{
-			size_t dash = string.find('-');
-			if (dash == std::string::npos || dash == 0 || dash == string.size() - 1)
-				return sol::nullopt;
-			auto isDigits = [](const std::string& part) { return std::all_of(part.begin(), part.end(), [](unsigned char c) { return std::isdigit(c); }); };
-			std::string lo = string.substr(0, dash), hi = string.substr(dash + 1);
-			if (!isDigits(lo) || !isDigits(hi))
-				return sol::nullopt;
-			try
-			{
-				return Uuid(std::stoull(lo), std::stoull(hi));
-			}
-			catch (const std::out_of_range&)
-			{
-				return sol::nullopt;
-			}
+			if (std::optional<Uuid> id = Uuid::Parse(string))
+				return *id;
+			return sol::nullopt;
 		});
 
 	sol::usertype<Entity> entity_type = state.new_usertype<Entity>("Entity",

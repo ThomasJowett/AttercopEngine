@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <sstream>
+#include <unordered_map>
 
 #include "EnTT/entt.hpp"
 #include "Core/UUID.h"
@@ -136,6 +137,12 @@ private:
 	void DestroyMarkedEntities();
 	void RunDeferredActions();
 
+	// Keep m_EntitiesByID up to date as IDComponents are added and removed
+	void OnIDAdded(entt::registry& registry, entt::entity entity);
+	void OnIDRemoved(entt::registry& registry, entt::entity entity);
+	// Lets the loader give a repeated ID to the first entity in the file that has it
+	void SwapIDs(Entity a, Entity b);
+
 	// Copy an entity and its children through the serializer: new UUIDs and no runtime state
 	Entity CloneEntity(Entity source);
 	// While running, set up physics for the root and scripts, behaviour trees and state machines for it and its children
@@ -143,7 +150,9 @@ private:
 
 	std::vector<std::function<void()>> m_DeferredActions;
 
+	// Cleared, never replaced, so its IDComponent signals stay connected
 	entt::registry m_Registry;
+	std::unordered_map<Uuid, entt::entity> m_EntitiesByID;
 
 	entt::entity m_FirstRoot = entt::null;
 	entt::entity m_LastRoot = entt::null;

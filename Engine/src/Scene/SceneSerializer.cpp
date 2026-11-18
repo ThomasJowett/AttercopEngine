@@ -9,7 +9,9 @@
 
 #include "TinyXml2/tinyxml2.h"
 
+#include <algorithm>
 #include <cstring>
+#include <optional>
 
 namespace
 {
@@ -43,7 +45,17 @@ namespace
 		}
 	}
 
-	Entity ReadEntity(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, const std::filesystem::path& file)
+	const char* NameOf(const tinyxml2::XMLElement* pEntityElement)
+	{
+		const char* name = pEntityElement->Attribute("Name");
+		return name ? name : "Unnamed entity";
+	}
+
+	// An entity read with an ID already in the scene, which was given a new one
+	using Duplicates = std::vector<std::pair<const tinyxml2::XMLElement*, Entity>>;
+
+	Entity ReadEntity(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, Duplicates& duplicates,
+		const std::filesystem::path& file)
 	{
 		PROFILE_FUNCTION();
 
@@ -51,27 +63,36 @@ namespace
 		if (!pEntityElement)
 			return entity;
 		EnsureRegistered();
-		const char* entityName = pEntityElement->Attribute("Name");
 
-		if (const char* uuidChar = pEntityElement->Attribute("ID");
-			uuidChar && entityName && !resetUuid)
+		Uuid id;
+		bool duplicate = false;
+		if (!resetUuid)
 		{
-			entity = scene->CreateEntity(Uuid(uuidChar), entityName);
+			if (const char* text = pEntityElement->Attribute("ID"))
+			{
+				std::optional<Uuid> parsed = Uuid::Parse(text);
+				if (!parsed || parsed->IsNil())
+				{
+					ENGINE_WARN("{0} has an invalid ID \"{1}\", given a new one{2}", NameOf(pEntityElement), text,
+						Reflection::SceneXml::Where(file, pEntityElement->GetLineNum()));
+				}
+				else if (scene->GetEntityByID(*parsed))
+					duplicate = true;
+				else
+					id = *parsed;
+			}
+			else
+			{
+				ENGINE_WARN("Entity ID not found{0}", Reflection::SceneXml::Where(file, pEntityElement->GetLineNum()));
+			}
 		}
-		else if (entityName && resetUuid)
-		{
-			entity = scene->CreateEntity(Uuid(), entityName);
-		}
-		else if (entityName)
-		{
-			ENGINE_WARN("Entity ID not found{0}", Reflection::SceneXml::Where(file, pEntityElement->GetLineNum()));
-			entity = scene->CreateEntity(entityName);
-		}
-		else
-		{
+
+		const char* entityName = pEntityElement->Attribute("Name");
+		if (!entityName)
 			ENGINE_WARN("Entity name not found{0}", Reflection::SceneXml::Where(file, pEntityElement->GetLineNum()));
-			entity = scene->CreateEntity();
-		}
+		entity = scene->CreateEntity(id, entityName ? entityName : "");
+		if (duplicate)
+			duplicates.emplace_back(pEntityElement, entity);
 
 		CheckAttributes(pEntityElement, { "Name", "ID", "FormatVersion" }, file);
 		Reflection::SceneXml::ReadComponents(pEntityElement, entity, file);
@@ -81,7 +102,7 @@ namespace
 		for (const tinyxml2::XMLElement* pChildElement = pEntityElement->LastChildElement("Entity"); pChildElement;
 			pChildElement = pChildElement->PreviousSiblingElement("Entity"))
 		{
-			Entity child = ReadEntity(scene, pChildElement, resetUuid, file);
+			Entity child = ReadEntity(scene, pChildElement, resetUuid, duplicates, file);
 			if (nextChild)
 				SceneGraph::MoveBefore(child, nextChild);
 			else
@@ -89,6 +110,67 @@ namespace
 			nextChild = child;
 		}
 		return entity;
+	}
+
+	// The entity elements with this ID, in file order
+	void FindElementsWithID(const tinyxml2::XMLElement* pEntityElement, const Uuid& id, std::vector<const tinyxml2::XMLElement*>& found)
+	{
+		if (const char* text = pEntityElement->Attribute("ID"); text && Uuid::Parse(text) == id)
+			found.push_back(pEntityElement);
+		for (const tinyxml2::XMLElement* pChildElement = pEntityElement->FirstChildElement("Entity"); pChildElement;
+			pChildElement = pChildElement->NextSiblingElement("Entity"))
+			FindElementsWithID(pChildElement, id, found);
+	}
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void SceneSerializer::ResolveDuplicateIDs(Scene* scene, const tinyxml2::XMLElement* pFirstElement, bool withSiblings,
+	const Duplicates& duplicates, const std::filesystem::path& file)
+{
+	auto entityOf = [&duplicates](const tinyxml2::XMLElement* pElement)
+		{
+			for (const auto& [pDuplicate, entity] : duplicates)
+				if (pDuplicate == pElement)
+					return entity;
+			return Entity();
+		};
+
+	std::vector<Uuid> resolved;
+	for (const auto& [pDuplicate, duplicate] : duplicates)
+	{
+		const Uuid id = *Uuid::Parse(pDuplicate->Attribute("ID"));
+		if (std::find(resolved.begin(), resolved.end(), id) != resolved.end())
+			continue;
+		resolved.push_back(id);
+
+		std::vector<const tinyxml2::XMLElement*> elements;
+		for (const tinyxml2::XMLElement* pElement = pFirstElement; pElement; pElement = withSiblings ? pElement->NextSiblingElement("Entity") : nullptr)
+			FindElementsWithID(pElement, id, elements);
+
+		// The element the ID's current holder was read from, if it came from this file
+		Entity holder = scene->GetEntityByID(id);
+		const tinyxml2::XMLElement* pHolderElement = nullptr;
+		for (const tinyxml2::XMLElement* pElement : elements)
+			if (!entityOf(pElement))
+				pHolderElement = pElement;
+
+		if (!pHolderElement)
+		{
+			for (const tinyxml2::XMLElement* pElement : elements)
+				ENGINE_WARN("{0} has the same ID as {1} in the scene, given a new one{2}", NameOf(pElement), holder.GetName(),
+					Reflection::SceneXml::Where(file, pElement->GetLineNum()));
+			continue;
+		}
+
+		// Entities are read last to first, so the first in the file may not have been the one to keep it
+		const tinyxml2::XMLElement* pKeeper = elements.front();
+		if (pKeeper != pHolderElement)
+			scene->SwapIDs(entityOf(pKeeper), holder);
+		for (const tinyxml2::XMLElement* pElement : elements)
+			if (pElement != pKeeper)
+				ENGINE_WARN("{0} has the same ID as {1} on line {2}, given a new one{3}", NameOf(pElement), NameOf(pKeeper),
+					pKeeper->GetLineNum(), Reflection::SceneXml::Where(file, pElement->GetLineNum()));
 	}
 }
 
@@ -181,15 +263,18 @@ bool SceneSerializer::LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem:
 
 	// Made last to first, so the registry lists them in file order; each goes before the
 	// one after it, so the roots keep the file's order
+	Duplicates duplicates;
 	Entity nextRoot;
 	for (const tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity"); pEntityElement;
 		pEntityElement = pEntityElement->PreviousSiblingElement("Entity"))
 	{
-		Entity root = ReadEntity(m_Scene, pEntityElement, false, filepath);
+		Entity root = ReadEntity(m_Scene, pEntityElement, false, duplicates, filepath);
 		if (nextRoot)
 			SceneGraph::MoveBefore(root, nextRoot);
 		nextRoot = root;
 	}
+	if (!duplicates.empty())
+		ResolveDuplicateIDs(m_Scene, pRoot->FirstChildElement("Entity"), true, duplicates, filepath);
 
 	return true;
 }
@@ -212,7 +297,17 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 
 Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pEntityElement, bool resetUuid)
 {
-	return ReadEntity(scene, pEntityElement, resetUuid, k_CopiedEntity);
+	return ReadEntityTree(scene, pEntityElement, resetUuid, k_CopiedEntity);
+}
+
+Entity SceneSerializer::ReadEntityTree(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid,
+	const std::filesystem::path& file)
+{
+	Duplicates duplicates;
+	Entity entity = ReadEntity(scene, pEntityElement, resetUuid, duplicates, file);
+	if (!duplicates.empty())
+		ResolveDuplicateIDs(scene, pEntityElement, false, duplicates, file);
+	return entity;
 }
 
 std::string SceneSerializer::SerializeEntity(Entity entity)
@@ -237,7 +332,7 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, const std::string& prefa
 		Migration::Report report;
 		Migration::Upgrade(Migration::FileType::Scene, doc, k_PastedEntity, report);
 		if (tinyxml2::XMLElement* pEntityElement = doc.FirstChildElement("Entity"))
-			return ReadEntity(scene, pEntityElement, resetUuid, k_PastedEntity);
+			return ReadEntityTree(scene, pEntityElement, resetUuid, k_PastedEntity);
 	}
 	return Entity();
 }
