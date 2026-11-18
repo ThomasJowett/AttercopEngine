@@ -4,7 +4,7 @@
 
 namespace IDComponentReflection
 {
-	std::string GetID(const IDComponent& component) { return component.ID.to_string(); }
+	std::string GetID(const IDComponent& component) { return component.GetID().to_string(); }
 }
 
 void IDComponent::Describe(Reflection::Builder<IDComponent>& c)
