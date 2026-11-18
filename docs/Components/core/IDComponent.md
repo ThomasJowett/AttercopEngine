@@ -18,15 +18,18 @@ it's the way to refer to an entity in a save file or across a scene reload.
 | --- | --- | --- | --- |
 | `ID` | attribute on `<Entity>` | Two unsigned 64-bit integers joined by `-` | A new random ID |
 
-When writing a scene by hand, any two different 64-bit numbers work, as long as no two
-entities in the scene share an ID. If `ID` is left out, the entity gets a new random ID when the
-scene loads, and the engine logs a warning.
+When writing a scene by hand, any two 64-bit numbers work except `0-0`, which means "no
+entity", as long as no two entities in the scene share an ID. If `ID` is left out or isn't two
+numbers joined by `-`, the entity gets a new random ID when the scene loads, and the engine logs
+a warning with the line. If two entities share an ID, the first in the file keeps it and the
+other gets a new one, also with a warning.
 
 ## Using IDs in scripts
 
 Get an entity's ID with `entity:GetID()`, and find the entity again with
 `CurrentScene:FindEntityByID(id)`. Like `FindEntity`, it returns an invalid entity if there's
-no match, so check the result with `IsSceneValid()`. IDs are read-only: scripts
+no match, so check the result with `IsSceneValid()`. It's a hash lookup, cheap enough to call
+every frame. IDs are read-only: scripts
 can't create one or change an entity's ID. See [UUID](../../LuaAPI/UUID.md).
 
 ```lua
