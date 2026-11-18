@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Physics/RuntimePointer.h"
 
 #include "math/Vector2f.h"
@@ -41,23 +40,4 @@ struct CircleCollider2DComponent
   REFLECT_LUA_END()
 
   static void Describe(Reflection::Builder<CircleCollider2DComponent>& c);
-
-private:
-  friend cereal::access;
-  template<typename Archive>
-  void save(Archive& archive) const
-  {
-    archive(offset, radius, isTrigger, layer, mask);
-
-    SerializationUtils::SaveAssetToArchive(archive, physicsMaterial);
-  }
-
-  template<typename Archive>
-  void load(Archive& archive)
-  {
-    archive(offset, radius, isTrigger, layer, mask);
-    SerializationUtils::LoadAssetFromArchive(archive, physicsMaterial);
-
-    runtimeBody = nullptr;
-  }
 };

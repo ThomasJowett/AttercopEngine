@@ -25,7 +25,6 @@
 #include <variant>
 #include <vector>
 
-#include "cereal/cereal.hpp"
 #include "imgui/imgui.h"
 
 #ifdef _WINDOWS

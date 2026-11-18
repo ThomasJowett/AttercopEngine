@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Asset/Asset.h"
-#include "cereal/access.hpp"
 #include "Texture.h"
 #include "Math/BoundingBox.h"
 #include "math/Vector2f.h"

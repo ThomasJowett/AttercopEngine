@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Colour.h"
-#include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -30,13 +29,4 @@ struct CircleRendererComponent
 			([](Self& c) { return c.fade; }),
 			([](Self& c, float v) { c.fade = v; }))
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(colour, radius, thickness, fade);
-	}
-
 };

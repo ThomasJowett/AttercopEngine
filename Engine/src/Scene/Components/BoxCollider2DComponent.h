@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Physics/RuntimePointer.h"
 
 #include "math/Vector2f.h"
@@ -44,23 +43,4 @@ struct BoxCollider2DComponent
 			([](Self& c, const Ref<PhysicsMaterial>& v) { c.physicsMaterial = v; }))
 		REFLECT_LUA_COLLISION_FILTER()
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(offset, size, isTrigger, layer, mask);
-
-		SerializationUtils::SaveAssetToArchive(archive, physicsMaterial);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		archive(offset, size, isTrigger, layer, mask);
-		SerializationUtils::LoadAssetFromArchive(archive, physicsMaterial);
-
-		runtimeBody = nullptr;
-	}
 };

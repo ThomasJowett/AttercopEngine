@@ -2,7 +2,6 @@
 
 #include "Core/UUID.h"
 
-#include "cereal/cereal.hpp"
 #include "Reflection/ReflectionFwd.h"
 
 struct IDComponent
@@ -22,20 +21,4 @@ private:
 	Uuid ID;
 
 	friend class Scene;
-	friend cereal::access;
-		template <typename Archive>
-		void save(Archive& archive) const
-		{
-				std::string uuid = ID.to_string();
-				archive(uuid);
-		}
-
-		template <typename Archive>
-		void load(Archive& archive)
-		{
-				std::string uuid;
-				archive(uuid);
-
-				ID = Uuid::Parse(uuid).value_or(Uuid::Nil());
-		}
 };

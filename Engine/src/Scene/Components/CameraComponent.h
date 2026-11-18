@@ -2,7 +2,6 @@
 
 #include "Scene/SceneCamera.h"
 
-#include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -30,12 +29,4 @@ struct CameraComponent
 			([](Self& c) { return c.fixedAspectRatio; }),
 			([](Self& c, bool v) { c.fixedAspectRatio = v; }))
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(camera, primary, fixedAspectRatio);
-	}
 };

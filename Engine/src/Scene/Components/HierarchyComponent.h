@@ -11,12 +11,4 @@ struct HierarchyComponent
 	bool isActive = true;
 
 	static void Describe(Reflection::Builder<HierarchyComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(parent, firstChild, previousSibling, nextSibling);
-	}
 };

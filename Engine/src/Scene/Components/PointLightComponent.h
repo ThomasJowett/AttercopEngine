@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
 #include "Core/Colour.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -14,12 +13,4 @@ struct PointLightComponent
 	PointLightComponent(const PointLightComponent&) = default;
 
 	static void Describe(Reflection::Builder<PointLightComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(colour, castsShadows, range, attenuation);
-	}
 };

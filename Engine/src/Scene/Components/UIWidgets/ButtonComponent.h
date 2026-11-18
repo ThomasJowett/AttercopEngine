@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
-
 #include "Asset/Texture.h"
 
 #include "WidgetComponent.h"
@@ -40,26 +38,4 @@ struct ButtonComponent
 		REFLECT_LUA_PROPERTY(clickedTint, "Tint applied to the clicked state's texture")
 		REFLECT_LUA_PROPERTY(disabledTint, "Tint applied to the disabled state's texture")
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		SerializationUtils::SaveTextureToArchive(archive, normalTexture, normalFilterMethod, normalWrapMethod);
-		SerializationUtils::SaveTextureToArchive(archive, hoveredTexture, hoveredFilterMethod, hoveredWrapMethod);
-		SerializationUtils::SaveTextureToArchive(archive, clickedTexture, clickedFilterMethod, clickedWrapMethod);
-		SerializationUtils::SaveTextureToArchive(archive, disabledTexture, disabledFilterMethod, disabledWrapMethod);
-		archive(normalTint, hoveredTint, clickedTint, disabledTint);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		SerializationUtils::LoadTextureFromArchive(archive, normalTexture, normalFilterMethod, normalWrapMethod);
-		SerializationUtils::LoadTextureFromArchive(archive, hoveredTexture, hoveredFilterMethod, hoveredWrapMethod);
-		SerializationUtils::LoadTextureFromArchive(archive, clickedTexture, clickedFilterMethod, clickedWrapMethod);
-		SerializationUtils::LoadTextureFromArchive(archive, disabledTexture, disabledFilterMethod, disabledWrapMethod);
-		archive(normalTint, hoveredTint, clickedTint, disabledTint);
-	}
 };

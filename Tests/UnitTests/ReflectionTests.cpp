@@ -308,13 +308,6 @@ namespace ReflectionTests
 		return text;
 	}
 
-	// The COMPONENTS macro's names, in its order
-	template<typename... Ts>
-	std::vector<std::string> MacroNames()
-	{
-		return { TypeOf<Ts>().name... };
-	}
-
 TEST_CASE("Every component is registered, in the fixture, and reads back through Get")
 {
 	Setup();
@@ -331,8 +324,6 @@ TEST_CASE("Every component is registered, in the fixture, and reads back through
 		"WeldJoint2D", "CircleRenderer", "BehaviourTree", "StateMachine", "LuaScript", "PointLight", "Billboard", "Canvas",
 		"Widget", "Button", "StackLayout", "GridLayout", "ScrollBox", "Hidden", "AudioSource", "AudioListener", "Hierarchy" };
 	CHECK_MESSAGE(names == expected, Names(names));
-	const std::vector<std::string> macroNames = MacroNames<COMPONENTS>();
-	CHECK_MESSAGE(macroNames == expected, Names(macroNames));
 
 	CHECK(TypeOf<IDComponent>().IsInternal());
 	CHECK(TypeOf<NameComponent>().IsInternal());

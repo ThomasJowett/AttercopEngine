@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
-
 #include "AI/StateMachine.h"
 #include "AI/StateMachineSerializer.h"
 #include "Scripting/Lua/LuaBindings.h"
@@ -44,25 +42,4 @@ struct StateMachineComponent
 		REFLECT_LUA_FUNCTION(GetPreviousStateName, "Get the name of the state that was active before the current one, or an empty string")
 		REFLECT_LUA_FUNCTION(ChangeState, "Change to the named state, running OnStateExit on the old state and OnStateEntry on the new one; returns false if there's no state with that name")
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(filepath.string());
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		std::string relativePath;
-		archive(relativePath);
-
-		if (!relativePath.empty())
-		{
-			filepath = relativePath;
-			stateMachine = StateMachineSerializer::Load(filepath);
-		}
-	}
 };

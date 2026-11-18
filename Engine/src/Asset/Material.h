@@ -4,8 +4,6 @@
 #include "Texture.h"
 #include "Asset/Asset.h"
 
-#include "cereal/cereal.hpp"
-#include "cereal/access.hpp"
 #include "Core/Application.h"
 
 #include "Utilities/FileUtils.h"

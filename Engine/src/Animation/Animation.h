@@ -2,10 +2,6 @@
 
 #include "Renderer/SubTexture2D.h"
 
-#include "cereal/access.hpp"
-#include "cereal/types/string.hpp"
-#include "cereal/types/vector.hpp"
-
 #include <string>
 #include <vector>
 
@@ -13,12 +9,6 @@ struct AnimationEvent
 {
 	uint32_t frame = 0; // local to this Animation, 0 = its own StartFrame
 	std::string name;
-
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(frame, name);
-	}
 };
 
 class Animation
@@ -50,16 +40,8 @@ public:
 	const std::vector<AnimationEvent>& GetEvents() const { return m_Events; }
 
 private:
-
 	uint32_t m_StartFrame = 0;
 	uint32_t m_FrameCount = 1;
 	float m_HoldTime = 0.01f;
 	std::vector<AnimationEvent> m_Events;
-
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(m_StartFrame, m_FrameCount, m_HoldTime, m_Events);
-	}
 };

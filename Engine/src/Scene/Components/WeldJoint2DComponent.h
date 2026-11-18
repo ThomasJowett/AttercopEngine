@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
-
 #include "math/Vector2f.h"
 #include "Physics/RuntimePointer.h"
 #include "Scripting/Lua/LuaBindings.h"
@@ -36,12 +34,4 @@ struct WeldJoint2DComponent
 			([](Self& c) { return c.stiffness; }),
 			([](Self& c, float v) { c.stiffness = v; }))
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(collideConnected, damping, stiffness);
-	}
 };

@@ -2,9 +2,6 @@
 
 #include "Core/Colour.h"
 
-#include "cereal/cereal.hpp"
-#include "cereal/access.hpp"
-
 #include "Asset/Texture.h"
 #include "Asset/Material.h"
 #include "Scene/AssetManager.h"
@@ -61,35 +58,4 @@ struct SpriteComponent
 			([](Self& c) { return c.tilingFactor; }),
 			([](Self& c, float v) { c.tilingFactor = v; if (v != 1.0f) c.GetTexture(); }))
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(texture != nullptr);
-		archive(tint);
-		archive(tilingFactor);
-		archive(texturePath.string());
-		archive((int)filterMethod);
-		archive((int)wrapMethod);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		bool hasTexture;
-		archive(hasTexture);
-		archive(tint);
-		archive(tilingFactor);
-		std::string path;
-		archive(path);
-		texturePath = path;
-		int filter, wrap;
-		archive(filter);
-		archive(wrap);
-		filterMethod = (Texture::FilterMethod)filter;
-		wrapMethod = (Texture::WrapMethod)wrap;
-		texture = hasTexture && !texturePath.empty() ? AssetManager::GetTexture(texturePath) : nullptr;
-	}
 };

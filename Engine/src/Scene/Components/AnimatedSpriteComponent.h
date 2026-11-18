@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
-
 #include "Asset/SpriteSheet.h"
 #include "Core/Colour.h"
 
@@ -50,26 +48,4 @@ private:
 	std::string m_PlayingAnimation;
 
 	void EnterFrame(const Animation& animationRef, std::vector<FiredAnimationEvent>& fired) const;
-
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(tint);
-		SerializationUtils::SaveAssetToArchive(archive, spriteSheet);
-		archive(animation);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		archive(tint);
-		SerializationUtils::LoadAssetFromArchive(archive, spriteSheet);
-		archive(animation);
-		if (spriteSheet && !animation.empty()) {
-			Animation* animationRef = spriteSheet->GetAnimation(animation);
-			if(animationRef)
-				currentFrame = animationRef->GetStartFrame();
-		}
-	}
 };

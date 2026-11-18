@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "sol/sol.hpp"
 #include <vector>
 #include <filesystem>
@@ -65,19 +64,6 @@ struct LuaScriptComponent
 	static void Describe(Reflection::Builder<LuaScriptComponent>& c);
 
 private:
-	friend cereal::access;
-
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		SerializationUtils::SaveAssetToArchive(archive, script);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		SerializationUtils::LoadAssetFromArchive(archive, script);
-	}
 
 	friend PhysicsEngine2D;
 

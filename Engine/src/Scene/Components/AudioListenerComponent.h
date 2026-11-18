@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Reflection/ReflectionFwd.h"
 
 struct AudioListenerComponent
@@ -10,12 +9,4 @@ struct AudioListenerComponent
 
 	bool primary = true;
 	static void Describe(Reflection::Builder<AudioListenerComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(primary);
-	}
 };
