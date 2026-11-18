@@ -30,9 +30,9 @@ if (EMSCRIPTEN)
     list(APPEND ENGINE_FILES ${ENGINE_WEB_FILES})
 endif()
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
-
 add_library(Engine ${ENGINE_FILES})
+# PUBLIC, as engine headers change with DEBUG
+target_compile_definitions(Engine PUBLIC $<$<CONFIG:DEBUG>:DEBUG> $<$<CONFIG:DEBUG>:ENABLE_ASSERTS>)
 attercop_target_warnings(Engine)
 
 group_files_by_directory("ENGINE_FILES")
@@ -55,9 +55,7 @@ target_link_libraries(Engine PRIVATE
 
 target_link_libraries(Engine PUBLIC miniz)
 
-add_definitions(
-    -DGLFW_INCLUDE_NONE
-)
+target_compile_definitions(Engine PRIVATE GLFW_INCLUDE_NONE)
 
 target_compile_definitions(Engine PUBLIC UNICODE _UNICODE)
 # sol2 type checks in every build; PUBLIC so all targets share one sol configuration
@@ -65,8 +63,6 @@ target_compile_definitions(Engine PUBLIC SOL_ALL_SAFETIES_ON=1)
 
 if (MSVC)
     target_compile_options(Engine PRIVATE "/bigobj" "/utf-8")
-else ()
-  add_compile_options(-Wa,-mbig-obj)
 endif ()
 
 if(XCODE)
