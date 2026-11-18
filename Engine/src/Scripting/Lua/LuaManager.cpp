@@ -109,6 +109,9 @@ void UnloadModules()
 void LuaManager::Init()
 {
 	PROFILE_FUNCTION();
+	// References into an existing state are released before it's replaced
+	if (s_State)
+		Shutdown();
 	s_State = CreateScope<sol::state>(nullptr);
 	lua_sethook(s_State->lua_state(), WatchdogHook, LUA_MASKCOUNT, 100000);
 
