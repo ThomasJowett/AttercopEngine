@@ -2,6 +2,9 @@
 
 #include "Scene.h"
 
+#include <utility>
+#include <vector>
+
 namespace tinyxml2
 {
 class XMLDocument;
@@ -26,6 +29,11 @@ public:
 	static Entity DeserializeEntity(Scene* scene, const std::string& prefab, bool resetUuid = false);
 private:
 	bool LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath);
+
+	static Entity ReadEntityTree(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, const std::filesystem::path& file);
+	// Of entities read with the same ID, gives it to the first in the file, or keeps it on the one already in the scene
+	static void ResolveDuplicateIDs(Scene* scene, const tinyxml2::XMLElement* pFirstElement, bool withSiblings,
+		const std::vector<std::pair<const tinyxml2::XMLElement*, Entity>>& duplicates, const std::filesystem::path& file);
 
 	Scene* m_Scene;
 };

@@ -1,30 +1,24 @@
 #pragma once
 
-#include "Math/Random.h"
-
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 
 class Uuid
 {
 public:
-	Uuid() :m_Hi(Random::Int64()), m_Lo(Random::Int64()) {}
+	// A new random ID, never nil
+	Uuid();
 	Uuid(uint64_t lo, uint64_t hi) :m_Lo(lo), m_Hi(hi) {}
 	Uuid(const Uuid& rhs) : m_Lo(rhs.m_Lo), m_Hi(rhs.m_Hi) {}
-	Uuid(std::string string)
-	{
-		size_t found;
-		if ((found = string.find("-")) != std::string::npos)
-		{
-			m_Lo = std::stoull(string.substr(0, found));
-			m_Hi = std::stoull(string.substr(found + 1, std::string::npos));
-		}
-		else
-		{
-			m_Lo = std::stoull(string);
-			m_Hi = Random::Int64();
-		}
-	}
+
+	// The all-zero ID, meaning "none"
+	static Uuid Nil() { return Uuid(0, 0); }
+	bool IsNil() const { return m_Lo == 0 && m_Hi == 0; }
+
+	// Reads "low-high" in decimal, as written by to_string; nothing for any other text
+	static std::optional<Uuid> Parse(std::string_view text);
 
 	std::string to_string() const
 	{

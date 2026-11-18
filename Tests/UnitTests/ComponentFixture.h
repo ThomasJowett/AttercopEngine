@@ -32,7 +32,7 @@ namespace ComponentFixture
 
 	inline Entity Create(Scene& scene)
 	{
-		Entity root = scene.CreateEntity(Uuid(std::string(k_RootId)), "Root");
+		Entity root = scene.CreateEntity(*Uuid::Parse(k_RootId), "Root");
 		root.AddComponent<TransformComponent>(Vector3f(1.0f, 2.0f, 3.0f), Vector3f(0.25f, 0.5f, 0.75f), Vector3f(2.0f, 3.0f, 4.0f));
 
 		CameraComponent& camera = root.AddComponent<CameraComponent>();
@@ -218,7 +218,7 @@ namespace ComponentFixture
 
 		root.AddComponent<AudioListenerComponent>().primary = false;
 
-		Entity child = scene.CreateEntity(Uuid(std::string(k_ChildId)), "Child");
+		Entity child = scene.CreateEntity(*Uuid::Parse(k_ChildId), "Child");
 		child.AddComponent<TransformComponent>(Vector3f(5.0f, 6.0f, 7.0f));
 		WeldJoint2DComponent& weld = child.AddComponent<WeldJoint2DComponent>();
 		weld.collideConnected = true;
@@ -233,7 +233,7 @@ namespace ComponentFixture
 	{
 		REQUIRE(root);
 		CHECK(root.GetName() == "Root");
-		CHECK(root.GetID() == Uuid(std::string(k_RootId)));
+		CHECK(root.GetID() == *Uuid::Parse(k_RootId));
 
 		REQUIRE(root.HasComponent<TransformComponent>());
 		const TransformComponent& transform = root.GetComponent<TransformComponent>();
@@ -459,7 +459,7 @@ namespace ComponentFixture
 		Entity child = root.GetChild();
 		REQUIRE(child);
 		CHECK(child.GetName() == "Child");
-		CHECK(child.GetID() == Uuid(std::string(k_ChildId)));
+		CHECK(child.GetID() == *Uuid::Parse(k_ChildId));
 		CHECK(child.GetParent() == root);
 		REQUIRE(child.HasComponent<TransformComponent>());
 		CHECK(child.GetComponent<TransformComponent>().GetPosition() == Vector3f(5.0f, 6.0f, 7.0f));

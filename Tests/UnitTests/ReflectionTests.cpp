@@ -622,8 +622,8 @@ TEST_CASE("Capture then Restore onto a default component reproduces the fixture"
 	Entity sourceRoot = ComponentFixture::Create(source);
 
 	Scene target("");
-	Entity root = target.CreateEntity(Uuid(std::string(ComponentFixture::k_RootId)), "Root");
-	Entity child = target.CreateEntity(Uuid(std::string(ComponentFixture::k_ChildId)), "Child");
+	Entity root = target.CreateEntity(*Uuid::Parse(ComponentFixture::k_RootId), "Root");
+	Entity child = target.CreateEntity(*Uuid::Parse(ComponentFixture::k_ChildId), "Child");
 	root.AddChild(child);
 	// One restored onto a component that's already there, the rest added by Restore
 	root.AddComponent<SpriteComponent>();

@@ -36,6 +36,6 @@ private:
 				std::string uuid;
 				archive(uuid);
 
-				ID = Uuid(uuid);
+				ID = Uuid::Parse(uuid).value_or(Uuid::Nil());
 		}
 };
