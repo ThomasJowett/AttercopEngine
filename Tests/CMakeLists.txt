@@ -1,5 +1,3 @@
-add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
-
 file(GLOB SCENE_TEST_SOURCES
     SceneTest/*.cpp
     SceneTest/*.h

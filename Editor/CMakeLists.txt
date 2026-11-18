@@ -36,8 +36,6 @@ if(MSVC)
     )
 endif()
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
-
 file(GLOB_RECURSE DATA_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/data/*")
 
 if(APPLE)
@@ -102,9 +100,7 @@ target_include_directories(Editor SYSTEM PUBLIC
 
 target_precompile_headers(Editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/stdafx.hpp)
 
-add_definitions(
-    -DUNICODE
-)
+target_compile_definitions(Editor PRIVATE UNICODE)
 
 if(NOT APPLE)
     add_custom_command(

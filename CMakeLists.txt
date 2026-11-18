@@ -10,12 +10,14 @@ project(Attercop)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Link options every target built here gets, applied by attercop_apply_common_settings below
+set(ATTERCOP_LINK_OPTIONS)
 if (EMSCRIPTEN)
-    add_link_options("-sUSE_GLFW=3" "-sUSE_WEBGPU=1" "-sASYNCIFY" "-sALLOW_MEMORY_GROWTH=1" "-sNO_EXIT_RUNTIME=1")
+    list(APPEND ATTERCOP_LINK_OPTIONS "-sUSE_GLFW=3" "-sUSE_WEBGPU=1" "-sASYNCIFY" "-sALLOW_MEMORY_GROWTH=1" "-sNO_EXIT_RUNTIME=1")
     # Configure a separate build directory with -DCMAKE_BUILD_TYPE=Release for a much smaller, faster web build
-    add_link_options("$<$<CONFIG:Debug>:-sASSERTIONS=1>" "$<$<CONFIG:Release>:-O2>")
+    list(APPEND ATTERCOP_LINK_OPTIONS "$<$<CONFIG:Debug>:-sASSERTIONS=1>" "$<$<CONFIG:Release>:-O2>")
     # Functions that never suspend, left out of asyncify to keep the link fast
-    add_link_options("-sASYNCIFY_REMOVE=@${CMAKE_SOURCE_DIR}/Resources/Web/asyncify-remove.txt")
+    list(APPEND ATTERCOP_LINK_OPTIONS "-sASYNCIFY_REMOVE=@${CMAKE_SOURCE_DIR}/Resources/Web/asyncify-remove.txt")
 endif()
 
 # Applied to the engine's own targets by attercop_target_warnings
@@ -54,27 +56,52 @@ function(group_files_by_directory FILE_LIST)
     endforeach()
 endfunction()
 
-include_directories(Engine/src)
-include_directories(SYSTEM
-Engine/vendor
-Engine/vendor/spdlog/include
-Engine/vendor/cereal/include
-Engine/vendor/box2d/include
-Engine/vendor/lua
-Engine/vendor/imgui
-Engine/vendor/stb
-Engine/vendor/simpleini
-Engine/vendor/EnTT
-Engine/vendor/msdf-atlas-gen/msdf-atlas-gen
-Engine/vendor/msdf-atlas-gen/msdfgen
-Engine/vendor/GLFW/include
-Engine/vendor/GLAD/include
+# Include paths and compile options every target built here gets, applied by attercop_apply_common_settings below
+set(ATTERCOP_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/Engine/src)
+set(ATTERCOP_SYSTEM_INCLUDE_DIRECTORIES
+    ${CMAKE_SOURCE_DIR}/Engine/vendor
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/spdlog/include
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/box2d/include
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/lua
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/imgui
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/stb
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/simpleini
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/EnTT
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/msdf-atlas-gen/msdf-atlas-gen
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/msdf-atlas-gen/msdfgen
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/GLFW/include
+    ${CMAKE_SOURCE_DIR}/Engine/vendor/GLAD/include
 )
+set(ATTERCOP_COMPILE_OPTIONS)
 
 if (NOT EMSCRIPTEN)
     find_package(OpenGL REQUIRED)
-    include_directories(${OPENGL_INCLUDE_DIRS})
+    list(APPEND ATTERCOP_SYSTEM_INCLUDE_DIRECTORIES ${OPENGL_INCLUDE_DIRS})
 endif()
+
+# Puts the settings above in front of each built target's own, in this directory and every one below it
+function(attercop_apply_common_settings directory)
+    get_property(targets DIRECTORY ${directory} PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target IN LISTS targets)
+        # Only targets that compile, as directory settings did
+        get_target_property(type ${target} TYPE)
+        if (type STREQUAL "UTILITY" OR type STREQUAL "INTERFACE_LIBRARY")
+            continue()
+        endif()
+        target_include_directories(${target} SYSTEM BEFORE PRIVATE ${ATTERCOP_SYSTEM_INCLUDE_DIRECTORIES})
+        target_include_directories(${target} BEFORE PRIVATE ${ATTERCOP_INCLUDE_DIRECTORIES})
+        if (ATTERCOP_COMPILE_OPTIONS)
+            target_compile_options(${target} BEFORE PRIVATE ${ATTERCOP_COMPILE_OPTIONS})
+        endif()
+        if (ATTERCOP_LINK_OPTIONS)
+            target_link_options(${target} BEFORE PRIVATE ${ATTERCOP_LINK_OPTIONS})
+        endif()
+    endforeach()
+    get_property(subdirectories DIRECTORY ${directory} PROPERTY SUBDIRECTORIES)
+    foreach(subdirectory IN LISTS subdirectories)
+        attercop_apply_common_settings(${subdirectory})
+    endforeach()
+endfunction()
 
 
 IF(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
@@ -83,7 +110,7 @@ ENDIF()
 
 if (MSVC)
     # Edit and Continue (/ZI) and Just My Code in Debug only
-    add_compile_options(/MP $<IF:$<CONFIG:Debug>,/ZI,/Zi> $<$<CONFIG:Debug>:/JMC>)
+    list(APPEND ATTERCOP_COMPILE_OPTIONS /MP $<IF:$<CONFIG:Debug>,/ZI,/Zi> $<$<CONFIG:Debug>:/JMC>)
     set(DEFAULT_STARTUP_TARGET Editor)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${DEFAULT_STARTUP_TARGET})
 endif()
@@ -137,6 +164,8 @@ if (ATTERCOP_BUILD_SCENE_TESTS AND NOT EMSCRIPTEN)
     enable_testing()
     add_subdirectory(Tests)
 endif()
+
+attercop_apply_common_settings(${CMAKE_SOURCE_DIR})
 
 set(THIRD_PARTY_FOLDER "ThirdParty")
 if (TARGET glfw)

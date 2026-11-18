@@ -3,8 +3,6 @@ file(GLOB SOURCES
     src/*.h
 )
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DDEBUG>" "$<$<CONFIG:DEBUG>:-DENABLE_ASSERTS>")
-
 file(GLOB_RECURSE DATA_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../Editor/data/*")
 
 if(APPLE)
