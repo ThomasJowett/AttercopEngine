@@ -25,7 +25,7 @@ void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 
 	c.Property<&TransformComponent::GetPosition, &TransformComponent::SetPosition>("Position",
 		"Position relative to the parent entity, or to the world if it has no parent");
-	// Euler angles until quaternion-rotation.md stores a quaternion
+	// Stored as Euler angles
 	c.Property<&TransformComponent::GetRotation, &TransformComponent::SetRotation>("Rotation",
 		"Rotation as Euler angles in radians, relative to the parent");
 	c.Property<&TransformComponent::GetScale, &TransformComponent::SetScale>("Scale", "Scale relative to the parent");
