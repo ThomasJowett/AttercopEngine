@@ -12,8 +12,6 @@
 #include "Utilities/GeometryGenerator.h"
 #include "Physics/Box2DDebugDraw.h"
 
-#include "cereal/archives/binary.hpp"
-#include "cereal/types/string.hpp"
 
 #include "Events/SceneEvent.h"
 #include "TinyXml2/tinyxml2.h"
@@ -117,10 +115,10 @@ Entity Scene::CreateEntity(const std::string& name)
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-Entity Scene::CreateEntity(Uuid id, const std::string& name)
+Entity Scene::CreateEntity(Uuid id, const std::string& name, entt::entity hint)
 {
 	PROFILE_FUNCTION();
-	Entity entity(m_Registry.create(), this, name);
+	Entity entity(m_Registry.create(hint), this, name);
 	entity.AddComponent<IDComponent>(id);
 	entity.AddComponent<NameComponent>(name.empty() ? "Unnamed Entity" : name);
 	entity.AddComponent<HierarchyComponent>();
@@ -274,11 +272,8 @@ void Scene::OnRuntimeStart(bool createSnapshot)
 
 	if (createSnapshot)
 	{
-		std::stringstream().swap(m_Snapshot);
-		cereal::BinaryOutputArchive output(m_Snapshot);
-		entt::snapshot(m_Registry).entities(output).component<COMPONENTS>(output);
-		m_SnapshotFirstRoot = m_FirstRoot;
-		m_SnapshotLastRoot = m_LastRoot;
+		m_Snapshot = CreateScope<tinyxml2::XMLDocument>();
+		SceneSerializer::WriteSnapshot(this, *m_Snapshot);
 	}
 
 	m_Registry.view<LuaScriptComponent>().each(
@@ -399,16 +394,15 @@ void Scene::OnRuntimeStop()
 
 	LuaManager::CleanUp();
 
-	if (m_Snapshot.rdbuf()->in_avail() != 0)
+	if (m_Snapshot)
 	{
 		ENGINE_DEBUG("Runtime End");
 		m_Registry.clear();
-		cereal::BinaryInputArchive input(m_Snapshot);
-		entt::snapshot_loader(m_Registry).entities(input).component<COMPONENTS>(input);
-		m_FirstRoot = m_SnapshotFirstRoot;
-		m_LastRoot = m_SnapshotLastRoot;
+		m_FirstRoot = entt::null;
+		m_LastRoot = entt::null;
+		SceneSerializer::ReadSnapshot(this, *m_Snapshot);
+		m_Snapshot.reset();
 	}
-	std::stringstream().swap(m_Snapshot);
 
 	// Restored cameras carry the aspect ratio from when the runtime started, not the current viewport
 	if (m_ViewportWidth > 0 && m_ViewportHeight > 0)
@@ -981,11 +975,11 @@ void Scene::OnViewportResize(uint32_t width, uint32_t height)
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void Scene::Save(std::filesystem::path filepath, bool binary)
+void Scene::Save(std::filesystem::path filepath)
 {
 	PROFILE_FUNCTION();
 
-	if (m_Snapshot.rdbuf()->in_avail() != 0)
+	if (m_Snapshot)
 		return;
 
 	std::filesystem::path finalPath = filepath;
@@ -1023,21 +1017,9 @@ void Scene::Save(std::filesystem::path filepath, bool binary)
 		}
 	}
 
-	if (binary)
-	{
-		std::ofstream file(finalPath, std::ios::binary);
-		{
-			cereal::BinaryOutputArchive output(file);
-			entt::snapshot(m_Registry).entities(output).component<COMPONENTS>(output);
-		}
-		file.close();
-	}
-	else
-	{
-		SceneSerializer sceneSerializer = SceneSerializer(this);
-		if (!sceneSerializer.Serialize(finalPath))
-			ENGINE_ERROR("Failed to save scene to {0}.", finalPath.string());
-	}
+	SceneSerializer sceneSerializer = SceneSerializer(this);
+	if (!sceneSerializer.Serialize(finalPath))
+		ENGINE_ERROR("Failed to save scene to {0}.", finalPath.string());
 
 	m_Dirty = false;
 	SceneSavedEvent event(finalPath);
@@ -1047,15 +1029,15 @@ void Scene::Save(std::filesystem::path filepath, bool binary)
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void Scene::Save(bool binary)
+void Scene::Save()
 {
 	if (!m_Filepath.empty())
-		Save(m_Filepath, binary);
+		Save(m_Filepath);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-bool Scene::Load(bool binary)
+bool Scene::Load()
 {
 	PROFILE_FUNCTION();
 
@@ -1068,21 +1050,9 @@ bool Scene::Load(bool binary)
 		return false;
 	}
 
-	if (binary)
-	{
-		m_Registry.clear();
-		std::ifstream file(filepath, std::ios::binary);
-		cereal::BinaryInputArchive input(file);
-		entt::snapshot_loader(m_Registry).entities(input).component<COMPONENTS>(input);
-		file.close();
-		SceneGraph::RelinkRoots(*this);
-	}
-	else
-	{
-		SceneSerializer sceneSerializer = SceneSerializer(this);
-		if (!sceneSerializer.Deserialize(filepath))
-			ENGINE_ERROR("Failed to load scene. Could not read file {0}", filepath);
-	}
+	SceneSerializer sceneSerializer = SceneSerializer(this);
+	if (!sceneSerializer.Deserialize(filepath))
+		ENGINE_ERROR("Failed to load scene. Could not read file {0}", filepath);
 
 	m_Dirty = false;
 	SceneLoadedEvent event(filepath);
