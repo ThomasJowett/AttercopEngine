@@ -18,6 +18,7 @@ namespace
 	// For warnings about entities that didn't come from a file
 	const std::filesystem::path k_CopiedEntity = "a copied entity";
 	const std::filesystem::path k_PastedEntity = "the pasted entity";
+	const std::filesystem::path k_Snapshot = "the play-mode snapshot";
 
 	// Components are described before the first scene is read or written, also without Application::Init
 	void EnsureRegistered()
@@ -54,8 +55,9 @@ namespace
 	// An entity read with an ID already in the scene, which was given a new one
 	using Duplicates = std::vector<std::pair<const tinyxml2::XMLElement*, Entity>>;
 
+	// withHandles reads the Handle attribute the play-mode snapshot writes
 	Entity ReadEntity(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, Duplicates& duplicates,
-		const std::filesystem::path& file)
+		const std::filesystem::path& file, bool withHandles = false)
 	{
 		PROFILE_FUNCTION();
 
@@ -90,11 +92,17 @@ namespace
 		const char* entityName = pEntityElement->Attribute("Name");
 		if (!entityName)
 			ENGINE_WARN("Entity name not found{0}", Reflection::SceneXml::Where(file, pEntityElement->GetLineNum()));
-		entity = scene->CreateEntity(id, entityName ? entityName : "");
+		entt::entity handle = entt::null;
+		if (withHandles)
+			handle = entt::entity(pEntityElement->UnsignedAttribute("Handle", entt::to_integral(entt::entity(entt::null))));
+		entity = scene->CreateEntity(id, entityName ? entityName : "", handle);
 		if (duplicate)
 			duplicates.emplace_back(pEntityElement, entity);
 
-		CheckAttributes(pEntityElement, { "Name", "ID", "FormatVersion" }, file);
+		if (withHandles)
+			CheckAttributes(pEntityElement, { "Name", "ID", "Handle" }, file);
+		else
+			CheckAttributes(pEntityElement, { "Name", "ID", "FormatVersion" }, file);
 		Reflection::SceneXml::ReadComponents(pEntityElement, entity, file);
 
 		// Made last to first, so the registry lists them in file order
@@ -102,7 +110,7 @@ namespace
 		for (const tinyxml2::XMLElement* pChildElement = pEntityElement->LastChildElement("Entity"); pChildElement;
 			pChildElement = pChildElement->PreviousSiblingElement("Entity"))
 		{
-			Entity child = ReadEntity(scene, pChildElement, resetUuid, duplicates, file);
+			Entity child = ReadEntity(scene, pChildElement, resetUuid, duplicates, file, withHandles);
 			if (nextChild)
 				SceneGraph::MoveBefore(child, nextChild);
 			else
@@ -286,13 +294,55 @@ void SceneSerializer::SerializeEntity(tinyxml2::XMLElement* pElement, Entity ent
 	PROFILE_FUNCTION();
 
 	EnsureRegistered();
+	WriteEntity(pElement, entity, false);
+}
+
+void SceneSerializer::WriteEntity(tinyxml2::XMLElement* pElement, Entity entity, bool withHandles)
+{
 	pElement->SetAttribute("Name", entity.GetName().c_str());
 	pElement->SetAttribute("ID", entity.GetID().to_string().c_str());
+	if (withHandles)
+		pElement->SetAttribute("Handle", entt::to_integral(entity.GetHandle()));
 
 	Reflection::SceneXml::WriteComponents(pElement, entity);
 
 	for (Entity child : SceneGraph::GetChildren(entity))
-		SerializeEntity(pElement->InsertNewChildElement("Entity"), child);
+		WriteEntity(pElement->InsertNewChildElement("Entity"), child, withHandles);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void SceneSerializer::WriteSnapshot(Scene* scene, tinyxml2::XMLDocument& document)
+{
+	PROFILE_FUNCTION();
+
+	EnsureRegistered();
+	document.Clear();
+	tinyxml2::XMLElement* pRoot = document.NewElement("Scene");
+	document.InsertFirstChild(pRoot);
+	for (Entity root : SceneGraph::GetRoots(*scene))
+		WriteEntity(pRoot->InsertNewChildElement("Entity"), root, true);
+}
+
+void SceneSerializer::ReadSnapshot(Scene* scene, const tinyxml2::XMLDocument& document)
+{
+	PROFILE_FUNCTION();
+
+	const tinyxml2::XMLElement* pRoot = document.FirstChildElement("Scene");
+	if (!pRoot)
+		return;
+
+	// Made last to first, as a load does, each going before the one after it
+	Duplicates duplicates;
+	Entity nextRoot;
+	for (const tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity"); pEntityElement;
+		pEntityElement = pEntityElement->PreviousSiblingElement("Entity"))
+	{
+		Entity root = ReadEntity(scene, pEntityElement, false, duplicates, k_Snapshot, true);
+		if (nextRoot)
+			SceneGraph::MoveBefore(root, nextRoot);
+		nextRoot = root;
+	}
 }
 
 Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pEntityElement, bool resetUuid)

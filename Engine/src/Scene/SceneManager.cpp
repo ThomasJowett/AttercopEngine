@@ -167,7 +167,7 @@ bool SceneManager::CreateScene(std::filesystem::path filename)
 {
 	Ref<Scene> newScene = CreateRef<Scene>(filename);
 
-	newScene->Save(false);
+	newScene->Save();
 
 	return false;
 }

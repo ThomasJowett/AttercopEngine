@@ -27,7 +27,14 @@ public:
 
 	static std::string SerializeEntity(Entity entity);
 	static Entity DeserializeEntity(Scene* scene, const std::string& prefab, bool resetUuid = false);
+
+	// The play-mode snapshot: every root entity as a save writes it, with each entity's handle
+	static void WriteSnapshot(Scene* scene, tinyxml2::XMLDocument& document);
+	// Loads a snapshot into an empty registry, giving each entity its handle back
+	static void ReadSnapshot(Scene* scene, const tinyxml2::XMLDocument& document);
 private:
+	static void WriteEntity(tinyxml2::XMLElement* pElement, Entity entity, bool withHandles);
+
 	bool LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath);
 
 	static Entity ReadEntityTree(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, const std::filesystem::path& file);

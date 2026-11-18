@@ -185,7 +185,7 @@ void ProjectsStartScreen::OnImGuiRender()
 
 					Ref<Scene> newScene = CreateRef<Scene>(sceneDirectory / sceneName);
 
-					newScene->Save(false);
+					newScene->Save();
 
 					if (ProjectSerializer::Serialize(data, projectPath))
 					{

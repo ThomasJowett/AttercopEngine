@@ -332,7 +332,7 @@ void MainDockSpace::OnImGuiRender()
 			}
 			if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save Scene", "Ctrl + S", nullptr, SceneManager::IsSceneLoaded()))
 			{
-				SceneManager::CurrentScene()->Save(false);
+				SceneManager::CurrentScene()->Save();
 			}
 			if (ImGui::MenuItem(ICON_FA_FILE_EXPORT" Export Game", nullptr, nullptr, true))
 			{
@@ -497,7 +497,6 @@ void MainDockSpace::OnImGuiRender()
 		ImGui::Separator();
 		ImGui::Text("Dear ImGui version: %s", ImGui::GetVersion());
 		ImGui::Text("spd log version: %i.%i.%i", SPDLOG_VER_MAJOR, SPDLOG_VER_MINOR, SPDLOG_VER_PATCH);
-		ImGui::Text("cereal version: %i.%i.%i", CEREAL_VERSION_MAJOR, CEREAL_VERSION_MINOR, CEREAL_VERSION_PATCH);
 		ImGui::Text("Simple ini version: %i.%i", 4, 17);
 		ImGui::Text("entt version: %i.%i.%i", 3, 9, 0);
 		ImGui::Text("lua version: %s.%s.%s", LUA_VERSION_MAJOR, LUA_VERSION_MINOR, LUA_VERSION_RELEASE);
@@ -631,7 +630,7 @@ void MainDockSpace::HandleKeyBoardInputs()
 				iSave->Save();
 		}
 		else if (SceneManager::IsSceneLoaded())
-			SceneManager::CurrentScene()->Save(false);
+			SceneManager::CurrentScene()->Save();
 	}
 	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_S))
 	{

@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <functional>
-#include <sstream>
 #include <unordered_map>
 
 #include "EnTT/entt.hpp"
@@ -12,6 +11,11 @@
 #include "Reflection/Reflection.h"
 
 class Entity;
+
+namespace tinyxml2
+{
+	class XMLDocument;
+}
 class FrameBuffer;
 class Camera;
 class Matrix4x4;
@@ -28,7 +32,8 @@ public:
 	~Scene();
 
 	Entity CreateEntity(const std::string& name = "");
-	Entity CreateEntity(Uuid id, const std::string& name = "");
+	// hint gives the entity that handle when it's free, as the play-mode snapshot does
+	Entity CreateEntity(Uuid id, const std::string& name = "", entt::entity hint = entt::null);
 
 	void InstantiateScene(const Ref<Scene> prefab, const Vector3f& position);
 	Entity InstantiateEntity(const Entity prefab, const Vector3f& position);
@@ -68,9 +73,9 @@ public:
 	entt::entity GetFirstRoot() const { return m_FirstRoot; }
 	entt::entity GetLastRoot() const { return m_LastRoot; }
 
-	void Save(bool binary = false);
-	void Save(std::filesystem::path filepath, bool binary = false);
-	bool Load(bool binary = false);
+	void Save();
+	void Save(std::filesystem::path filepath);
+	bool Load();
 	bool Load(const std::vector<uint8_t>& data);
 
 	void MakeDirty() { m_Dirty = true; }
@@ -156,9 +161,6 @@ private:
 
 	entt::entity m_FirstRoot = entt::null;
 	entt::entity m_LastRoot = entt::null;
-	// The root links when the snapshot was taken
-	entt::entity m_SnapshotFirstRoot = entt::null;
-	entt::entity m_SnapshotLastRoot = entt::null;
 
 	std::filesystem::path m_Filepath;
 	// Set when the scene was loaded from a file in a newer format, which saving won't overwrite
@@ -189,7 +191,8 @@ private:
 
 	uint32_t m_PixelsPerUnit = 16;
 
-	std::stringstream m_Snapshot;
+	// Written at Play and read back at Stop
+	Scope<tinyxml2::XMLDocument> m_Snapshot;
 
 	entt::entity m_HoveredWidget = entt::null;
 	entt::entity m_PressedWidget = entt::null;
