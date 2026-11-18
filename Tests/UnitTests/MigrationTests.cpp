@@ -4,15 +4,12 @@
 
 #include "Core/Application.h"
 #include "Core/Version.h"
-#include "Logging/Logger.h"
 #include "Migration/Migration.h"
 #include "Physics/CollisionLayers.h"
 #include "Scene/Scene.h"
 #include "Scene/SceneSerializer.h"
 
 #include "TinyXml2/tinyxml2.h"
-
-#include <spdlog/sinks/ostream_sink.h>
 
 #include <fstream>
 #include <sstream>
@@ -140,29 +137,6 @@ namespace MigrationTests
 
 		TemporaryProject() { std::filesystem::remove_all(directory); }
 		~TemporaryProject() { std::filesystem::remove_all(directory); }
-	};
-
-	// Collects the engine's warnings while it exists
-	struct WarningCapture
-	{
-		std::ostringstream stream;
-		std::shared_ptr<spdlog::sinks::ostream_sink_mt> sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(stream);
-
-		WarningCapture()
-		{
-			sink->set_level(spdlog::level::warn);
-			Logger::GetEngineLogger()->sinks().push_back(sink);
-		}
-		~WarningCapture()
-		{
-			std::vector<spdlog::sink_ptr>& sinks = Logger::GetEngineLogger()->sinks();
-			sinks.erase(std::remove(sinks.begin(), sinks.end(), sink), sinks.end());
-		}
-		std::string Text()
-		{
-			Logger::GetEngineLogger()->flush();
-			return stream.str();
-		}
 	};
 
 	// A format 1 scene upgraded by the engine's steps, printed
