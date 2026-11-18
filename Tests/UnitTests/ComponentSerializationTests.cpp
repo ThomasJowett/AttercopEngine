@@ -266,10 +266,12 @@ TEST_CASE("A duplicated entity gets new IDs and keeps everything else")
 	REQUIRE(copy.GetChild());
 	CHECK_FALSE(copy.GetChild().GetID() == root.GetChild().GetID());
 
-	// Give the copy the original IDs, then every other value must match
-	copy.GetComponent<IDComponent>().ID = root.GetID();
-	copy.GetChild().GetComponent<IDComponent>().ID = root.GetChild().GetID();
-	ComponentFixture::Check(copy);
+	// Load the copy into another scene with the original IDs, then every other value must match
+	std::string xml = SceneSerializer::SerializeEntity(copy);
+	for (auto [from, to] : { std::pair(copy.GetID(), root.GetID()), std::pair(copy.GetChild().GetID(), root.GetChild().GetID()) })
+		xml.replace(xml.find(from.to_string()), from.to_string().size(), to.to_string());
+	Scene restored("");
+	ComponentFixture::Check(SceneSerializer::DeserializeEntity(&restored, xml));
 }
 
 TEST_CASE("A component saved with nothing set loads with its defaults")

@@ -44,7 +44,7 @@ void Entity::SetName(const std::string_view name)
 
 Uuid Entity::GetID()
 {
-	return GetComponent<IDComponent>().ID;
+	return GetComponent<IDComponent>().GetID();
 }
 
 entt::entity Entity::GetHandle() const
