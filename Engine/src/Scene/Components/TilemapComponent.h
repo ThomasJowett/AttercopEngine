@@ -102,11 +102,7 @@ struct TilemapComponent
 		return *this;
 	}
 
-	// A copy ctor/assignment alone suppresses the implicit move ctor/assignment entirely (not "deletes"
-	// it - it's just never declared), so entt::snapshot_loader's internal `emplace(..., std::move(instance))`
-	// silently fell back to the copy ctor above, which deliberately nulls rebuildState - permanently
-	// severing the link UpdateRebuild() needs to ever pick up the load()-triggered background rebuild's
-	// result. A real move, unlike a copy, doesn't need that severing (the source is being discarded).
+	// A move keeps rebuildState, which a copy nulls, so a moved tilemap still picks up its background rebuild
 	TilemapComponent(TilemapComponent&& other) noexcept
 		: tileset(std::move(other.tileset)), tint(other.tint), tiles(std::move(other.tiles)),
 		  tilesWide(other.tilesWide), tilesHigh(other.tilesHigh),
@@ -222,23 +218,4 @@ struct TilemapComponent
 
 private:
 	Ref<Astar::AstarGrid> m_PathfindingGrid;
-
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(tint, tilesWide, tilesHigh, tiles, tileWidth, tileHeight, orientation, isTrigger, layer, mask);
-
-		SerializationUtils::SaveAssetToArchive(archive, tileset);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		archive(tint, tilesWide, tilesHigh, tiles, tileWidth, tileHeight, orientation, isTrigger, layer, mask);
-		SerializationUtils::LoadAssetFromArchive(archive, tileset);
-
-		Rebuild();
-		runtimeBody = nullptr;
-	}
 };

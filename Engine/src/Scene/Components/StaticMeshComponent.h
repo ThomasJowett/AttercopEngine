@@ -68,40 +68,4 @@ struct StaticMeshComponent
 	}
 
 	static void Describe(Reflection::Builder<StaticMeshComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		std::string relativeMeshPath;
-		std::vector<std::string> relativeMaterials;
-		if (mesh)
-		{
-			if (!mesh->GetFilepath().empty())
-				relativeMeshPath = mesh->GetFilepath().string();
-
-			for (const Ref<Material>& materialOverride : materialOverrides)
-				relativeMaterials.push_back(materialOverride ? materialOverride->GetFilepath().string() : std::string());
-		}
-		archive(cereal::make_nvp("Mesh", relativeMeshPath));
-		archive(cereal::make_nvp("MaterialOverrides", relativeMaterials));
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		std::string relativeMeshPath;
-		std::vector<std::string> relativeMaterials;
-		archive(cereal::make_nvp("Mesh", relativeMeshPath));
-		archive(cereal::make_nvp("MaterialOverrides", relativeMaterials));
-
-		mesh = relativeMeshPath.empty() ? nullptr : AssetManager::GetAsset<StaticMesh>(relativeMeshPath);
-		materialOverrides.clear();
-		if (!mesh)
-			return;
-
-		for (const std::string& relativeMaterial : relativeMaterials)
-			materialOverrides.push_back(relativeMaterial.empty() ? nullptr : AssetManager::GetAsset<Material>(relativeMaterial));
-	}
 };

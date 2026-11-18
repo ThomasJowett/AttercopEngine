@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Physics/RuntimePointer.h"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
@@ -85,12 +84,4 @@ struct RigidBody2DComponent
 			return std::make_tuple(position, rotation);
 		})
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(type, fixedRotation, gravityScale, angularDamping, linearDamping);
-	}
 };

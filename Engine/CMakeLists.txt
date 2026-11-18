@@ -82,7 +82,6 @@ target_include_directories(Engine SYSTEM PUBLIC
                             vendor/GLFW/deps
                             vendor/GLAD/include
                             vendor/spdlog/include
-                            vendor/cereal/include
                             vendor/box2d/include
                             vendor/lua
                             vendor/imgui

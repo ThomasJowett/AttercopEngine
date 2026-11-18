@@ -3,7 +3,6 @@
 #include "math/Vector3f.h"
 #include "math/Matrix.h"
 
-#include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -130,12 +129,5 @@ private:
 		m_ParentMatrix = parentMatrix;
 		m_WorldMatrix = parentMatrix * GetLocalMatrix();
 		m_Dirty = false;
-	}
-
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(m_Position, m_Rotation, m_Scale);
 	}
 };

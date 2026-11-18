@@ -194,12 +194,6 @@ public:
 	{
 		return HexValue() != rhs.HexValue();
 	}
-
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(r,g,b,a);
-	}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Colour& c)

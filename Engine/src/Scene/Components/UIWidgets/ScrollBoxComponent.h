@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
-
 #include "math/Vector2f.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -21,12 +19,4 @@ struct ScrollBoxComponent
 	Vector2f contentSize = Vector2f(0.0f, 0.0f);
 
 	static void Describe(Reflection::Builder<ScrollBoxComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(scrollOffset, horizontalScroll, verticalScroll, clipContent);
-	}
 };

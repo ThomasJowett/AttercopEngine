@@ -2,8 +2,6 @@
 
 #include "Renderer/Camera.h"
 
-#include "cereal/cereal.hpp"
-
 class SceneCamera :
 	public Camera
 {
@@ -36,20 +34,6 @@ public:
 	void SetVerticalFov(float fovY) { m_Fov = fovY; }
 
 	void RecalculateProjection();
-
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(m_ProjectionType,
-			m_OrthographicSize,
-			m_OrthoGraphicNear,
-			m_OrthoGraphicFar,
-			m_PerspectiveNear,
-			m_PerspectiveFar,
-			m_Fov, m_AspectRatio);
-
-		RecalculateProjection();
-	}
 
 private:
 	void RecalculateOrthographicProjection();

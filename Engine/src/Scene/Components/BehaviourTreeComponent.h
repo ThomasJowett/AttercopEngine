@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
-
 #include "AI/BehaviourTree.h"
 #include "AI/BehaviourTreeSerializer.h"
 #include "Scripting/Lua/LuaBindings.h"
@@ -40,25 +38,4 @@ struct BehaviourTreeComponent
 	REFLECT_LUA_BEGIN(BehaviourTreeComponent)
 		REFLECT_LUA_FUNCTION(GetBlackboard, "Get the blackboard shared by this entity's behaviour tree and its custom tasks, or nil if no tree is loaded")
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(filepath.string());
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		std::string relativePath;
-		archive(relativePath);
-
-		if (!relativePath.empty())
-		{
-			filepath = relativePath;
-			behaviourTree = BehaviourTree::Serializer::Load(filepath);
-		}
-	}
 };

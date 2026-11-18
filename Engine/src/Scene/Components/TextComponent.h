@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Asset/Font.h"
 #include "Scene/AssetManager.h"
 #include "Scripting/Lua/LuaBindings.h"
@@ -55,31 +54,4 @@ private:
 	mutable uint32_t m_BoundsFontVersion = 0;
 	mutable float m_BoundsMaxWidth = 0.0f;
 	mutable bool m_BoundsCached = false;
-
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(text, maxWidth, colour);
-		std::string relativePath;
-		if(font != Font::GetDefaultFont())
-			relativePath = font->GetFilepath().string();
-		archive(relativePath);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		archive(text, maxWidth, colour);
-		std::string relativePath;
-		archive(relativePath);
-		if (!relativePath.empty())
-		{
-			font = AssetManager::GetAsset<Font>(relativePath);
-		}
-		else
-		{
-			font = Font::GetDefaultFont();
-		}
-	}
 };

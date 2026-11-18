@@ -199,7 +199,13 @@ void BindEntity(sol::state& state)
 	SetFunction(entity_type, "Entity", "GetSibling", "Get Sibling", RequireValidEntity("GetSibling", &Entity::GetSibling));
 	SetFunction(entity_type, "Entity", "GetChild", "Get first Child", RequireValidEntity("GetChild", &Entity::GetChild));
 
-	RegisterAllComponents<COMPONENTS>(state);
+	RegisterAllComponents<IDComponent, NameComponent, TransformComponent, CameraComponent, SpriteComponent,
+		AnimatedSpriteComponent, StaticMeshComponent, PrimitiveComponent, TilemapComponent, TextComponent, RigidBody2DComponent,
+		BoxCollider2DComponent, CircleCollider2DComponent, PolygonCollider2DComponent, CapsuleCollider2DComponent,
+		WeldJoint2DComponent, CircleRendererComponent, BehaviourTreeComponent, StateMachineComponent, LuaScriptComponent,
+		PointLightComponent, BillboardComponent, CanvasComponent, WidgetComponent, ButtonComponent, StackLayoutComponent,
+		GridLayoutComponent, ScrollBoxComponent, HiddenComponent, AudioSourceComponent, AudioListenerComponent,
+		HierarchyComponent>(state);
 
 	// Component bindings live in each component's REFLECT_LUA block; these are the non-component types they use
 	sol::usertype<SceneCamera> sceneCamera_type = state.new_usertype<SceneCamera>("Camera");

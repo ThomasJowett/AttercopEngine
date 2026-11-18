@@ -163,7 +163,6 @@ Example projects can be downloaded from [ExampleGameProjects](https://github.com
 * [stb](https://github.com/nothings/stb): Single-file public domain (or MIT licensed) libraries for C/C++.
 * [simpleini](https://github.com/brofield/simpleini): Simple initialization file parser and writer.
 * [glad](https://github.com/Dav1dde/glad): Meta loader for the OpenGL API.
-* [cereal](https://github.com/USCiLab/cereal): A C++11 library for serialization.
 * [tinyxml2](https://github.com/leethomason/tinyxml2): A simple, small, efficient C++ XML parser.
 * [LiquidFun](https://github.com/google/liquidfun): 2D physics library and extension of Box2D that provides particle and fluid dynamics.
 * [lua](https://github.com/lua/lua): A powerful, efficient, lightweight, embeddable scripting language.

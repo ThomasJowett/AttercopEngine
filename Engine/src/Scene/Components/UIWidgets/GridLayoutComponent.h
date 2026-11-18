@@ -1,7 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
-
 #include "math/Vector2f.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -22,12 +20,4 @@ struct GridLayoutComponent
 	float fixedRowHeight = 0.0f;
 
 	static void Describe(Reflection::Builder<GridLayoutComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(columns, cellSpacing, paddingLeft, paddingTop, paddingRight, paddingBottom, uniformCellSize, fixedRowHeight);
-	}
 };

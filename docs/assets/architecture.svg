@@ -289,7 +289,7 @@
 <rect x="1155" y="871" width="214" height="64" rx="4" fill="#000" opacity="0.25"/>
 <rect x="1150" y="866" width="214" height="64" rx="4" fill="#8a5a0c"/>
 <text x="1257.0" y="885.02" font-size="22" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">Serialization</text>
-<text x="1257.0" y="910.98" font-size="15" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">TinyXml2 · cereal</text>
+<text x="1257.0" y="910.98" font-size="15" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">TinyXml2</text>
 <rect x="1381" y="871" width="214" height="64" rx="4" fill="#000" opacity="0.25"/>
 <rect x="1376" y="866" width="214" height="64" rx="4" fill="#8a5a0c"/>
 <text x="1483.0" y="885.02" font-size="22" fill="#fff" font-weight="normal" text-anchor="middle" dominant-baseline="central">Logging</text>

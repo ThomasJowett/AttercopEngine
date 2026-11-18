@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -91,15 +90,4 @@ struct WidgetComponent
 private:
 	Matrix4x4 m_TransformMatrix;
 	Matrix4x4 m_WorldOriginMatrix;
-
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(disabled);
-		archive(fixedWidth, fixedHeight);
-		archive(position, size, rotation);
-		archive(anchorLeft, anchorTop, anchorRight, anchorBottom);
-		archive(marginLeft, marginTop, marginRight, marginBottom);
-	}
 };

@@ -13,7 +13,6 @@
 				+ VERSION_PATCH)
 
 #include "spdlog/version.h"
-#include "cereal/version.hpp"
 // Lua is compiled as C
 extern "C" {
 #include "lua/lua.h"

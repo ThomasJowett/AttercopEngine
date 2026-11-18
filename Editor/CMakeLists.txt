@@ -95,7 +95,6 @@ target_include_directories(Editor SYSTEM PUBLIC
                             Engine/src
                             Engine/vendor
                             Engine/vendor/spdlog/include
-                            Engine/vendor/cereal/include
                             Engine/vendor/box2d/include
                             Engine/vendor/lua
                             Engine/vendor/stb

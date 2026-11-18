@@ -36,39 +36,3 @@
 
 // Registers every component with Reflection, once; call it before the Lua state is made
 void RegisterComponents();
-
-// Components in the snapshot, in RegisterComponents() order
-#define COMPONENTS			\
-IDComponent,				\
-NameComponent,				\
-TransformComponent,			\
-CameraComponent,			\
-SpriteComponent,			\
-AnimatedSpriteComponent,	\
-StaticMeshComponent,		\
-PrimitiveComponent,			\
-TilemapComponent,			\
-TextComponent,				\
-RigidBody2DComponent,		\
-BoxCollider2DComponent,		\
-CircleCollider2DComponent,	\
-PolygonCollider2DComponent,	\
-CapsuleCollider2DComponent,	\
-WeldJoint2DComponent,		\
-CircleRendererComponent,	\
-BehaviourTreeComponent,		\
-StateMachineComponent,		\
-LuaScriptComponent,			\
-PointLightComponent,		\
-BillboardComponent,			\
-CanvasComponent,			\
-WidgetComponent,			\
-ButtonComponent,			\
-StackLayoutComponent,		\
-GridLayoutComponent,		\
-ScrollBoxComponent,			\
-HiddenComponent,			\
-AudioSourceComponent,		\
-AudioListenerComponent,		\
-HierarchyComponent			\
-

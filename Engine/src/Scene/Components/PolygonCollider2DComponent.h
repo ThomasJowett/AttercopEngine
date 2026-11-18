@@ -1,8 +1,5 @@
 #pragma once
 
-#include "cereal/access.hpp"
-#include "cereal/types/vector.hpp"
-
 #include "math/Vector2f.h"
 #include "Asset/PhysicsMaterial.h"
 #include "Utilities/SerializationUtils.h"
@@ -50,23 +47,4 @@ struct PolygonCollider2DComponent
 			([](Self& c, const Ref<PhysicsMaterial>& v) { c.physicsMaterial = v; }))
 		REFLECT_LUA_COLLISION_FILTER()
 	REFLECT_LUA_END()
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void save(Archive& archive) const
-	{
-		archive(offset, vertices, isTrigger, layer, mask);
-
-		SerializationUtils::SaveAssetToArchive(archive, physicsMaterial);
-	}
-
-	template<typename Archive>
-	void load(Archive& archive)
-	{
-		archive(offset, vertices, isTrigger, layer, mask);
-		SerializationUtils::LoadAssetFromArchive(archive, physicsMaterial);
-
-		runtimeBody = nullptr;
-	}
 };

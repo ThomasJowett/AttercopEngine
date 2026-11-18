@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Reflection/ReflectionFwd.h"
 
 struct BillboardComponent
@@ -16,13 +15,4 @@ struct BillboardComponent
 
 	Orientation orientation = Orientation::Camera;
 	static void Describe(Reflection::Builder<BillboardComponent>& c);
-
-private:
-
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(orientation);
-	}
 };

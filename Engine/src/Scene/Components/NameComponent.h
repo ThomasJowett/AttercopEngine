@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 
-#include "cereal/cereal.hpp"
 #include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -22,11 +21,4 @@ struct NameComponent
 	REFLECT_LUA_BEGIN(NameComponent)
 		REFLECT_LUA_PROPERTY(name, "The name of this entity")
 	REFLECT_LUA_END()
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(name);
-	}
 };

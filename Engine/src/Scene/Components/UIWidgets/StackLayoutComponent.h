@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cereal/cereal.hpp"
 #include "Reflection/ReflectionFwd.h"
 
 struct StackLayoutComponent
@@ -19,12 +18,4 @@ struct StackLayoutComponent
 	float paddingBottom = 0.0f;
 
 	static void Describe(Reflection::Builder<StackLayoutComponent>& c);
-
-private:
-	friend cereal::access;
-	template<typename Archive>
-	void serialize(Archive& archive)
-	{
-		archive(horizontal, spacing, stretchCrossAxis, paddingLeft, paddingTop, paddingRight, paddingBottom);
-	}
 };

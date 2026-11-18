@@ -1,16 +1,12 @@
 #include "vendor/doctest.h"
 #include "ComponentFixture.h"
 
+#include "Reflection/Reflection.h"
 #include "Scripting/Lua/LuaManager.h"
-
-#include "cereal/archives/binary.hpp"
-#include "cereal/types/string.hpp"
-#include "cereal/types/vector.hpp"
 
 #include <functional>
 #include <map>
 #include <set>
-#include <sstream>
 #include <string>
 
 // The Lua properties of each component, as scripts and auto-complete see them today
@@ -47,43 +43,22 @@ namespace
 		{ "WidgetComponent", "Position:Vec2 Size:Vec2" },
 	};
 
-	template<typename T>
-	std::function<std::string(Entity)> SnapshotBytes()
+	// The saved form of a component, by its Lua name; empty if no component has that name
+	std::string SavedForm(const std::string& luaName, Entity entity)
 	{
-		return [](Entity entity)
-			{
-				std::stringstream stream;
-				{
-					cereal::BinaryOutputArchive output(stream);
-					output(entity.GetComponent<T>());
-				}
-				return stream.str();
-			};
+		RegisterComponents();
+		for (const Reflection::ComponentType* type : Reflection::Components())
+		{
+			if (type->luaName != luaName)
+				continue;
+			const Reflection::ComponentValues values = Reflection::Capture(entity, *type);
+			std::string text = values.custom;
+			for (const Reflection::Value& value : values.values)
+				text += "|" + value.ToString();
+			return text;
+		}
+		return {};
 	}
-
-	// The saved form of a component, by name
-	const std::map<std::string, std::function<std::string(Entity)>> k_Snapshots = {
-		{ "AnimatedSpriteComponent", SnapshotBytes<AnimatedSpriteComponent>() },
-		{ "AudioSourceComponent", SnapshotBytes<AudioSourceComponent>() },
-		{ "BoxCollider2DComponent", SnapshotBytes<BoxCollider2DComponent>() },
-		{ "ButtonComponent", SnapshotBytes<ButtonComponent>() },
-		{ "CameraComponent", SnapshotBytes<CameraComponent>() },
-		{ "CanvasComponent", SnapshotBytes<CanvasComponent>() },
-		{ "CapsuleCollider2DComponent", SnapshotBytes<CapsuleCollider2DComponent>() },
-		{ "CircleCollider2DComponent", SnapshotBytes<CircleCollider2DComponent>() },
-		{ "CircleRendererComponent", SnapshotBytes<CircleRendererComponent>() },
-		{ "HiddenComponent", SnapshotBytes<HiddenComponent>() },
-		{ "NameComponent", SnapshotBytes<NameComponent>() },
-		{ "PolygonCollider2DComponent", SnapshotBytes<PolygonCollider2DComponent>() },
-		{ "PrimitiveComponent", SnapshotBytes<PrimitiveComponent>() },
-		{ "RigidBody2DComponent", SnapshotBytes<RigidBody2DComponent>() },
-		{ "SpriteComponent", SnapshotBytes<SpriteComponent>() },
-		{ "TextComponent", SnapshotBytes<TextComponent>() },
-		{ "TilemapComponent", SnapshotBytes<TilemapComponent>() },
-		{ "TransformComponent", SnapshotBytes<TransformComponent>() },
-		{ "WeldJoint2DComponent", SnapshotBytes<WeldJoint2DComponent>() },
-		{ "WidgetComponent", SnapshotBytes<WidgetComponent>() },
-	};
 
 	struct LuaFixture
 	{
@@ -150,11 +125,10 @@ TEST_CASE("Assigning a Lua property its own value leaves the component unchanged
 			continue;
 		CAPTURE(entry.component);
 		CAPTURE(entry.name);
-		REQUIRE(k_Snapshots.count(entry.component) == 1);
-
 		Entity owner = entry.component == "WeldJoint2DComponent" ? lua.root.GetChild() : lua.root;
 		const char* ownerName = entry.component == "WeldJoint2DComponent" ? "child" : "root";
-		std::string before = k_Snapshots.at(entry.component)(owner);
+		std::string before = SavedForm(entry.component, owner);
+		REQUIRE_FALSE(before.empty());
 
 		std::string component = std::string(ownerName) + ":Get" + entry.component + "()";
 		sol::protected_function_result result = LuaManager::GetState().safe_script(
@@ -167,7 +141,7 @@ TEST_CASE("Assigning a Lua property its own value leaves the component unchanged
 			else
 				FAIL_CHECK(error.what());
 		}
-		CHECK(k_Snapshots.at(entry.component)(owner) == before);
+		CHECK(SavedForm(entry.component, owner) == before);
 	}
 
 	// Collision filters can be read but not set from Lua
