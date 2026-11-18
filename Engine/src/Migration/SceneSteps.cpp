@@ -247,7 +247,7 @@ namespace Migration
 			}
 		}
 
-		// The components written from their descriptions (reflection.md section 7)
+		// The components written from their descriptions
 		bool UpgradeToReflectionFormat(tinyxml2::XMLDocument& document, Report& report)
 		{
 			tinyxml2::XMLElement* root = document.RootElement();
