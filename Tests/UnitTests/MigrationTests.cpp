@@ -586,7 +586,9 @@ namespace MigrationTests
 
 		SUBCASE("BehaviourTree: an absolute path made relative to the project")
 		{
-			const std::filesystem::path absolute = std::filesystem::absolute(Application::GetOpenDocumentDirectory()) / "AI" / "Enemy.behaviourtree";
+			// No project is open in the unit tests, so paths are relative to the current directory
+			const std::filesystem::path project = Application::GetOpenDocumentDirectory();
+			const std::filesystem::path absolute = (project.empty() ? std::filesystem::current_path() : std::filesystem::absolute(project)) / "AI" / "Enemy.behaviourtree";
 			CheckStep("<BehaviourTree Filepath=\"" + absolute.generic_string() + "\"/>", R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)");
 			CheckStep(R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)", R"(<BehaviourTree Filepath="AI/Enemy.behaviourtree"/>)");
 		}

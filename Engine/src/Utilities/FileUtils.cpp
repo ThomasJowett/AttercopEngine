@@ -7,9 +7,9 @@
 
 std::filesystem::path FileUtils::RelativePath(const std::filesystem::path& path, const std::filesystem::path& relative_to)
 {
-    // create absolute paths
-    std::filesystem::path p = std::filesystem::absolute(path);
-    std::filesystem::path r = std::filesystem::absolute(relative_to);
+    // create absolute paths; an empty path is the current directory, as absolute() throws for it on Windows
+    std::filesystem::path p = path.empty() ? std::filesystem::current_path() : std::filesystem::absolute(path);
+    std::filesystem::path r = relative_to.empty() ? std::filesystem::current_path() : std::filesystem::absolute(relative_to);
 
     // if root paths are different, return absolute path
     if (p.root_path() != r.root_path())
