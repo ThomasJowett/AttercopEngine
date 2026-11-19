@@ -3,7 +3,6 @@
 #include "math/Vector3f.h"
 #include "math/Matrix.h"
 
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 struct TransformComponent
@@ -88,24 +87,6 @@ struct TransformComponent
 	void OverrideWorldMatrix(const Matrix4x4& worldMatrix) { m_WorldMatrix = worldMatrix; m_Dirty = true; }
 
 	static void Describe(Reflection::Builder<TransformComponent>& c);
-
-	REFLECT_LUA_BEGIN(TransformComponent)
-		REFLECT_LUA_PROPERTY_CUSTOM("Position", "Position relative to the parent entity, or to the world if it has no parent", "Vec3",
-			([](Self& c) { return c.GetPosition(); }),
-			([](Self& c, const Vector3f& v) { c.SetPosition(v); }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Rotation", "Rotation as Euler angles in radians, relative to the parent", "Vec3",
-			([](Self& c) { return c.GetRotation(); }),
-			([](Self& c, const Vector3f& v) { c.SetRotation(v); }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Scale", "Scale relative to the parent", "Vec3",
-			([](Self& c) { return c.GetScale(); }),
-			([](Self& c, const Vector3f& v) { c.SetScale(v); }))
-		type.set_function("GetWorldPosition", [](const Lua::ComponentHandle<Self>& handle)
-			{
-				Lua::UpdateWorldTransform(handle.scene, handle.entity);
-				return handle.Get().GetWorldPosition();
-			});
-		RegisterLuaApiEntry({ "GetWorldPosition", "Position in world space, after applying every parent's transform", LuaApiEntry::Kind::Function, s_ReflectComponentName, "", true });
-	REFLECT_LUA_END()
 
 private:
 	Vector3f m_Position = Vector3f(0.0f, 0.0f, 0.0f);

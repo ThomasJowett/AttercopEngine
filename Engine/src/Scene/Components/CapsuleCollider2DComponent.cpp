@@ -1,6 +1,8 @@
 #include "CapsuleCollider2DComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Physics/CollisionLayers.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/PhysicsEngine2D.h"
 
 namespace CapsuleCollider2DComponentReflection
@@ -12,8 +14,16 @@ namespace CapsuleCollider2DComponentReflection
 	}
 }
 
+namespace CapsuleCollider2DComponentReflection
+{
+	REFLECT_LUA_BEGIN(CapsuleCollider2DComponent)
+		REFLECT_LUA_COLLISION_FILTER()
+	REFLECT_LUA_END()
+}
+
 void CapsuleCollider2DComponent::Describe(Reflection::Builder<CapsuleCollider2DComponent>& c)
 {
+	c.LuaFunctions(&CapsuleCollider2DComponentReflection::RegisterLuaFunctions);
 	using namespace CapsuleCollider2DComponentReflection;
 
 	Reflection::Enum<Direction>("CapsuleDirection", "Capsule directions, for CapsuleCollider2DComponent.Direction", {

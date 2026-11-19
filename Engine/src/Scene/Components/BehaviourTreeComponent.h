@@ -2,7 +2,6 @@
 
 #include "AI/BehaviourTree.h"
 #include "AI/BehaviourTreeSerializer.h"
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 struct BehaviourTreeComponent
@@ -34,8 +33,4 @@ struct BehaviourTreeComponent
 	Ref<BehaviourTree::Blackboard> GetBlackboard() const { return behaviourTree ? behaviourTree->getBlackboard() : nullptr; }
 
 	static void Describe(Reflection::Builder<BehaviourTreeComponent>& c);
-
-	REFLECT_LUA_BEGIN(BehaviourTreeComponent)
-		REFLECT_LUA_FUNCTION(GetBlackboard, "Get the blackboard shared by this entity's behaviour tree and its custom tasks, or nil if no tree is loaded")
-	REFLECT_LUA_END()
 };

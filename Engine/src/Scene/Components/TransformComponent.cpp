@@ -1,6 +1,7 @@
 #include "TransformComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "RigidBody2DComponent.h"
 
 namespace TransformComponentReflection
@@ -18,8 +19,21 @@ namespace TransformComponentReflection
 	}
 }
 
+namespace TransformComponentReflection
+{
+	REFLECT_LUA_BEGIN(TransformComponent)
+		type.set_function("GetWorldPosition", [](const Lua::ComponentRef& handle)
+			{
+				Lua::UpdateWorldTransform(handle.scene, handle.entity);
+				return handle.As<Self>().GetWorldPosition();
+			});
+		RegisterLuaApiEntry({ "GetWorldPosition", "Position in world space, after applying every parent's transform", LuaApiEntry::Kind::Function, s_ReflectComponentName, "", true });
+	REFLECT_LUA_END()
+}
+
 void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 {
+	c.LuaFunctions(&TransformComponentReflection::RegisterLuaFunctions);
 	c.Name("Transform").Category("Core").Required()
 		.Description("Position, rotation and scale relative to the parent entity");
 

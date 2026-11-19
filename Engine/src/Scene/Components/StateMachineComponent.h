@@ -2,7 +2,6 @@
 
 #include "AI/StateMachine.h"
 #include "AI/StateMachineSerializer.h"
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 struct StateMachineComponent
@@ -36,10 +35,4 @@ struct StateMachineComponent
 	bool ChangeState(const std::string& name) { return stateMachine && stateMachine->ChangeState(name); }
 
 	static void Describe(Reflection::Builder<StateMachineComponent>& c);
-
-	REFLECT_LUA_BEGIN(StateMachineComponent)
-		REFLECT_LUA_FUNCTION(GetCurrentStateName, "Get the name of the active state, or an empty string before the first update")
-		REFLECT_LUA_FUNCTION(GetPreviousStateName, "Get the name of the state that was active before the current one, or an empty string")
-		REFLECT_LUA_FUNCTION(ChangeState, "Change to the named state, running OnStateExit on the old state and OnStateEntry on the new one; returns false if there's no state with that name")
-	REFLECT_LUA_END()
 };

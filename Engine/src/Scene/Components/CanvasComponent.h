@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 struct CanvasComponent
@@ -11,8 +10,4 @@ struct CanvasComponent
 	float pixelPerUnit = 1.0f;
 
 	static void Describe(Reflection::Builder<CanvasComponent>& c);
-
-	REFLECT_LUA_BEGIN(CanvasComponent)
-		REFLECT_LUA_PROPERTY(pixelPerUnit, "Pixels per world unit this canvas's UI is drawn at")
-	REFLECT_LUA_END()
 };

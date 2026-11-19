@@ -1,9 +1,20 @@
 #include "AudioSourceComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Scripting/Lua/LuaBindings.h"
+
+namespace AudioSourceComponentReflection
+{
+	REFLECT_LUA_BEGIN(AudioSourceComponent)
+		REFLECT_LUA_FUNCTION(Play, "Start or resume playback")
+		REFLECT_LUA_FUNCTION(Pause, "Pause playback")
+		REFLECT_LUA_FUNCTION(Stop, "Stop playback and rewind to the start")
+	REFLECT_LUA_END()
+}
 
 void AudioSourceComponent::Describe(Reflection::Builder<AudioSourceComponent>& c)
 {
+	c.LuaFunctions(&AudioSourceComponentReflection::RegisterLuaFunctions);
 	c.Name("AudioSource").Category("Audio")
 		.Description("Plays an audio clip from the entity's position");
 

@@ -1,6 +1,7 @@
 #include "PrimitiveComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Scripting/Lua/LuaBindings.h"
 
 namespace PrimitiveComponentReflection
 {
@@ -17,8 +18,25 @@ namespace PrimitiveComponentReflection
 	void MarkForUpdate(Entity, PrimitiveComponent& c) { c.needsUpdating = true; }
 }
 
+namespace PrimitiveComponentReflection
+{
+	REFLECT_LUA_BEGIN(PrimitiveComponent)
+		REFLECT_LUA_HAND_WRITTEN_PROPERTY("Mesh", "The generated mesh", "Mesh",
+			([](Self& c) { return c.mesh; }),
+			([](Self& c, const Ref<Mesh>& v) { c.mesh = v; }))
+		REFLECT_LUA_FUNCTION_PARAMS(SetCube, "width, depth, height", "Rebuild as a cube")
+		REFLECT_LUA_FUNCTION_PARAMS(SetSphere, "radius, longitudeLines, latitudeLines", "Rebuild as a sphere")
+		REFLECT_LUA_FUNCTION_PARAMS(SetPlane, "width, length, widthLines, lengthLines, tileU, tileV", "Rebuild as a plane")
+		REFLECT_LUA_FUNCTION_PARAMS(SetCylinder, "bottomRadius, topRadius, height, sliceCount, stackCount", "Rebuild as a cylinder")
+		REFLECT_LUA_FUNCTION_PARAMS(SetCone, "bottomRadius, height, sliceCount, stackCount", "Rebuild as a cone")
+		REFLECT_LUA_FUNCTION_PARAMS(SetTorus, "outerRadius, innerRadius, sliceCount", "Rebuild as a torus")
+		REFLECT_LUA_FUNCTION(SetType, "Rebuild as the given shape type, using its current settings")
+	REFLECT_LUA_END()
+}
+
 void PrimitiveComponent::Describe(Reflection::Builder<PrimitiveComponent>& c)
 {
+	c.LuaFunctions(&PrimitiveComponentReflection::RegisterLuaFunctions);
 	using namespace PrimitiveComponentReflection;
 	using P = PrimitiveComponent;
 

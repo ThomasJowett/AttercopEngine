@@ -16,31 +16,34 @@ namespace
 	// Component, then "Property:LuaType" sorted by name
 	const std::map<std::string, std::string> k_LuaProperties = {
 		{ "AnimatedSpriteComponent", "Animation:string SpriteSheet:SpriteSheet Tint:Colour" },
-		{ "AudioSourceComponent", "Clip:AudioClip Loop:boolean MaxDistance:number MinDistance:number Pitch:number Rolloff:number Stream:boolean Volume:number" },
-		{ "BoxCollider2DComponent", "Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Size:Vec2" },
-		{ "ButtonComponent", "ClickedTint:Colour DisabledTint:Colour HoveredTint:Colour NormalTint:Colour" },
-		{ "CameraComponent", "Camera:Camera FixedAspectRatio:boolean Primary:boolean" },
+		{ "AudioListenerComponent", "Primary:boolean" },
+		{ "AudioSourceComponent", "Clip:AudioClip Loop:boolean MaxDistance:number MinDistance:number Pitch:number PlayOnStart:boolean Rolloff:number Stream:boolean Volume:number" },
+		{ "BehaviourTreeComponent", "Filepath:string" },
+		{ "BillboardComponent", "Orientation:BillboardOrientation" },
+		{ "BoxCollider2DComponent", "IsTrigger:boolean Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Size:Vec2" },
+		{ "ButtonComponent", "ClickedFilterMethod:FilterMethod ClickedTexture:Texture2D ClickedTint:Colour ClickedWrapMethod:WrapMethod DisabledFilterMethod:FilterMethod DisabledTexture:Texture2D DisabledTint:Colour DisabledWrapMethod:WrapMethod HoveredFilterMethod:FilterMethod HoveredTexture:Texture2D HoveredTint:Colour HoveredWrapMethod:WrapMethod NormalFilterMethod:FilterMethod NormalTexture:Texture2D NormalTint:Colour NormalWrapMethod:WrapMethod" },
+		{ "CameraComponent", "AspectRatio:number Camera:Camera FixedAspectRatio:boolean Fov:number OrthoFar:number OrthoNear:number OrthoSize:number PerspectiveFar:number PerspectiveNear:number Primary:boolean Projection:ProjectionType" },
 		{ "CanvasComponent", "PixelPerUnit:number" },
-		{ "CapsuleCollider2DComponent", "Height:number Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Radius:number" },
-		{ "CircleCollider2DComponent", "Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Radius:number" },
+		{ "CapsuleCollider2DComponent", "Direction:CapsuleDirection Height:number IsTrigger:boolean Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Radius:number" },
+		{ "CircleCollider2DComponent", "IsTrigger:boolean Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Radius:number" },
 		{ "CircleRendererComponent", "Colour:Colour Fade:number Radius:number Thickness:number" },
+		{ "GridLayoutComponent", "CellSpacing:Vec2 Columns:integer FixedRowHeight:number PaddingBottom:number PaddingLeft:number PaddingRight:number PaddingTop:number UniformCellSize:boolean" },
 		{ "HiddenComponent", "Hidden:boolean" },
-		{ "NameComponent", "Name:string" },
-		{ "PolygonCollider2DComponent", "Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Vertices:table of Vec2" },
-		{ "PrimitiveComponent", "ConeBottomRadius:number ConeHeight:number ConeSliceCount:integer ConeStackCount:integer CubeDepth:number "
-			"CubeHeight:number CubeWidth:number CylinderBottomRadius:number CylinderHeight:number CylinderSliceCount:integer "
-			"CylinderStackCount:integer CylinderTopRadius:number Material:Material Mesh:Mesh PlaneLength:number PlaneLengthLines:integer "
-			"PlaneTileU:number PlaneTileV:number PlaneWidth:number PlaneWidthLines:integer SphereLatitudeLines:integer "
-			"SphereLongitudeLines:integer SphereRadius:number TorusInnerRadius:number TorusOuterRadius:number TorusSliceCount:integer "
-			"Type:integer (enum)" },
+		{ "LuaScriptComponent", "Script:LuaScript" },
+		{ "PointLightComponent", "Attenuation:number CastShadows:boolean Colour:Colour Range:number" },
+		{ "PolygonCollider2DComponent", "IsTrigger:boolean Layer:string Mask:table of string Offset:Vec2 PhysicsMaterial:PhysicsMaterial Vertices:table of Vec2" },
+		{ "PrimitiveComponent", "ConeBottomRadius:number ConeHeight:number ConeSliceCount:integer ConeStackCount:integer CubeDepth:number CubeHeight:number CubeWidth:number CylinderBottomRadius:number CylinderHeight:number CylinderSliceCount:integer CylinderStackCount:integer CylinderTopRadius:number Material:Material Mesh:Mesh PlaneLength:number PlaneLengthLines:integer PlaneTileU:number PlaneTileV:number PlaneWidth:number PlaneWidthLines:integer SphereLatitudeLines:integer SphereLongitudeLines:integer SphereRadius:number TorusInnerRadius:number TorusOuterRadius:number TorusSliceCount:integer Type:PrimitiveShape" },
 		{ "RigidBody2DComponent", "AngularDamping:number FixedRotation:boolean GravityScale:number LinearDamping:number Type:BodyType" },
+		{ "ScrollBoxComponent", "ClipContent:boolean HorizontalScroll:boolean ScrollOffset:Vec2 VerticalScroll:boolean" },
 		{ "SpriteComponent", "FilterMethod:FilterMethod Texture:Texture2D TilingFactor:number Tint:Colour WrapMethod:WrapMethod" },
+		{ "StackLayoutComponent", "Horizontal:boolean PaddingBottom:number PaddingLeft:number PaddingRight:number PaddingTop:number Spacing:number StretchCrossAxis:boolean" },
+		{ "StateMachineComponent", "Filepath:string" },
+		{ "StaticMeshComponent", "Mesh:StaticMesh" },
 		{ "TextComponent", "Colour:Colour Font:Font MaxWidth:number Text:string" },
-		{ "TilemapComponent", "IsTrigger:boolean Layer:string Mask:table of string Orientation:integer (enum) TileHeight:integer "
-			"TileWidth:integer TilesHigh:integer TilesWide:integer Tileset:Tileset Tint:Colour" },
+		{ "TilemapComponent", "IsTrigger:boolean Layer:string Mask:table of string Orientation:TilemapOrientation TileHeight:integer TileWidth:integer TilesHigh:integer TilesWide:integer Tileset:Tileset Tint:Colour" },
 		{ "TransformComponent", "Position:Vec3 Rotation:Vec3 Scale:Vec3" },
 		{ "WeldJoint2DComponent", "CollideConnected:boolean Damping:number Stiffness:number" },
-		{ "WidgetComponent", "Position:Vec2 Size:Vec2" },
+		{ "WidgetComponent", "AnchorBottom:number AnchorLeft:number AnchorRight:number AnchorTop:number Disabled:boolean FixedHeight:boolean FixedWidth:boolean MarginBottom:number MarginLeft:number MarginRight:number MarginTop:number Position:Vec2 Rotation:number Size:Vec2" },
 	};
 
 	// The saved form of a component, by its Lua name; empty if no component has that name
@@ -93,7 +96,8 @@ TEST_CASE("Each component has the same Lua properties")
 	LuaManager::Init();
 	std::map<std::string, std::set<std::string>> found;
 	for (const LuaApiEntry& entry : LuaManager::GetIdentifiers())
-		if (entry.kind == LuaApiEntry::Kind::Property && entry.isComponent)
+		// Test-only components, named with their namespace, are left out
+		if (entry.kind == LuaApiEntry::Kind::Property && entry.isComponent && entry.component.find("::") == std::string::npos)
 			found[entry.component].insert(entry.name + ":" + entry.type);
 	LuaManager::Shutdown();
 
@@ -121,7 +125,7 @@ TEST_CASE("Assigning a Lua property its own value leaves the component unchanged
 	std::set<std::string> readOnly;
 	for (const LuaApiEntry& entry : LuaManager::GetIdentifiers())
 	{
-		if (entry.kind != LuaApiEntry::Kind::Property || !entry.isComponent)
+		if (entry.kind != LuaApiEntry::Kind::Property || !entry.isComponent || entry.component.find("::") != std::string::npos)
 			continue;
 		CAPTURE(entry.component);
 		CAPTURE(entry.name);
@@ -136,7 +140,7 @@ TEST_CASE("Assigning a Lua property its own value leaves the component unchanged
 		if (!result.valid())
 		{
 			sol::error error = result;
-			if (std::string(error.what()).find("readonly property") != std::string::npos)
+			if (std::string(error.what()).find("is read-only") != std::string::npos)
 				readOnly.insert(entry.component + "." + entry.name);
 			else
 				FAIL_CHECK(error.what());
@@ -144,15 +148,8 @@ TEST_CASE("Assigning a Lua property its own value leaves the component unchanged
 		CHECK(SavedForm(entry.component, owner) == before);
 	}
 
-	// Collision filters can be read but not set from Lua
-	const std::set<std::string> expectedReadOnly = {
-		"BoxCollider2DComponent.Layer", "BoxCollider2DComponent.Mask",
-		"CapsuleCollider2DComponent.Layer", "CapsuleCollider2DComponent.Mask",
-		"CircleCollider2DComponent.Layer", "CircleCollider2DComponent.Mask",
-		"PolygonCollider2DComponent.Layer", "PolygonCollider2DComponent.Mask",
-		"TilemapComponent.Layer", "TilemapComponent.Mask",
-	};
-	CHECK(readOnly == expectedReadOnly);
+	// Every bound field can be set
+	CHECK(readOnly.empty());
 }
 
 TEST_CASE("Values set from Lua reach the component")
@@ -173,8 +170,16 @@ TEST_CASE("Values set from Lua reach the component")
 		root:GetTilemapComponent().TileWidth = 48
 		root:GetPrimitiveComponent().TorusSliceCount = 7
 		root:GetHiddenComponent().Hidden = true
-		root:GetNameComponent().Name = "Renamed"
+		root:SetName("Renamed")
 		child:GetWeldJoint2DComponent().Stiffness = 9
+		root:GetBoxCollider2DComponent().IsTrigger = true
+		root:GetBoxCollider2DComponent().Layer = "Layer 4"
+		root:GetBoxCollider2DComponent().Mask = { "Default", "Layer 5" }
+		root:GetCameraComponent().OrthoSize = 30
+		root:GetCameraComponent().Projection = ProjectionType.Perspective
+		root:GetAudioSourceComponent().PlayOnStart = false
+		root:GetPointLightComponent().Range = 12
+		root:GetPrimitiveComponent().Type = PrimitiveShape.Sphere
 	)"));
 
 	CHECK(lua.root.GetComponent<TransformComponent>().GetPosition() == Vector3f(9.0f, 8.0f, 7.0f));
@@ -192,6 +197,16 @@ TEST_CASE("Values set from Lua reach the component")
 	CHECK(lua.root.GetComponent<HiddenComponent>().hidden);
 	CHECK(lua.root.GetName() == "Renamed");
 	CHECK(lua.root.GetChild().GetComponent<WeldJoint2DComponent>().stiffness == 9.0f);
+	const BoxCollider2DComponent& box = lua.root.GetComponent<BoxCollider2DComponent>();
+	CHECK(box.isTrigger);
+	CHECK(box.layer == (1 << 4));
+	CHECK(box.mask == (1 | (1 << 5)));
+	const CameraComponent& camera = lua.root.GetComponent<CameraComponent>();
+	CHECK(camera.camera.GetOrthoSize() == 30.0f);
+	CHECK(camera.camera.GetProjectionType() == SceneCamera::ProjectionType::perspective);
+	CHECK_FALSE(lua.root.GetComponent<AudioSourceComponent>().playOnStart);
+	CHECK(lua.root.GetComponent<PointLightComponent>().range == 12.0f);
+	CHECK(lua.root.GetComponent<PrimitiveComponent>().type == PrimitiveComponent::Shape::Sphere);
 }
 
 TEST_CASE("Values set in C++ read back in Lua")
@@ -213,4 +228,60 @@ TEST_CASE("Values set in C++ read back in Lua")
 		check(root:GetCameraComponent().Primary == false, "Camera.Primary")
 		check(child:GetWeldJoint2DComponent().CollideConnected == true, "WeldJoint2D.CollideConnected")
 	)"));
+}
+
+namespace
+{
+	// Records each PropertyChanged the scene sends
+	struct ChangeLog
+	{
+		std::vector<Reflection::PropertyChanged> changes;
+		void OnChanged(const Reflection::PropertyChanged& change) { changes.push_back(change); }
+	};
+}
+
+TEST_CASE("A Lua setter runs the same OnChanged hooks as Reflection::Set")
+{
+	LuaFixture lua;
+	ChangeLog log;
+	lua.scene.OnPropertyChanged().connect<&ChangeLog::OnChanged>(log);
+
+	PrimitiveComponent& primitive = lua.root.GetComponent<PrimitiveComponent>();
+	primitive.needsUpdating = false;
+	REQUIRE(lua.Run("root:GetPrimitiveComponent().TorusOuterRadius = 4"));
+	CHECK(primitive.torusOuterRadius == 4.0f);
+	CHECK(primitive.needsUpdating);
+
+	primitive.needsUpdating = false;
+	REQUIRE(Reflection::Set(lua.root, *Reflection::PropertyPath::Parse("Primitive.TorusOuterRadius"), 5.0f, Reflection::ChangeSource::Editor));
+	CHECK(primitive.needsUpdating);
+
+	REQUIRE(lua.Run("root:GetTilemapComponent().TilesWide = 6"));
+	const TilemapComponent& tilemap = lua.root.GetComponent<TilemapComponent>();
+	REQUIRE_FALSE(tilemap.tiles.empty());
+	CHECK(tilemap.tiles[0].size() == 6);
+
+	REQUIRE(log.changes.size() == 3);
+	CHECK(log.changes[0].source == Reflection::ChangeSource::Lua);
+	CHECK(log.changes[0].path.ToString() == "Primitive.TorusOuterRadius");
+	CHECK(log.changes[1].source == Reflection::ChangeSource::Editor);
+	CHECK(log.changes[2].source == Reflection::ChangeSource::Lua);
+	CHECK(log.changes[2].path.ToString() == "Tilemap.TilesWide");
+	lua.scene.OnPropertyChanged().disconnect(log);
+}
+
+TEST_CASE("Lua errors name the property for wrong types and unknown layers")
+{
+	LuaFixture lua;
+	auto error = [&lua](const std::string& code)
+		{
+			sol::protected_function_result result = LuaManager::GetState().safe_script(code, sol::script_pass_on_error);
+			if (result.valid())
+				return std::string();
+			sol::error failure = result;
+			return std::string(failure.what());
+		};
+	CHECK(error("root:GetBoxCollider2DComponent().Size = 3").find("BoxCollider2DComponent.Size can't be set to a number") != std::string::npos);
+	CHECK(error("root:GetBoxCollider2DComponent().Layer = \"Nowhere\"").find("no collision layer called \"Nowhere\"") != std::string::npos);
+	CHECK(error("root:GetSpriteComponent().Sparkle = 1").find("SpriteComponent.Sparkle isn't a property") != std::string::npos);
 }
