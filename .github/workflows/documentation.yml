@@ -4,9 +4,10 @@ name: Build and deploy documentation
 # DocGenerator.cpp), renders the full site (that plus the hand-written pages) with MkDocs +
 # Material (see mkdocs.yml), and deploys straight to GitHub Pages. Everything happens inside
 # this workflow run - nothing is ever committed back to the repo.
+# Pull requests only build the site; publishing a release deploys it with that release's web
+# Editor, so the site and the web Editor stay in step.
 on:
-  push:
-    branches: ["main"]
+  pull_request:
     paths:
       - "Engine/src/Scripting/Lua/**"
       - "Engine/src/Scene/Components/**"
@@ -14,24 +15,24 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/documentation.yml"
-  # Publishing a release puts its web Editor on the site
   release:
     types: [published]
+  # Run on a release tag to deploy that release again
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.deploy.outputs.deploy }}
     steps:
+      - name: Check for a release
+        id: deploy
+        run: echo "deploy=${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/')) }}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
         with:
           submodules: "recursive"
@@ -59,13 +60,13 @@ jobs:
       - name: Build site
         run: mkdocs build --strict --site-dir site
 
-      # Every deploy replaces the whole site, so the web Editor from the newest release (pre-releases
-      # included) is added each time, at /editor/
+      # Every deploy replaces the whole site, so the release's web Editor is added each time, at /editor/
       - name: Add the web Editor
+        if: steps.deploy.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')
+          tag="$GITHUB_REF_NAME"
           if ! gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*-Web.zip' --dir web; then
             echo "::warning::No web build in release $tag, so the site has no web Editor"
             exit 0
@@ -77,13 +78,21 @@ jobs:
           ls -l site/editor
 
       - name: Upload Pages artifact
+        if: steps.deploy.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
   deploy:
     needs: build
+    if: needs.build.outputs.deploy == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
