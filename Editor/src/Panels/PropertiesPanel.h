@@ -95,6 +95,7 @@ private:
 	std::pair<bool, Ref<EditComponentCommand<AnimatedSpriteComponent>>> m_EditAnimatedSpriteCommand;
 	std::pair<bool, Ref<EditComponentCommand<CircleRendererComponent>>> m_EditCircleRendererCommand;
 	std::pair<bool, Ref<EditComponentCommand<TilemapComponent>>> m_EditTilemapCommand;
+	std::vector<std::vector<uint32_t>> m_TilesBeforeResize;	// the tilemap's tiles while its size is edited
 	std::pair<bool, Ref<EditComponentCommand<StaticMeshComponent>>> m_EditStaticMeshCommand;
 	std::pair<bool, Ref<EditComponentCommand<CameraComponent>>> m_EditCameraCommand;
 	std::pair<bool, Ref<EditComponentCommand<PrimitiveComponent>>> m_EditPrimitiveCommand;

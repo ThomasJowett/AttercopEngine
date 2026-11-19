@@ -700,35 +700,39 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				SceneManager::CurrentScene()->MakeDirty();
 			}
 
-			int tilesWide = tilemap.tilesWide;
-			if (ImGui::DragInt("Width", &tilesWide, 1.0f, 0, 1000))
+			// Each step of a size edit resizes from the tiles at its start, so typing 1, 10, 100 keeps them
+			auto resizeTiles = [&](uint32_t tilesWide, uint32_t tilesHigh)
 			{
-				tilemap.tilesWide = tilesWide;
-
-				for (auto& row : tilemap.tiles)
+				std::vector<std::vector<uint32_t>> tiles(tilesHigh, std::vector<uint32_t>(tilesWide, 0));
+				for (uint32_t y = 0; y < tilesHigh && y < m_TilesBeforeResize.size(); ++y)
 				{
-					row.resize(tilesWide);
+					for (uint32_t x = 0; x < tilesWide && x < m_TilesBeforeResize[y].size(); ++x)
+						tiles[y][x] = m_TilesBeforeResize[y][x];
 				}
+				tilemap.tiles = std::move(tiles);
+				tilemap.tilesWide = tilesWide;
+				tilemap.tilesHigh = tilesHigh;
 				tilemap.Rebuild();
 				SceneManager::CurrentScene()->MakeDirty();
-			}
+			};
+
+			int tilesWide = tilemap.tilesWide;
+			bool widthChanged = ImGui::DragInt("Width", &tilesWide, 1.0f, 0, 1000);
+			if (ImGui::IsItemActivated())
+				m_TilesBeforeResize = tilemap.tiles;
+			if (widthChanged)
+				resizeTiles((uint32_t)tilesWide, tilemap.tilesHigh);
+			if (ImGui::IsItemDeactivated())
+				m_TilesBeforeResize.clear();
 
 			int tilesHigh = tilemap.tilesHigh;
-			if (ImGui::DragInt("Height", &tilesHigh, 1.0f, 0, 1000))
-			{
-				tilemap.tiles.resize(tilesHigh);
-				if (tilemap.tilesHigh < (uint32_t)tilesHigh)
-				{
-					for (size_t i = tilemap.tilesHigh; i < tilesHigh; i++)
-					{
-						tilemap.tiles[i].resize(tilemap.tilesWide);
-					}
-				}
-				tilemap.tilesHigh = tilesHigh;
-
-				tilemap.Rebuild();
-				SceneManager::CurrentScene()->MakeDirty();
-			}
+			bool heightChanged = ImGui::DragInt("Height", &tilesHigh, 1.0f, 0, 1000);
+			if (ImGui::IsItemActivated())
+				m_TilesBeforeResize = tilemap.tiles;
+			if (heightChanged)
+				resizeTiles(tilemap.tilesWide, (uint32_t)tilesHigh);
+			if (ImGui::IsItemDeactivated())
+				m_TilesBeforeResize.clear();
 			int tileSize[2] = { (int)tilemap.tileWidth, (int)tilemap.tileHeight };
 			if (ImGui::InputInt2("Tile Size", tileSize)) {
 				tilemap.tileWidth = tileSize[0];
