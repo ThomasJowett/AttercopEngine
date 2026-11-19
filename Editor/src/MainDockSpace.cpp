@@ -688,6 +688,8 @@ void MainDockSpace::HandleKeyBoardInputs()
 	bool alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
 
 	Ref<Layer> focusedPanel = s_CurrentlyFocusedPanel.lock();
+	// An ImGui text field handles its own undo
+	const bool editingText = ImGui::GetInputTextState(ImGui::GetActiveID()) != nullptr;
 
 	if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_S))
 	{
@@ -720,7 +722,7 @@ void MainDockSpace::HandleKeyBoardInputs()
 	{
 		OpenProjectDialog();
 	}
-	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Z))
+	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Z) && !editingText)
 	{
 		if (IUndoable* iUndo = dynamic_cast<IUndoable*>(focusedPanel.get()))
 		{
@@ -730,7 +732,7 @@ void MainDockSpace::HandleKeyBoardInputs()
 		else
 			UndoScene();
 	}
-	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Y))
+	else if (ctrl && !alt && ((!shift && ImGui::IsKeyPressed(ImGuiKey_Y)) || (shift && ImGui::IsKeyPressed(ImGuiKey_Z))) && !editingText)
 	{
 		if (IUndoable* iUndo = dynamic_cast<IUndoable*>(focusedPanel.get()))
 		{
