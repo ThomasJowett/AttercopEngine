@@ -64,18 +64,14 @@ file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
     UnitTests/*.h
 )
 
-add_executable(UnitTests ${UNIT_TEST_SOURCES}
-    # The Editor's history commands only use the engine, so undo is tested here
-    ${CMAKE_SOURCE_DIR}/Editor/src/History/HistoryCommands.cpp
-)
-target_include_directories(UnitTests PRIVATE ${CMAKE_SOURCE_DIR}/Editor/src)
+add_executable(UnitTests ${UNIT_TEST_SOURCES})
 # main.cpp holds doctest's implementation, compiled outside unity batches
 set_source_files_properties(UnitTests/main.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 if (NOT MSVC)
     # Silences doctest's sprintf deprecation warnings
     set_source_files_properties(UnitTests/main.cpp PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 endif()
-target_link_libraries(UnitTests PRIVATE Engine)
+target_link_libraries(UnitTests PRIVATE EditorCore)
 attercop_target_warnings(UnitTests)
 target_compile_definitions(UnitTests PRIVATE ATTERCOP_SOURCE_DIR="${CMAKE_SOURCE_DIR}" DOCTEST_CONFIG_USE_STD_HEADERS)
 target_copy_webgpu_binaries(UnitTests)
