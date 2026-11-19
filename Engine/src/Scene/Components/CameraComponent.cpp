@@ -1,6 +1,7 @@
 #include "CameraComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Scripting/Lua/LuaBindings.h"
 
 namespace CameraComponentReflection
 {
@@ -28,8 +29,18 @@ namespace CameraComponentReflection
 	void Recalculate(Entity, CameraComponent& c) { c.camera.RecalculateProjection(); }
 }
 
+namespace CameraComponentReflection
+{
+	REFLECT_LUA_BEGIN(CameraComponent)
+		REFLECT_LUA_HAND_WRITTEN_PROPERTY("Camera", "The camera's projection settings. Returns a copy - assign it back after changing it", "Camera",
+			([](Self& c) { return c.camera; }),
+			([](Self& c, const SceneCamera& v) { c.camera = v; }))
+	REFLECT_LUA_END()
+}
+
 void CameraComponent::Describe(Reflection::Builder<CameraComponent>& c)
 {
+	c.LuaFunctions(&CameraComponentReflection::RegisterLuaFunctions);
 	using namespace CameraComponentReflection;
 
 	Reflection::Enum<SceneCamera::ProjectionType>("ProjectionType", "Camera projections, for CameraComponent.Projection", {

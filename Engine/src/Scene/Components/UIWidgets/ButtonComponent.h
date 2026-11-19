@@ -5,7 +5,6 @@
 #include "WidgetComponent.h"
 
 #include "Utilities/SerializationUtils.h"
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 struct ButtonComponent
@@ -31,11 +30,4 @@ struct ButtonComponent
 	Texture::WrapMethod disabledWrapMethod = Texture::WrapMethod::Repeat;
 
 	static void Describe(Reflection::Builder<ButtonComponent>& c);
-
-	REFLECT_LUA_BEGIN(ButtonComponent)
-		REFLECT_LUA_PROPERTY(normalTint, "Tint applied to the normal state's texture")
-		REFLECT_LUA_PROPERTY(hoveredTint, "Tint applied to the hovered state's texture")
-		REFLECT_LUA_PROPERTY(clickedTint, "Tint applied to the clicked state's texture")
-		REFLECT_LUA_PROPERTY(disabledTint, "Tint applied to the disabled state's texture")
-	REFLECT_LUA_END()
 };

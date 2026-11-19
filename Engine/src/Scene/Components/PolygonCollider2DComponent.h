@@ -5,7 +5,6 @@
 #include "Utilities/SerializationUtils.h"
 
 #include <vector>
-#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/CollisionLayers.h"
 #include "Physics/RuntimePointer.h"
 #include "Reflection/ReflectionFwd.h"
@@ -34,17 +33,4 @@ struct PolygonCollider2DComponent
 
 	PolygonCollider2DComponent() = default;
 	static void Describe(Reflection::Builder<PolygonCollider2DComponent>& c);
-
-	REFLECT_LUA_BEGIN(PolygonCollider2DComponent)
-		REFLECT_LUA_PROPERTY_CUSTOM("Offset", "Offset of the shape from the entity's position", "Vec2",
-			([](Self& c) -> Vector2f& { return c.offset; }),
-			([](Self& c, const Vector2f& v) { c.offset = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Vertices", "The polygon's corners, relative to the entity's position", "table of Vec2",
-			([](Self& c) { return c.vertices; }),
-			([](Self& c, const std::vector<Vector2f>& v) { c.vertices = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("PhysicsMaterial", "Density, friction and restitution of the shape, or nil for the defaults", "PhysicsMaterial",
-			([](Self& c) { return c.physicsMaterial; }),
-			([](Self& c, const Ref<PhysicsMaterial>& v) { c.physicsMaterial = v; }))
-		REFLECT_LUA_COLLISION_FILTER()
-	REFLECT_LUA_END()
 };

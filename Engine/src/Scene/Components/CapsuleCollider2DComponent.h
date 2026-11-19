@@ -6,7 +6,6 @@
 
 #include "Asset/PhysicsMaterial.h"
 #include "Utilities/SerializationUtils.h"
-#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/CollisionLayers.h"
 #include "Reflection/ReflectionFwd.h"
 
@@ -35,20 +34,4 @@ struct CapsuleCollider2DComponent
 
 	CapsuleCollider2DComponent() = default;
 	static void Describe(Reflection::Builder<CapsuleCollider2DComponent>& c);
-
-	REFLECT_LUA_BEGIN(CapsuleCollider2DComponent)
-		REFLECT_LUA_PROPERTY_CUSTOM("Offset", "Offset of the shape from the entity's position", "Vec2",
-			([](Self& c) -> Vector2f& { return c.offset; }),
-			([](Self& c, const Vector2f& v) { c.offset = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Radius", "Radius of the capsule's rounded ends", "number",
-			([](Self& c) { return c.radius; }),
-			([](Self& c, float v) { c.radius = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Height", "Total height of the capsule", "number",
-			([](Self& c) { return c.height; }),
-			([](Self& c, float v) { c.height = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("PhysicsMaterial", "Density, friction and restitution of the shape, or nil for the defaults", "PhysicsMaterial",
-			([](Self& c) { return c.physicsMaterial; }),
-			([](Self& c, const Ref<PhysicsMaterial>& v) { c.physicsMaterial = v; }))
-		REFLECT_LUA_COLLISION_FILTER()
-	REFLECT_LUA_END()
 };

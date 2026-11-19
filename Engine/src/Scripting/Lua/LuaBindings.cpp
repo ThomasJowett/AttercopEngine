@@ -70,94 +70,6 @@ auto RequireValidEntity(const char* function, F method)
 	return MakeEntityCheck(function, method, Detail::TypeTag<typename Signature::Return>{}, typename Signature::Arguments{});
 }
 
-template <typename T, typename = void>
-struct has_lua_bindings : std::false_type {};
-
-template <typename T>
-struct has_lua_bindings<T, std::void_t<decltype(&T::RegisterLuaBindings)>> : std::true_type {};
-
-template<typename Component>
-void RegisterComponent(sol::state& state)
-{
-	std::string name = type_name<Component>().data();
-
-	name = SplitString(name, '\n')[0];
-
-	using Handle = ComponentHandle<Component>;
-	Handle::s_LuaName = name;
-	sol::usertype<Handle> component_type = state.new_usertype<Handle>(name, sol::no_constructor,
-		sol::meta_function::equal_to, [](const Handle& a, const Handle& b) { return a.entity == b.entity && a.scene == b.scene; });
-	component_type.set_function("IsValid", [](const Handle& handle) { return handle.TryGet() != nullptr; });
-	RegisterLuaApiEntry({ "IsValid", "Whether this still refers to a live component; false once its entity is destroyed or the component removed", LuaApiEntry::Kind::Function, name, "", true });
-
-	auto entity_Type = state["Entity"].get_or_create<sol::usertype<Entity>>();
-
-	// Kind::ComponentAccessor, not Function - these are implemented on Entity and documented
-	// generically on Entity's own page (see LuaDocGenerator), not repeated on every
-	// component's page as if e.g. a TilemapComponent could be added to itself.
-	auto registerAccessor = [&](const std::string& functionName, const std::string& description, auto&& function)
-	{
-		LuaApiEntry entry = FunctionEntry<Entity, decltype(function)>(functionName, description, LuaApiEntry::Kind::ComponentAccessor, name, true);
-		entity_Type.set_function(functionName, std::forward<decltype(function)>(function));
-		LuaManager::AddApiEntry(std::move(entry));
-	};
-
-	registerAccessor("Add" + name, "Add a " + name + " to this entity; errors if it already has one", [function = "Add" + name](sol::this_state state, Entity& entity)
-		{
-			CheckEntityValid(entity, function.c_str(), state);
-			if (entity.HasComponent<Component>())
-				throw std::runtime_error(ScriptLocation(state) + entity.GetName() + " already has a " + Handle::s_LuaName + "; use GetOrAdd" + Handle::s_LuaName + " instead");
-			entity.AddComponent<Component>();
-			return Handle{ entity.GetHandle(), entity.GetScene() };
-		});
-	registerAccessor("Remove" + name, "Remove the " + name + " from this entity; errors if it doesn't have one", [function = "Remove" + name](sol::this_state state, Entity& entity)
-		{
-			CheckEntityValid(entity, function.c_str(), state);
-			if (!entity.HasComponent<Component>())
-				throw std::runtime_error(ScriptLocation(state) + entity.GetName() + " has no " + Handle::s_LuaName + " to remove");
-			// The scene may be running this very script, tree or state machine, so wait until its update has finished
-			if constexpr (std::is_same_v<Component, LuaScriptComponent> || std::is_same_v<Component, BehaviourTreeComponent> || std::is_same_v<Component, StateMachineComponent>)
-			{
-				entity.GetScene()->DeferUntilUpdateEnds([entity]() mutable
-					{
-						if (entity.IsSceneValid() && entity.HasComponent<Component>())
-							entity.RemoveComponent<Component>();
-					});
-				return;
-			}
-			entity.RemoveComponent<Component>();
-		});
-	registerAccessor("Has" + name, "Check whether this entity has a " + name, [function = "Has" + name](sol::this_state state, Entity& entity)
-		{
-			CheckEntityValid(entity, function.c_str(), state);
-			return entity.HasComponent<Component>();
-		});
-	registerAccessor("GetOrAdd" + name, "Get the entity's " + name + ", adding one first if it doesn't already have one", [function = "GetOrAdd" + name](sol::this_state state, Entity& entity)
-		{
-			CheckEntityValid(entity, function.c_str(), state);
-			entity.GetOrAddComponent<Component>();
-			return Handle{ entity.GetHandle(), entity.GetScene() };
-		});
-	registerAccessor("Get" + name, "Get the entity's " + name + ", or nil if it doesn't have one", [function = "Get" + name](sol::this_state state, Entity& entity) -> sol::optional<Handle>
-		{
-			CheckEntityValid(entity, function.c_str(), state);
-			if (!entity.TryGetComponent<Component>())
-				return sol::nullopt;
-			return Handle{ entity.GetHandle(), entity.GetScene() };
-		});
-
-	if constexpr (has_lua_bindings<Component>::value)
-	{
-		Component::RegisterLuaBindings(state, component_type);
-	}
-}
-
-template<typename... Component>
-void RegisterAllComponents(sol::state& state)
-{
-	(RegisterComponent<Component>(state), ...);
-}
-
 //--------------------------------------------------------------------------------------------------------------
 
 void BindEntity(sol::state& state)
@@ -199,15 +111,9 @@ void BindEntity(sol::state& state)
 	SetFunction(entity_type, "Entity", "GetSibling", "Get Sibling", RequireValidEntity("GetSibling", &Entity::GetSibling));
 	SetFunction(entity_type, "Entity", "GetChild", "Get first Child", RequireValidEntity("GetChild", &Entity::GetChild));
 
-	RegisterAllComponents<IDComponent, NameComponent, TransformComponent, CameraComponent, SpriteComponent,
-		AnimatedSpriteComponent, StaticMeshComponent, PrimitiveComponent, TilemapComponent, TextComponent, RigidBody2DComponent,
-		BoxCollider2DComponent, CircleCollider2DComponent, PolygonCollider2DComponent, CapsuleCollider2DComponent,
-		WeldJoint2DComponent, CircleRendererComponent, BehaviourTreeComponent, StateMachineComponent, LuaScriptComponent,
-		PointLightComponent, BillboardComponent, CanvasComponent, WidgetComponent, ButtonComponent, StackLayoutComponent,
-		GridLayoutComponent, ScrollBoxComponent, HiddenComponent, AudioSourceComponent, AudioListenerComponent,
-		HierarchyComponent>(state);
+	BindComponents(state);
 
-	// Component bindings live in each component's REFLECT_LUA block; these are the non-component types they use
+	// Non-component types the component bindings use
 	sol::usertype<SceneCamera> sceneCamera_type = state.new_usertype<SceneCamera>("Camera");
 	SetFunction(sceneCamera_type, "Camera", "SetOrthographic", Params{ "size, near, far" }, "Switch to an orthographic projection", &SceneCamera::SetOrthographic);
 	SetFunction(sceneCamera_type, "Camera", "SetPerspective", Params{ "verticalFov, near, far" }, "Switch to a perspective projection", &SceneCamera::SetPerspective);

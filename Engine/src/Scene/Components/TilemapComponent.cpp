@@ -1,6 +1,8 @@
 #include "TilemapComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Physics/CollisionLayers.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "TinyXml2/tinyxml2.h"
 #include "Utilities/GeometryGenerator.h"
 
@@ -467,8 +469,38 @@ namespace TilemapComponentReflection
 	void RebuildMesh(Entity, TilemapComponent& c) { c.Rebuild(); }
 }
 
+namespace TilemapComponentReflection
+{
+	REFLECT_LUA_BEGIN(TilemapComponent)
+		REFLECT_LUA_COLLISION_FILTER()
+		REFLECT_LUA_FUNCTION(Rebuild, "Regenerate the tilemap's mesh from the current tile grid (runs in the background; call UpdateRebuild to pick up the result)")
+		REFLECT_LUA_FUNCTION_CUSTOM("SetTile", "Set the tile index at the given column/row, if within bounds", [](Self& c, uint32_t x, uint32_t y, uint32_t tileId) {
+			if (y < c.tiles.size() && x < c.tiles[y].size()) {
+				c.tiles[y][x] = tileId;
+				c.InvalidatePathfindingGrid();
+			}
+		});
+		REFLECT_LUA_FUNCTION_CUSTOM("GetTile", "Get the tile index at the given column/row, or 0 if out of bounds", [](Self& c, uint32_t x, uint32_t y) -> uint32_t {
+			if (y < c.tiles.size() && x < c.tiles[y].size()) {
+				return c.tiles[y][x];
+			}
+			return 0;
+		});
+		REFLECT_LUA_FUNCTION_CUSTOM("Resize", "Resize the tile grid to the given width/height in tiles, preserving existing tile data", [](Self& c, uint32_t width, uint32_t height) {
+			c.tilesWide = width;
+			c.tilesHigh = height;
+			c.tiles.resize(height);
+			for (auto& row : c.tiles) {
+				row.resize(width);
+			}
+			c.InvalidatePathfindingGrid();
+		});
+	REFLECT_LUA_END()
+}
+
 void TilemapComponent::Describe(Reflection::Builder<TilemapComponent>& c)
 {
+	c.LuaFunctions(&TilemapComponentReflection::RegisterLuaFunctions);
 	using namespace TilemapComponentReflection;
 
 	Reflection::Enum<Orientation>("TilemapOrientation", "Tile layouts, for TilemapComponent.Orientation", {

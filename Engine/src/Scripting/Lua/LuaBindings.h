@@ -1,6 +1,7 @@
 #pragma once
 #include "sol/sol.hpp"
 #include "LuaApiEntry.h"
+#include "LuaReflection.h"
 #include "Core/core.h"
 
 #include "Core/Colour.h"
@@ -46,31 +47,6 @@ lua_State* MainLuaState();
 // Raises a Lua error if the entity was destroyed or never found, naming the function that was called
 void CheckEntityValid(const Entity& entity, const char* function, lua_State* state);
 
-// What Lua holds for a component: the entity it belongs to, re-resolved through the registry on every access
-template<typename T>
-struct ComponentHandle
-{
-	entt::entity entity = entt::null;
-	Scene* scene = nullptr;
-
-	inline static std::string s_LuaName;
-
-	T* TryGet() const
-	{
-		if (!scene)
-			return nullptr;
-		entt::registry& registry = GetSceneRegistry(scene);
-		return registry.valid(entity) ? registry.try_get<T>(entity) : nullptr;
-	}
-
-	T& Get() const
-	{
-		if (T* component = TryGet())
-			return *component;
-		throw std::runtime_error(ScriptLocation(MainLuaState()) + s_LuaName + " is no longer valid: its entity was destroyed or the component was removed");
-	}
-};
-
 namespace Detail
 {
 template<typename... Args> struct TypeList {};
@@ -93,15 +69,15 @@ struct DropFirst<TypeList<First, Rest...>> { using Type = TypeList<Rest...>; };
 template<typename Self, typename F, typename R, typename... Args>
 auto MakeResolver(F function, TypeTag<R>, TypeList<Args...>)
 {
-	return [function](const ComponentHandle<Self>& handle, Args... args) -> std::decay_t<R>
+	return [function](const ComponentRef& handle, Args... args) -> std::decay_t<R>
 	{
-		return std::invoke(function, handle.Get(), std::forward<Args>(args)...);
+		return std::invoke(function, handle.As<Self>(), std::forward<Args>(args)...);
 	};
 }
 }
 
 // Adapts a binding written against Self& (a member function, or a lambda taking Self& first) to take a
-// ComponentHandle<Self>, resolving the live component on each call. Results are returned by value.
+// ComponentRef, resolving the live component on each call. Results are returned by value.
 template<typename Self, typename F>
 auto ResolveOnAccess(F function)
 {
@@ -147,12 +123,6 @@ template<typename T>
 struct LuaTypeNameTrait<sol::optional<T>>
 {
 	static std::string Get() { return LuaTypeNameTrait<std::decay_t<T>>::Get(); }
-};
-
-template<typename T>
-struct LuaTypeNameTrait<Lua::ComponentHandle<T>>
-{
-	static std::string Get() { return Lua::ComponentHandle<T>::s_LuaName; }
 };
 
 LUA_TYPE_NAME(std::string, "string")
@@ -206,30 +176,12 @@ inline std::string LuaPropertyName(const char* member)
 	return name;
 }
 
-// Reflection macros for automatic Lua bindings registration inside components. A
-// description is required on every property/function so the same declaration doubles as
-// documentation - see LuaApiEntry (LuaApiEntry.h) for what this feeds into.
+// A component's Lua functions, written in its .cpp and passed to the builder's LuaFunctions. A description is
+// required on every function, as the same declaration documents it (see LuaApiEntry.h)
 #define REFLECT_LUA_BEGIN(Component) \
-	static void RegisterLuaBindings(sol::state& state, sol::usertype<Lua::ComponentHandle<Component>>& type) { \
+	static void RegisterLuaFunctions(Lua::ComponentFunctions& type) { \
 		using Self = Component; \
 		static const char* s_ReflectComponentName = #Component;
-
-#define REFLECT_LUA_PROPERTY(Member, Description) \
-		type[LuaPropertyName(#Member)] = sol::property( \
-			Lua::ResolveOnAccess<Self>([](Self& c) -> decltype(c.Member)& { return c.Member; }), \
-			Lua::ResolveOnAccess<Self>([](Self& c, const decltype(c.Member)& v) { c.Member = v; }) \
-		); \
-		RegisterLuaApiEntry({ LuaPropertyName(#Member), Description, LuaApiEntry::Kind::Property, s_ReflectComponentName, LuaTypeName<decltype(Self::Member)>(), true });
-
-#define REFLECT_LUA_PROPERTY_READONLY(Member, Description) \
-		type[LuaPropertyName(#Member)] = sol::property( \
-			Lua::ResolveOnAccess<Self>([](Self& c) -> const decltype(c.Member)& { return c.Member; }) \
-		); \
-		RegisterLuaApiEntry({ LuaPropertyName(#Member), Description, LuaApiEntry::Kind::Property, s_ReflectComponentName, LuaTypeName<decltype(Self::Member)>(), true });
-
-#define REFLECT_LUA_PROPERTY_CUSTOM(Name, Description, LuaType, Getter, Setter) \
-		type[Name] = sol::property(Lua::ResolveOnAccess<Self>(Getter), Lua::ResolveOnAccess<Self>(Setter)); \
-		RegisterLuaApiEntry({ Name, Description, LuaApiEntry::Kind::Property, s_ReflectComponentName, LuaType, true });
 
 // The bound function is moved into sol: given an lvalue, sol keeps a reference to it
 #define REFLECT_LUA_FUNCTION(Method, Description) \
@@ -239,7 +191,7 @@ inline std::string LuaPropertyName(const char* member)
 #define REFLECT_LUA_FUNCTION_PARAMS(Method, Parameters, Description) \
 		{ \
 			auto function = Lua::ResolveOnAccess<Self>(&Self::Method); \
-			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(#Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentRef, decltype(function)>(#Method, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
 			type.set_function(#Method, std::move(function)); \
 		}
 
@@ -251,9 +203,19 @@ inline std::string LuaPropertyName(const char* member)
 #define REFLECT_LUA_FUNCTION_CUSTOM_PARAMS(Name, Parameters, Description, ...) \
 		{ \
 			auto function = Lua::ResolveOnAccess<Self>(__VA_ARGS__); \
-			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentHandle<Self>, decltype(function)>(Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
+			RegisterLuaApiEntry(Lua::FunctionEntry<Lua::ComponentRef, decltype(function)>(Name, Description, LuaApiEntry::Kind::Function, s_ReflectComponentName, true, Parameters)); \
 			type.set_function(Name, std::move(function)); \
 		}
+
+// A property that isn't a described field, with its own getter and setter taking Self&
+#define REFLECT_LUA_HAND_WRITTEN_PROPERTY(Name, Description, LuaType, Getter, Setter) \
+		type.SetProperty(Name, Lua::ResolveOnAccess<Self>(Getter), Lua::ResolveOnAccess<Self>(Setter)); \
+		RegisterLuaApiEntry({ Name, Description, LuaApiEntry::Kind::Property, s_ReflectComponentName, LuaType, true });
+
+// CollidesWithLayer, for the colliders and the tilemap
+#define REFLECT_LUA_COLLISION_FILTER() \
+		REFLECT_LUA_FUNCTION_CUSTOM("CollidesWithLayer", "Whether this collider's mask includes the named collision layer", \
+			[](Self& c, const std::string& name) { return CollisionLayers::MaskIncludes(c.mask, name); });
 
 #define REFLECT_LUA_END() \
 	}

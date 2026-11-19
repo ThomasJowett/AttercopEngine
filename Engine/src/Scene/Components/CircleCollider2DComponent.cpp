@@ -1,6 +1,8 @@
 #include "CircleCollider2DComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Physics/CollisionLayers.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/PhysicsEngine2D.h"
 
 namespace CircleCollider2DComponentReflection
@@ -12,8 +14,16 @@ namespace CircleCollider2DComponentReflection
 	}
 }
 
+namespace CircleCollider2DComponentReflection
+{
+	REFLECT_LUA_BEGIN(CircleCollider2DComponent)
+		REFLECT_LUA_COLLISION_FILTER()
+	REFLECT_LUA_END()
+}
+
 void CircleCollider2DComponent::Describe(Reflection::Builder<CircleCollider2DComponent>& c)
 {
+	c.LuaFunctions(&CircleCollider2DComponentReflection::RegisterLuaFunctions);
 	using namespace CircleCollider2DComponentReflection;
 
 	c.Name("CircleCollider2D").Category("Physics 2D")

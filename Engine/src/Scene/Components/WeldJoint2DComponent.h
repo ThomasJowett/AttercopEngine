@@ -1,8 +1,8 @@
 #pragma once
 
+#include "EnTT/entt.hpp"
 #include "math/Vector2f.h"
 #include "Physics/RuntimePointer.h"
-#include "Scripting/Lua/LuaBindings.h"
 #include "Reflection/ReflectionFwd.h"
 
 class b2Body;
@@ -22,16 +22,4 @@ struct WeldJoint2DComponent
 
 	RuntimePointer<b2WeldJoint> joint;
 	static void Describe(Reflection::Builder<WeldJoint2DComponent>& c);
-
-	REFLECT_LUA_BEGIN(WeldJoint2DComponent)
-		REFLECT_LUA_PROPERTY_CUSTOM("CollideConnected", "Whether the two welded bodies can still collide with each other", "boolean",
-			([](Self& c) { return c.collideConnected; }),
-			([](Self& c, bool v) { c.collideConnected = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Damping", "Damping of the joint's spring, if Stiffness is above 0", "number",
-			([](Self& c) { return c.damping; }),
-			([](Self& c, float v) { c.damping = v; }))
-		REFLECT_LUA_PROPERTY_CUSTOM("Stiffness", "Spring stiffness of the weld; 0 makes it rigid", "number",
-			([](Self& c) { return c.stiffness; }),
-			([](Self& c, float v) { c.stiffness = v; }))
-	REFLECT_LUA_END()
 };

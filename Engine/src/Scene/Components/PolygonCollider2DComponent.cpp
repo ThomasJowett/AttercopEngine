@@ -1,6 +1,8 @@
 #include "PolygonCollider2DComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Physics/CollisionLayers.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/PhysicsEngine2D.h"
 
 namespace PolygonCollider2DComponentReflection
@@ -12,8 +14,16 @@ namespace PolygonCollider2DComponentReflection
 	}
 }
 
+namespace PolygonCollider2DComponentReflection
+{
+	REFLECT_LUA_BEGIN(PolygonCollider2DComponent)
+		REFLECT_LUA_COLLISION_FILTER()
+	REFLECT_LUA_END()
+}
+
 void PolygonCollider2DComponent::Describe(Reflection::Builder<PolygonCollider2DComponent>& c)
 {
+	c.LuaFunctions(&PolygonCollider2DComponentReflection::RegisterLuaFunctions);
 	using namespace PolygonCollider2DComponentReflection;
 
 	c.Name("PolygonCollider2D").Category("Physics 2D")

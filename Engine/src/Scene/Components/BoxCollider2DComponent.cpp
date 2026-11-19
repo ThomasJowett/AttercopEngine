@@ -1,6 +1,8 @@
 #include "BoxCollider2DComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Physics/CollisionLayers.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/PhysicsEngine2D.h"
 
 namespace BoxCollider2DComponentReflection
@@ -12,8 +14,16 @@ namespace BoxCollider2DComponentReflection
 	}
 }
 
+namespace BoxCollider2DComponentReflection
+{
+	REFLECT_LUA_BEGIN(BoxCollider2DComponent)
+		REFLECT_LUA_COLLISION_FILTER()
+	REFLECT_LUA_END()
+}
+
 void BoxCollider2DComponent::Describe(Reflection::Builder<BoxCollider2DComponent>& c)
 {
+	c.LuaFunctions(&BoxCollider2DComponentReflection::RegisterLuaFunctions);
 	using namespace BoxCollider2DComponentReflection;
 
 	c.Name("BoxCollider2D").Category("Physics 2D")

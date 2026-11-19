@@ -2,6 +2,7 @@
 #include "RigidBody2DComponent.h"
 
 #include "Reflection/Describe.h"
+#include "Scripting/Lua/LuaBindings.h"
 #include "Physics/PhysicsEngine2D.h"
 
 #include "Scene/SceneManager.h"
@@ -97,8 +98,31 @@ namespace RigidBody2DComponentReflection
 	void ApplyToBody(Entity, RigidBody2DComponent& c) { PhysicsEngine2D::ApplyRigidBodySettings(c); }
 }
 
+namespace RigidBody2DComponentReflection
+{
+	REFLECT_LUA_BEGIN(RigidBody2DComponent)
+		REFLECT_LUA_FUNCTION(ApplyImpulse, "Apply an instant change in momentum at the body's centre")
+		REFLECT_LUA_FUNCTION(ApplyImpulseAtPoint, "Apply an instant change in momentum at a world-space point")
+		REFLECT_LUA_FUNCTION(ApplyForce, "Apply a force at the body's centre for this physics step")
+		REFLECT_LUA_FUNCTION(ApplyForceAtPoint, "Apply a force at a world-space point for this physics step")
+		REFLECT_LUA_FUNCTION(ApplyTorque, "Apply a rotational force for this physics step")
+		REFLECT_LUA_FUNCTION(GetLinearVelocity, "Get the body's velocity")
+		REFLECT_LUA_FUNCTION(SetLinearVelocity, "Set the body's velocity")
+		REFLECT_LUA_FUNCTION(GetAngularVelocity, "Get the body's spin speed, in radians per second")
+		REFLECT_LUA_FUNCTION(SetAngularVelocity, "Set the body's spin speed, in radians per second")
+		REFLECT_LUA_FUNCTION(SetTransform, "Teleport the body to a position and angle (radians)")
+		REFLECT_LUA_FUNCTION_CUSTOM("GetTransform", "Get the body's position and angle (radians) as two return values", [](Self& c) {
+			Vector2f position;
+			float rotation;
+			c.GetTransform(position, rotation);
+			return std::make_tuple(position, rotation);
+		})
+	REFLECT_LUA_END()
+}
+
 void RigidBody2DComponent::Describe(Reflection::Builder<RigidBody2DComponent>& c)
 {
+	c.LuaFunctions(&RigidBody2DComponentReflection::RegisterLuaFunctions);
 	using namespace RigidBody2DComponentReflection;
 
 	Reflection::Enum<BodyType>("BodyType", "Rigid body types, for RigidBody2DComponent.Type", {
