@@ -24,5 +24,3 @@ elements, and children keep the order they're written in. Scripts walk the hiera
 
 Entities with a rigid body or a collider are detached from their parent when the game starts, so
 physics can move them freely.
-
---8<-- "LuaAPI/_fragments/HierarchyComponent.md"
