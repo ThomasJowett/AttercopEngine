@@ -16,8 +16,6 @@ if (EMSCRIPTEN)
     list(APPEND ATTERCOP_LINK_OPTIONS "-sUSE_GLFW=3" "-sUSE_WEBGPU=1" "-sASYNCIFY" "-sALLOW_MEMORY_GROWTH=1" "-sNO_EXIT_RUNTIME=1")
     # Configure a separate build directory with -DCMAKE_BUILD_TYPE=Release for a much smaller, faster web build
     list(APPEND ATTERCOP_LINK_OPTIONS "$<$<CONFIG:Debug>:-sASSERTIONS=1>" "$<$<CONFIG:Release>:-O2>")
-    # Functions that never suspend, left out of asyncify to keep the link fast
-    list(APPEND ATTERCOP_LINK_OPTIONS "-sASYNCIFY_REMOVE=@${CMAKE_SOURCE_DIR}/Resources/Web/asyncify-remove.txt")
 endif()
 
 # Applied to the engine's own targets by attercop_target_warnings
