@@ -29,8 +29,8 @@ namespace
 	}
 }
 
-HierarchyPanel::HierarchyPanel(bool* show)
-	:Layer("Hierarchy"), m_Show(show), m_TextFilter(CreateScope<ImGuiTextFilter>())
+HierarchyPanel::HierarchyPanel(bool* show, Ref<SceneHistory> history)
+	:Layer("Hierarchy"), m_Show(show), m_History(history), m_TextFilter(CreateScope<ImGuiTextFilter>())
 {
 }
 
@@ -362,13 +362,12 @@ void HierarchyPanel::ApplyDrop()
 	if (drop.position != DropPosition::Onto && drop.target)
 	{
 		bool before = drop.position == DropPosition::Before;
-		Ref<MoveSiblingCommand> moveCommand = CreateRef<MoveSiblingCommand>(drop.dragged, drop.target, before);
+		Scope<MoveSiblingCommand> moveCommand = CreateScope<MoveSiblingCommand>(drop.dragged, drop.target, before);
 		if (before)
 			SceneGraph::MoveBefore(drop.dragged, drop.target);
 		else
 			SceneGraph::MoveAfter(drop.dragged, drop.target);
-		HistoryManager::AddHistoryRecord(moveCommand);
-		scene->MakeDirty();
+		m_History->Push(*scene, std::move(moveCommand));
 		return;
 	}
 
@@ -379,13 +378,12 @@ void HierarchyPanel::ApplyDrop()
 	if (currentParent == parent.GetHandle())
 		return;
 
-	Ref<ReparentEntityCommand> reparentCommand = CreateRef<ReparentEntityCommand>(drop.dragged, parent);
+	Scope<ReparentEntityCommand> reparentCommand = CreateScope<ReparentEntityCommand>(drop.dragged, parent);
 	if (parent)
 		SceneGraph::Reparent(drop.dragged, parent);
 	else
 		SceneGraph::Unparent(drop.dragged);
-	HistoryManager::AddHistoryRecord(reparentCommand);
-	scene->MakeDirty();
+	m_History->Push(*scene, std::move(reparentCommand));
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -431,21 +429,13 @@ void HierarchyPanel::CreateMenu()
 	if (ImGui::MenuItem("Create Empty Entity"))
 	{
 		Entity entity = SceneManager::CurrentScene()->CreateEntity("New Entity");//TODO: make all the entities have a unique name
-		HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-		if (m_SelectedEntity) {
-			m_SelectedEntity.AddChild(entity);
-		}
-		m_SelectedEntity = entity;
+		AddCreated(entity);
 	}
 	if (ImGui::MenuItem("Create World entity"))
 	{
 		Entity entity = SceneManager::CurrentScene()->CreateEntity("New Entity");
 		entity.AddComponent<TransformComponent>();
-		HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-		if (m_SelectedEntity) {
-			m_SelectedEntity.AddChild(entity);
-		}
-		m_SelectedEntity = entity;
+		AddCreated(entity);
 	}
 	if (ImGui::BeginMenu("3D Object"))
 	{
@@ -454,66 +444,42 @@ void HierarchyPanel::CreateMenu()
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Cube");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Cube);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Sphere"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Sphere");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Sphere);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Plane"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Plane");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Plane);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Cylinder"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Cylinder");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Cylinder);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Cone"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Cone");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Cone);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Torus"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Torus");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PrimitiveComponent>(PrimitiveComponent::Shape::Torus);
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Terrain", "", nullptr, false))
 		{
@@ -528,44 +494,28 @@ void HierarchyPanel::CreateMenu()
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Sprite");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<SpriteComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Animated Sprite"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Animated Sprite");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<AnimatedSpriteComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Circle"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Circle");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<CircleRendererComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Tilemap"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Tilemap");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<TilemapComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		ImGui::EndMenu();
 	}
@@ -575,20 +525,13 @@ void HierarchyPanel::CreateMenu()
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Audio Source");
 			entity.AddComponent<AudioSourceComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Audio Listener"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Audio Listener");
 			entity.AddComponent<AudioListenerComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity)
-				m_SelectedEntity.AddChild(entity);
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		ImGui::EndMenu();
 	}
@@ -599,11 +542,7 @@ void HierarchyPanel::CreateMenu()
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Point Light");
 			entity.AddComponent<TransformComponent>();
 			entity.AddComponent<PointLightComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Directional Light", "", nullptr, false))
 		{
@@ -625,11 +564,7 @@ void HierarchyPanel::CreateMenu()
 		Entity entity = SceneManager::CurrentScene()->CreateEntity("Camera");
 		entity.AddComponent<TransformComponent>();
 		entity.AddComponent<CameraComponent>();
-		HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-		if (m_SelectedEntity) {
-			m_SelectedEntity.AddChild(entity);
-		}
-		m_SelectedEntity = entity;
+		AddCreated(entity);
 	}
 	if (ImGui::BeginMenu("UI"))
 	{
@@ -637,78 +572,46 @@ void HierarchyPanel::CreateMenu()
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Canvas");
 			entity.AddComponent<CanvasComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Button"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Button");
 			entity.AddComponent<WidgetComponent>();
 			entity.AddComponent<ButtonComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Stack"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Stack");
 			entity.AddComponent<WidgetComponent>();
 			entity.AddComponent<StackLayoutComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Grid"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Grid");
 			entity.AddComponent<WidgetComponent>();
 			entity.AddComponent<GridLayoutComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		if (ImGui::MenuItem("Scroll Box"))
 		{
 			Entity entity = SceneManager::CurrentScene()->CreateEntity("Scroll Box");
 			entity.AddComponent<WidgetComponent>();
 			entity.AddComponent<ScrollBoxComponent>();
-			HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(entity));
-			if (m_SelectedEntity) {
-				m_SelectedEntity.AddChild(entity);
-			}
-			m_SelectedEntity = entity;
+			AddCreated(entity);
 		}
 		ImGui::EndMenu();
 	}
 }
 
-void HierarchyPanel::Undo(int asteps)
+void HierarchyPanel::AddCreated(Entity entity)
 {
-	HistoryManager::Undo(asteps);
-}
-
-void HierarchyPanel::Redo(int asteps)
-{
-	HistoryManager::Redo(asteps);
-}
-
-bool HierarchyPanel::CanUndo() const
-{
-	return HistoryManager::CanUndo();
-}
-
-bool HierarchyPanel::CanRedo() const
-{
-	return HistoryManager::CanRedo();
+	if (m_SelectedEntity)
+		m_SelectedEntity.AddChild(entity);
+	m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(entity));
+	m_SelectedEntity = entity;
 }
 
 void HierarchyPanel::Copy()
@@ -727,7 +630,7 @@ void HierarchyPanel::Paste()
 {
 	m_SelectedEntity = SceneSerializer::DeserializeEntity(SceneManager::CurrentScene(), ImGui::GetClipboardText(), true);
 	if (m_SelectedEntity)
-		HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(m_SelectedEntity));
+		m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(m_SelectedEntity));
 }
 
 void HierarchyPanel::Duplicate()
@@ -735,13 +638,14 @@ void HierarchyPanel::Duplicate()
 	CLIENT_DEBUG("Duplicated");
 	m_SelectedEntity = SceneManager::CurrentScene()->DuplicateEntity(m_SelectedEntity, Entity());
 	m_SelectedEntity.GetName() += "_copy";
-	HistoryManager::AddHistoryRecord(CreateRef<AddEntityCommand>(m_SelectedEntity));
+	m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(m_SelectedEntity));
 }
 
 void HierarchyPanel::Delete()
 {
-	HistoryManager::AddHistoryRecord(CreateRef<RemoveEntityCommand>(m_SelectedEntity));
+	Scope<RemoveEntityCommand> removeCommand = CreateScope<RemoveEntityCommand>(m_SelectedEntity);
 	m_SelectedEntity.Destroy();
+	m_History->Push(*SceneManager::CurrentScene(), std::move(removeCommand));
 	m_SelectedEntity = {};
 }
 

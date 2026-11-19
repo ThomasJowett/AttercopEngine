@@ -19,7 +19,6 @@
 #include "Math/MathUtils.h"
 #include "Scene/Components.h"
 #include "Scene/SceneManager.h"
-#include "History/HistoryManager.h"
 #include "ImGui/ImGuiUtilities.h"
 #include "FileSystem/FileDialog.h"
 #include "Viewers/ViewerManager.h"
@@ -33,8 +32,8 @@
 
 #include "Events/SceneEvent.h"
 
-ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor)
-	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor),
+ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
+	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history),
 	m_Operation(OperationMode::Select), m_Translation(TranslationMode::Local)
 {
 	FrameBufferSpecification frameBufferSpecificationEditorCamera = { 1920, 1080 };
@@ -997,8 +996,9 @@ void ViewportPanel::OnImGuiRender()
 
 					if (ImGuizmo::IsUsing())
 					{
-						if (!m_EditTransformCommand)
-							m_EditTransformCommand = CreateRef<EditComponentCommand<TransformComponent>>(selectedEntity);
+						const EditKey key = ComponentEditKey<TransformComponent>(selectedEntity);
+						if (m_History->IsEnabled() && !m_History->IsOpen(key))
+							m_History->Begin(*SceneManager::CurrentScene(), key, CreateScope<EditComponentCommand<TransformComponent>>(selectedEntity));
 						transformMat.Transpose();
 						Matrix4x4 parentMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix());
 						transformMat = parentMatrix * transformMat;
@@ -1055,11 +1055,6 @@ void ViewportPanel::OnImGuiRender()
 							}
 						}
 					}
-					else if (m_EditTransformCommand)
-					{
-						HistoryManager::AddHistoryRecord(m_EditTransformCommand);
-						m_EditTransformCommand = nullptr;
-					}
 				}
 
 				m_WidgetHandleActive = false;
@@ -1102,22 +1097,16 @@ void ViewportPanel::OnImGuiRender()
 						drawList->AddCircleFilled(pos, 3, IM_COL32(255, 255, 255, 255));
 					};
 
+					// The step closes when the handle is let go
 					auto beginWidgetEdit = [&]()
 					{
-						if (!m_EditWidgetCommand)
-							m_EditWidgetCommand = CreateRef<EditComponentCommand<WidgetComponent>>(selectedEntity);
+						m_History->Begin(*SceneManager::CurrentScene(), ComponentEditKey<WidgetComponent>(selectedEntity),
+							CreateScope<EditComponentCommand<WidgetComponent>>(selectedEntity));
 					};
 
-					auto endWidgetEditIfDone = [&]()
+					auto trackHandle = [&]()
 					{
 						m_WidgetHandleActive |= ImGui::IsItemHovered() || ImGui::IsItemActive();
-						if (ImGui::IsItemDeactivated() && m_EditWidgetCommand)
-						{
-							m_EditWidgetCommand->End();
-							HistoryManager::AddHistoryRecord(m_EditWidgetCommand);
-							m_EditWidgetCommand = nullptr;
-							SceneManager::CurrentScene()->MakeDirty();
-						}
 					};
 
 					const float handleRadius = 6.0f;
@@ -1152,7 +1141,7 @@ void ViewportPanel::OnImGuiRender()
 							else
 								widgetComp->SetAnchorBottom(fractionY);
 						}
-						endWidgetEditIfDone();
+						trackHandle();
 						ImGui::PopID();
 					}
 
@@ -1172,7 +1161,7 @@ void ViewportPanel::OnImGuiRender()
 						float desiredLeftRef = (ImGui::GetMousePos().x - window_pos.x) / viewportScaleX;
 						widgetComp->SetMarginLeft(desiredLeftRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorLeft);
 					}
-					endWidgetEditIfDone();
+					trackHandle();
 					ImGui::PopID();
 
 					ImGui::PushID("margin_top");
@@ -1185,7 +1174,7 @@ void ViewportPanel::OnImGuiRender()
 						float desiredTopRef = (ImGui::GetMousePos().y - window_pos.y) / viewportScaleY;
 						widgetComp->SetMarginTop(desiredTopRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorTop);
 					}
-					endWidgetEditIfDone();
+					trackHandle();
 					ImGui::PopID();
 
 					ImGui::PushID("margin_right");
@@ -1204,7 +1193,7 @@ void ViewportPanel::OnImGuiRender()
 							widgetComp->SetMarginRight(desiredRightRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorRight);
 						}
 					}
-					endWidgetEditIfDone();
+					trackHandle();
 					ImGui::PopID();
 
 					ImGui::PushID("margin_bottom");
@@ -1223,7 +1212,7 @@ void ViewportPanel::OnImGuiRender()
 							widgetComp->SetMarginBottom(desiredBottomRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorBottom);
 						}
 					}
-					endWidgetEditIfDone();
+					trackHandle();
 					ImGui::PopID();
 
 					drawHandle(topLeft);
@@ -1350,34 +1339,6 @@ void ViewportPanel::SelectAll()
 bool ViewportPanel::HasSelection() const
 {
 	return m_HierarchyPanel->GetSelectedEntity();
-}
-
-bool ViewportPanel::CanUndo() const
-{
-	return HistoryManager::CanUndo();
-}
-
-bool ViewportPanel::CanRedo() const
-{
-	return HistoryManager::CanRedo();
-}
-
-void ViewportPanel::Undo(int astep)
-{
-	CLIENT_DEBUG("Undid");
-
-	HistoryManager::Undo(astep);
-
-	SceneManager::CurrentScene()->MakeDirty();
-}
-
-void ViewportPanel::Redo(int astep)
-{
-	CLIENT_DEBUG("Redid");
-
-	HistoryManager::Redo(astep);
-
-	SceneManager::CurrentScene()->MakeDirty();
 }
 
 void ViewportPanel::HandleKeyboardInputs()

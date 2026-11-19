@@ -28,7 +28,6 @@
 #include "Importers/ImportManager.h"
 
 #include "Scene/SceneManager.h"
-#include "History/HistoryManager.h"
 
 #include "Fonts/Fonts.h"
 #include "ImGui/ImGuiUtilities.h"

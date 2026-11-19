@@ -929,14 +929,14 @@ TEST_CASE("Roots keep their order through reordering, delete and undo, and save 
 		RemoveEntityCommand remove(c);
 		SceneGraph::Remove(c);
 		CHECK(RootNames(scene) == "D A B");
-		remove.Undo();
+		remove.Undo(scene);
 		CHECK(RootNames(scene) == "D C A B");
 
 		Entity last = scene.GetEntityByName("B");
 		RemoveEntityCommand removeLast(last);
 		SceneGraph::Remove(last);
 		CHECK(scene.GetLastRoot() == scene.GetEntityByName("A").GetHandle());
-		removeLast.Undo();
+		removeLast.Undo(scene);
 		CHECK(RootNames(scene) == "D C A B");
 	}
 
@@ -945,7 +945,7 @@ TEST_CASE("Roots keep their order through reordering, delete and undo, and save 
 		ReparentEntityCommand reparent(c, a);
 		SceneGraph::Reparent(c, a);
 		CHECK(RootNames(scene) == "D A(C) B");
-		reparent.Undo();
+		reparent.Undo(scene);
 		CHECK(RootNames(scene) == "D C A B");
 	}
 

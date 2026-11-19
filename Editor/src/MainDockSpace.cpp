@@ -42,6 +42,7 @@
 #include "FileSystem/AssetPacker.h"
 #include "FileSystem/SpriteAtlasBuilder.h"
 #include "ImGui/ImGuiUtilities.h"
+#include "ImGui/ImGuizmo.h"
 
 #include "Core/Version.h"
 #include "Core/Settings.h"
@@ -51,6 +52,15 @@
 #include "Events/ApplicationEvent.h"
 
 std::weak_ptr<Layer> MainDockSpace::s_CurrentlyFocusedPanel;
+
+// Whether a save or load is of the scene's own file
+static bool IsSceneFile(const Scene& scene, std::filesystem::path path)
+{
+	std::filesystem::path scenePath = scene.GetFilepath();
+	scenePath.replace_extension(".scene");
+	path.replace_extension(".scene");
+	return scenePath.lexically_normal() == path.lexically_normal();
+}
 
 MainDockSpace::MainDockSpace()
 	:Layer("Dockspace")
@@ -73,6 +83,7 @@ MainDockSpace::MainDockSpace()
 	m_ShowTargetPlatformToolbar = false;
 
 	m_ContentExplorer = nullptr;
+	m_History = CreateRef<SceneHistory>();
 
 #ifdef DEBUG
 	m_ShowImGuiDemo = true;
@@ -81,7 +92,6 @@ MainDockSpace::MainDockSpace()
 
 MainDockSpace::~MainDockSpace()
 {
-	HistoryManager::Reset();
 }
 
 void MainDockSpace::OnAttach()
@@ -128,7 +138,7 @@ void MainDockSpace::OnAttach()
 
 	m_ContentExplorer = CreateRef<ContentExplorerPanel>(&m_ShowContentExplorer);
 
-	Ref<TilemapEditor> tilemapEditor = CreateRef<TilemapEditor>(&m_ShowTilemapEditor);
+	m_TilemapEditor = CreateRef<TilemapEditor>(&m_ShowTilemapEditor, m_History);
 
 	Application::GetLayerStack().AddOverlay(CreateRef<EditorPreferencesPanel>(&m_ShowEditorPreferences));
 	Application::GetLayerStack().AddOverlay(CreateRef<ProjectSettingsPanel>(&m_ShowProjectSettings));
@@ -139,12 +149,12 @@ void MainDockSpace::OnAttach()
 	Application::GetLayerStack().AddOverlay(CreateRef<JoystickInfoPanel>(&m_ShowJoystickInfo));
 	Application::GetLayerStack().AddOverlay(CreateRef<ErrorListPanel>(&m_ShowErrorList));
 	Application::GetLayerStack().AddOverlay(CreateRef<FindInFilesPanel>(&m_ShowFindInFiles));
-	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy);
+	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy, m_History);
 	Application::GetLayerStack().AddOverlay(hierarchyPanel);
-	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, tilemapEditor));
-	Application::GetLayerStack().AddOverlay(CreateRef<PropertiesPanel>(&m_ShowProperties, hierarchyPanel, tilemapEditor));
+	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, m_TilemapEditor, m_History));
+	Application::GetLayerStack().AddOverlay(CreateRef<PropertiesPanel>(&m_ShowProperties, hierarchyPanel, m_TilemapEditor, m_History));
 
-	Application::GetLayerStack().AddOverlay(tilemapEditor);
+	Application::GetLayerStack().AddOverlay(m_TilemapEditor);
 
 	if (!Application::GetOpenDocument().empty())
 	{
@@ -198,15 +208,34 @@ void MainDockSpace::OnEvent(Event& event)
 {
 	EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<AppOpenDocumentChangedEvent>(BIND_EVENT_FN(MainDockSpace::OnOpenProject));
-	dispatcher.Dispatch<SceneSavedEvent>([](SceneSavedEvent& e)
+	dispatcher.Dispatch<SceneSavedEvent>([this](SceneSavedEvent& e)
 		{
+			Scene* scene = SceneManager::CurrentScene();
+			if (scene && IsSceneFile(*scene, e.GetFilePath()))
+			{
+				m_History->End(*scene);
+				m_History->MarkSaved();
+			}
 			WebProject::Sync();
 			return false;
 		});
-	dispatcher.Dispatch<SceneChangedEvent>([](SceneChangedEvent e)
+	dispatcher.Dispatch<SceneChangedEvent>([this](SceneChangedEvent e)
 		{
-			HistoryManager::Reset();
+			// Kept through Play, and when Stop reloads the scene that was being edited
+			if (SceneManager::GetSceneState() == SceneState::Edit && e.GetFilepath() != m_HistoryScene)
+			{
+				m_History->Clear();
+				m_HistoryScene = e.GetFilepath();
+			}
 			ViewerManager::CloseAll();
+			return false;
+		});
+	// Nothing is recorded, undone or redone while the scene runs
+	dispatcher.Dispatch<SceneStateChangedEvent>([this](SceneStateChangedEvent& e)
+		{
+			if (e.GetSceneState() != SceneState::Edit && SceneManager::IsSceneLoaded())
+				m_History->End(*SceneManager::CurrentScene());
+			m_History->SetEnabled(e.GetSceneState() == SceneState::Edit);
 			return false;
 		});
 	// A script quitting the game stops Play mode rather than closing the editor
@@ -263,6 +292,7 @@ void MainDockSpace::OnImGuiRender()
 	if (opt_fullscreen)
 		ImGui::PopStyleVar(2);
 
+	CloseFinishedEdit();
 	HandleKeyBoardInputs();
 
 	// DockSpace
@@ -380,19 +410,25 @@ void MainDockSpace::OnImGuiRender()
 			if (iCopy != nullptr)
 				copyable = !iCopy->IsReadOnly();
 
+			// A panel with its own history, otherwise the scene's
 			IUndoable* iUndo = dynamic_cast<IUndoable*>(focusedPanel.get());
-
-			bool undoable = false, redoable = false;
-			if (iUndo != nullptr)
-			{
-				undoable = iUndo->CanUndo();
-				redoable = iUndo->CanRedo();
-			}
+			const bool undoable = iUndo ? iUndo->CanUndo() : m_History->CanUndo();
+			const bool redoable = iUndo ? iUndo->CanRedo() : m_History->CanRedo();
 
 			if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT" Undo", "Ctrl + Z", nullptr, undoable))
-				iUndo->Undo();
+			{
+				if (iUndo)
+					iUndo->Undo();
+				else
+					UndoScene();
+			}
 			if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT" Redo", "Ctrl + Y", nullptr, redoable))
-				iUndo->Redo();
+			{
+				if (iUndo)
+					iUndo->Redo();
+				else
+					RedoScene();
+			}
 			ImGui::Separator();//-----------------------------------------------
 			if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl + X", nullptr, copyable && iCopy->HasSelection()))
 				iCopy->Cut();
@@ -604,13 +640,44 @@ void MainDockSpace::OpenProject(const std::filesystem::path& filename)
 
 bool MainDockSpace::OnOpenProject(AppOpenDocumentChangedEvent& event)
 {
-	HistoryManager::Reset();
+	m_History->Clear();
+	m_HistoryScene.clear();
 	OpenProject(Application::Get().GetOpenDocument());
 #ifdef __EMSCRIPTEN__
 	m_RecentWebProjects = WebProject::GetRecentProjects();
 #endif
 
 	return false;
+}
+
+void MainDockSpace::UndoScene()
+{
+	if (SceneManager::IsSceneLoaded() && m_History->CanUndo())
+		m_History->Undo(*SceneManager::CurrentScene());
+}
+
+void MainDockSpace::RedoScene()
+{
+	if (SceneManager::IsSceneLoaded() && m_History->CanRedo())
+		m_History->Redo(*SceneManager::CurrentScene());
+}
+
+void MainDockSpace::CloseFinishedEdit()
+{
+	if (!SceneManager::IsSceneLoaded())
+		return;
+
+	Scene& scene = *SceneManager::CurrentScene();
+	if (m_History->HasOpenStep())
+	{
+		if (ImGui::GetActiveID() == 0 && !ImGuizmo::IsUsing() && !m_TilemapEditor->IsPainting())
+			m_History->End(scene);
+	}
+	// A change made without a step keeps the scene unsaved until the next save
+	else if (m_History->IsEnabled() && scene.IsDirty() && m_History->IsAtSavedPoint())
+	{
+		m_History->MarkUnrecordedChange();
+	}
 }
 
 void MainDockSpace::HandleKeyBoardInputs()
@@ -656,14 +723,22 @@ void MainDockSpace::HandleKeyBoardInputs()
 	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Z))
 	{
 		if (IUndoable* iUndo = dynamic_cast<IUndoable*>(focusedPanel.get()))
+		{
 			if (iUndo->CanUndo())
 				iUndo->Undo();
+		}
+		else
+			UndoScene();
 	}
 	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Y))
 	{
 		if (IUndoable* iUndo = dynamic_cast<IUndoable*>(focusedPanel.get()))
+		{
 			if (iUndo->CanRedo())
 				iUndo->Redo();
+		}
+		else
+			RedoScene();
 	}
 	else if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Delete))
 	{
