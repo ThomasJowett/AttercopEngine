@@ -149,7 +149,7 @@ Ref<Material> Material::GetDefaultMaterial()
 	{
 		s_DefaultMaterial = CreateRef<Material>();
 
-		s_DefaultMaterial->m_Filepath = "DefaultMaterial";
+		s_DefaultMaterial->m_Filepath = DefaultFilepath;
 
 		const uint32_t textureSize = 8;
 		uint32_t textureData[textureSize][textureSize];

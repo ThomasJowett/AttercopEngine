@@ -60,6 +60,8 @@ public:
 	void SetTextureOffset(Vector2f textureOffset) { m_TextureOffset = textureOffset; }
 
 	static Ref<Material> GetDefaultMaterial();
+	// The default material's path in scenes and meshes; it has no file
+	static constexpr const char* DefaultFilepath = "DefaultMaterial";
 
 	// The missing-texture checker, for placeholders such as a mesh that failed to load
 	static Ref<Material> GetMissingMaterial();

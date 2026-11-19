@@ -2,6 +2,7 @@
 
 // The builder components use to describe themselves; include it only from .cpp files
 
+#include "Asset/Material.h"
 #include "Reflection/Reflection.h"
 #include "Scene/AssetManager.h"
 #include "Scene/Entity.h"
@@ -75,6 +76,8 @@ namespace Reflection
 		{
 			if constexpr (std::is_same_v<A, Texture2D>)
 				return AssetManager::GetTexture(path);
+			else if constexpr (std::is_same_v<A, Material>)
+				return path == Material::DefaultFilepath ? Material::GetDefaultMaterial() : AssetManager::GetAsset<A>(path);
 			else
 				return AssetManager::GetAsset<A>(path);
 		}
