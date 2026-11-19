@@ -76,9 +76,9 @@ Use the provided spdlog-based macros for all logging:
 - Use combined samplers (`Sampler2D`). Only vertex and fragment (and later compute) stages, since WGSL has no geometry or tessellation shaders.
 
 ### Scripting
-- Component bindings are declared in the component's own header with the `REFLECT_LUA_*` macros (see `Engine/src/Scripting/Lua/LuaBindings.h`); global tables are bound in `Engine/src/Scripting/Lua/`.
-- Components registered in `EnTT` should also be registered in Lua if they need to be accessible from scripts.
-- **Lua names**: properties and functions are PascalCase (e.g. `body.GravityScale`, `body:ApplyImpulse()`). `REFLECT_LUA_PROPERTY` capitalises the C++ member name automatically. The exception is the components properties that are a single character, which stay lowercase like the C++ fields (`v.x`, `colour.r`).
+- Components are bound to Lua from their descriptions (`Engine/src/Scripting/Lua/LuaReflection.cpp`): every described field that isn't `.NoLua()` is a property, set through `Reflection::Set`, so its `OnChanged` hooks run. Internal components aren't bound.
+- A component's Lua functions are written in its own `.cpp` with the `REFLECT_LUA_*` macros (see `Engine/src/Scripting/Lua/LuaBindings.h`) and passed to the builder's `LuaFunctions`. Component headers don't include sol2. Global tables are bound in `Engine/src/Scripting/Lua/`.
+- **Lua names**: properties and functions are PascalCase (e.g. `body.GravityScale`, `body:ApplyImpulse()`); a property's name is its field's name in the description. The exception is the components properties that are a single character, which stay lowercase like the C++ fields (`v.x`, `colour.r`).
 
 ## 📁 Directory Structure
 - `Engine/`: Core engine source and vendor libraries.
