@@ -1670,15 +1670,37 @@ namespace IMGUIZMO_NAMESPACE
       int bestAxis = axes[0];
       if (!gContext.mbUsingBounds)
       {
-         numAxes = 0;
-         float bestDot = 0.f;
+         // Faces are chosen by the view direction to the bounds' centre (the camera's direction when
+         // orthographic), and faces with no area, such as the sides of a flat mesh, are left out
+         float largestExtent = 0.f;
+         for (int i = 0; i < 3; i++)
+            largestExtent = max(largestExtent, bounds[i + 3] - bounds[i]);
+         vec_t boundsCentre = makeVect((bounds[0] + bounds[3]) * 0.5f, (bounds[1] + bounds[4]) * 0.5f, (bounds[2] + bounds[5]) * 0.5f);
+         vec_t boundsCentreWorld;
+         boundsCentreWorld.TransformPoint(boundsCentre, gContext.mModelSource);
+         vec_t viewDirection = gContext.mIsOrthographic ? Normalized(gContext.mCameraDir) : Normalized(gContext.mCameraEye - boundsCentreWorld);
+
+         bool isFlat[3];
+         bool anyFaceWithArea = false;
          for (int i = 0; i < 3; i++)
          {
+            const float flatExtent = largestExtent * 0.001f;
+            isFlat[i] = bounds[(i + 1) % 3 + 3] - bounds[(i + 1) % 3] <= flatExtent || bounds[(i + 2) % 3 + 3] - bounds[(i + 2) % 3] <= flatExtent;
+            anyFaceWithArea = anyFaceWithArea || !isFlat[i];
+         }
+
+         numAxes = 0;
+         float bestDot = -1.f;
+         for (int i = 0; i < 3; i++)
+         {
+            if (anyFaceWithArea && isFlat[i])
+               continue;
+
             vec_t dirPlaneNormalWorld;
             dirPlaneNormalWorld.TransformVector(directionUnary[i], gContext.mModelSource);
             dirPlaneNormalWorld.Normalize();
 
-            float dt = fabsf(Dot(Normalized(gContext.mCameraEye - gContext.mModelSource.v.position), dirPlaneNormalWorld));
+            float dt = fabsf(Dot(viewDirection, dirPlaneNormalWorld));
             if (dt >= bestDot)
             {
                bestDot = dt;
@@ -1734,7 +1756,8 @@ namespace IMGUIZMO_NAMESPACE
 
          for (int i = 0; i < 4; i++)
          {
-            aabb[i][3] = aabb[i][bestAxis] = 0.f;
+            aabb[i][3] = 0.f;
+            aabb[i][bestAxis] = (bounds[bestAxis] + bounds[bestAxis + 3]) * 0.5f;
             aabb[i][secondAxis] = bounds[secondAxis + 3 * (i >> 1)];
             aabb[i][thirdAxis] = bounds[thirdAxis + 3 * ((i >> 1) ^ (i & 1))];
          }
