@@ -6,7 +6,6 @@
 #include "ViewportCameraController.h"
 
 #include "Interfaces/ICopyable.h"
-#include "Interfaces/IUndoable.h"
 #include "Interfaces/ISaveable.h"
 
 #include "Asset/Shader.h"
@@ -14,10 +13,11 @@
 #include "HierarchyPanel.h"
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/HistoryCommands.h"
+#include "History/SceneHistory.h"
 #include "Scene/Components/UIWidgets/WidgetComponent.h"
 
 class ViewportPanel
-	:public Layer, public ICopyable, public IUndoable
+	:public Layer, public ICopyable
 {
 	enum class OperationMode
 	{
@@ -35,7 +35,7 @@ class ViewportPanel
 	};
 
 public:
-	explicit ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor);
+	ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history);
 	~ViewportPanel() = default;
 
 	void OnAttach() override;
@@ -52,11 +52,6 @@ public:
 	virtual void SelectAll() override;
 	virtual bool HasSelection() const override;
 	virtual bool IsReadOnly() const override { return false; }
-
-	virtual bool CanUndo() const override;
-	virtual bool CanRedo() const override;
-	virtual void Undo(int astep = 1) override;
-	virtual void Redo(int astep = 1) override;
 
 private:
 	void HandleKeyboardInputs();
@@ -108,8 +103,7 @@ private:
 
 	Ref<Mesh> m_GridMesh;
 
-	Ref<EditComponentCommand<TransformComponent>> m_EditTransformCommand = nullptr;
-	Ref<EditComponentCommand<WidgetComponent>> m_EditWidgetCommand = nullptr;
+	Ref<SceneHistory> m_History;
 
 	bool m_Fullscreen = false;
 };

@@ -1,141 +1,199 @@
 #include "HistoryCommands.h"
 #include "Scene/SceneSerializer.h"
 #include "Scene/SceneGraph.h"
+#include "Reflection/ComponentType.h"
+#include "Logging/Logger.h"
 
-AddEntityCommand::AddEntityCommand(Entity& entity)
-	:m_AddedEntity(entity)
+#include "TinyXml2/tinyxml2.h"
+
+namespace HistoryCommands
 {
-	if (auto hierarchyComp = m_AddedEntity.TryGetComponent<HierarchyComponent>())
+	Entity Find(Scene& scene, const Uuid& id)
 	{
-		if (hierarchyComp->parent != entt::null)
+		Entity entity = scene.GetEntityByID(id);
+		if (!entity)
+			CLIENT_WARN("Undo can't find entity {0}", id.to_string());
+		return entity;
+	}
+
+	Entity FindOptional(Scene& scene, const std::optional<Uuid>& id)
+	{
+		return id ? Find(scene, *id) : Entity();
+	}
+
+	static std::string SaveCustomField(const Reflection::FieldInfo& field, const void* component)
+	{
+		tinyxml2::XMLDocument document;
+		tinyxml2::XMLElement* element = document.NewElement("Component");
+		document.InsertEndChild(element);
+		field.save(component, element);
+		tinyxml2::XMLPrinter printer(nullptr, true);
+		document.Print(&printer);
+		return printer.CStr();
+	}
+
+	bool SameSavedValues(const Reflection::ComponentType& type, const void* a, const void* b)
+	{
+		for (const Reflection::FieldInfo& field : type.fields)
 		{
-			m_ParentEntity = Entity(hierarchyComp->parent, m_AddedEntity.GetScene());
+			if (!field.IsSaved())
+				continue;
+			if (field.IsCustom())
+			{
+				if (SaveCustomField(field, a) != SaveCustomField(field, b))
+					return false;
+			}
+			else if (!(field.get(a) == field.get(b)))
+			{
+				return false;
+			}
 		}
+		return true;
 	}
-}
 
-void AddEntityCommand::Undo()
-{
-	SceneGraph::Remove(m_AddedEntity);
-}
-
-void AddEntityCommand::Redo()
-{
-	m_AddedEntity = SceneSerializer::DeserializeEntity(m_AddedEntity.GetScene(), m_EntityPrefab, false);
-	if (m_ParentEntity)
-		SceneGraph::Reparent(m_AddedEntity, m_ParentEntity);
-}
-
-void AddEntityCommand::End()
-{
-	m_EntityPrefab = SceneSerializer::SerializeEntity(m_AddedEntity);
-}
-
-RemoveEntityCommand::RemoveEntityCommand(Entity& entity)
-	:m_RemovedEntity(entity)
-{
-	m_EntityPrefab = SceneSerializer::SerializeEntity(m_RemovedEntity);
-	if (auto hierarchyComp = m_RemovedEntity.TryGetComponent<HierarchyComponent>())
+	static std::optional<Uuid> ParentID(Entity entity)
 	{
-		if (hierarchyComp->parent != entt::null)
+		if (Entity parent = entity.GetParent())
+			return parent.GetID();
+		return std::nullopt;
+	}
+
+	static std::optional<Uuid> NextSiblingID(Entity entity)
+	{
+		if (const HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
 		{
-			m_ParentEntity = Entity(hierarchyComp->parent, m_RemovedEntity.GetScene());
+			if (hierarchyComp->nextSibling != entt::null)
+				return Entity(hierarchyComp->nextSibling, entity.GetScene()).GetID();
 		}
-		if (hierarchyComp->nextSibling != entt::null)
-			m_NextSiblingID = Entity(hierarchyComp->nextSibling, m_RemovedEntity.GetScene()).GetID();
+		return std::nullopt;
 	}
-}
 
-void RemoveEntityCommand::Undo()
-{
-	Scene* scene = m_RemovedEntity.GetScene();
-	m_RemovedEntity = SceneSerializer::DeserializeEntity(scene, m_EntityPrefab, false);
-	if (Entity nextSibling = m_NextSiblingID ? scene->GetEntityByID(*m_NextSiblingID) : Entity())
-		SceneGraph::MoveBefore(m_RemovedEntity, nextSibling);
-	else if (m_ParentEntity)
-		SceneGraph::Reparent(m_RemovedEntity, m_ParentEntity);
-}
-
-void RemoveEntityCommand::Redo()
-{
-	SceneGraph::Remove(m_RemovedEntity);
-}
-
-void RemoveEntityCommand::End()
-{
-}
-
-ReparentEntityCommand::ReparentEntityCommand(Entity& entity, Entity newParent)
-	:m_Entity(entity), m_NewParent(newParent)
-{
-	if (auto hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
+	static std::optional<Uuid> PreviousSiblingID(Entity entity)
 	{
-		if (hierarchyComp->parent != entt::null)
-			m_OldParent = Entity(hierarchyComp->parent, m_Entity.GetScene());
-		else
-			m_OldParent = Entity();
-		if (hierarchyComp->nextSibling != entt::null)
-			m_OldNextSiblingID = Entity(hierarchyComp->nextSibling, m_Entity.GetScene()).GetID();
+		if (const HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
+		{
+			if (hierarchyComp->previousSibling != entt::null)
+				return Entity(hierarchyComp->previousSibling, entity.GetScene()).GetID();
+		}
+		return std::nullopt;
 	}
 }
 
-void ReparentEntityCommand::Undo()
+using namespace HistoryCommands;
+
+AddEntityCommand::AddEntityCommand(Entity entity)
+	: m_Entity(entity.GetID()), m_Parent(ParentID(entity))
 {
-	Scene* scene = m_Entity.GetScene();
-	if (Entity nextSibling = m_OldNextSiblingID ? scene->GetEntityByID(*m_OldNextSiblingID) : Entity())
-		SceneGraph::MoveBefore(m_Entity, nextSibling);
-	else if (m_OldParent)
-		SceneGraph::Reparent(m_Entity, m_OldParent);
+}
+
+void AddEntityCommand::Undo(Scene& scene)
+{
+	if (Entity entity = Find(scene, m_Entity))
+		SceneGraph::Remove(entity);
+}
+
+void AddEntityCommand::Redo(Scene& scene)
+{
+	Entity entity = SceneSerializer::DeserializeEntity(&scene, m_EntityPrefab, false);
+	if (Entity parent = FindOptional(scene, m_Parent))
+		SceneGraph::Reparent(entity, parent);
+}
+
+bool AddEntityCommand::End(Scene& scene)
+{
+	Entity entity = Find(scene, m_Entity);
+	if (!entity)
+		return false;
+	m_EntityPrefab = SceneSerializer::SerializeEntity(entity);
+	m_Name = entity.GetName();
+	return true;
+}
+
+RemoveEntityCommand::RemoveEntityCommand(Entity entity)
+	: m_Entity(entity.GetID()), m_Parent(ParentID(entity)), m_NextSibling(NextSiblingID(entity)),
+	m_EntityPrefab(SceneSerializer::SerializeEntity(entity)), m_Name(entity.GetName())
+{
+}
+
+void RemoveEntityCommand::Undo(Scene& scene)
+{
+	Entity entity = SceneSerializer::DeserializeEntity(&scene, m_EntityPrefab, false);
+	if (Entity nextSibling = FindOptional(scene, m_NextSibling))
+		SceneGraph::MoveBefore(entity, nextSibling);
+	else if (Entity parent = FindOptional(scene, m_Parent))
+		SceneGraph::Reparent(entity, parent);
+}
+
+void RemoveEntityCommand::Redo(Scene& scene)
+{
+	if (Entity entity = Find(scene, m_Entity))
+		SceneGraph::Remove(entity);
+}
+
+ReparentEntityCommand::ReparentEntityCommand(Entity entity, Entity newParent)
+	: m_Entity(entity.GetID()), m_OldParent(ParentID(entity)), m_OldNextSibling(NextSiblingID(entity)), m_Name(entity.GetName())
+{
+	if (newParent)
+		m_NewParent = newParent.GetID();
+}
+
+void ReparentEntityCommand::Undo(Scene& scene)
+{
+	Entity entity = Find(scene, m_Entity);
+	if (!entity)
+		return;
+
+	if (Entity nextSibling = FindOptional(scene, m_OldNextSibling))
+		SceneGraph::MoveBefore(entity, nextSibling);
+	else if (Entity oldParent = FindOptional(scene, m_OldParent))
+		SceneGraph::Reparent(entity, oldParent);
 	else
-		SceneGraph::Unparent(m_Entity);
+		SceneGraph::Unparent(entity);
 }
 
-void ReparentEntityCommand::Redo()
+void ReparentEntityCommand::Redo(Scene& scene)
 {
-	if (m_NewParent)
-		SceneGraph::Reparent(m_Entity, m_NewParent);
+	Entity entity = Find(scene, m_Entity);
+	if (!entity)
+		return;
+
+	if (Entity newParent = FindOptional(scene, m_NewParent))
+		SceneGraph::Reparent(entity, newParent);
 	else
-		SceneGraph::Unparent(m_Entity);
+		SceneGraph::Unparent(entity);
 }
 
-void ReparentEntityCommand::End()
+MoveSiblingCommand::MoveSiblingCommand(Entity entity, Entity newAnchor, bool newIsBefore)
+	: m_Entity(entity.GetID()), m_OldParent(ParentID(entity)), m_OldPreviousSibling(PreviousSiblingID(entity)),
+	m_OldNextSibling(NextSiblingID(entity)), m_NewAnchor(newAnchor.GetID()), m_NewIsBefore(newIsBefore), m_Name(entity.GetName())
 {
 }
 
-MoveSiblingCommand::MoveSiblingCommand(Entity& entity, Entity newAnchor, bool newIsBefore)
-	:m_Entity(entity), m_NewAnchor(newAnchor), m_NewIsBefore(newIsBefore)
+void MoveSiblingCommand::Undo(Scene& scene)
 {
-	if (auto hierarchyComp = m_Entity.TryGetComponent<HierarchyComponent>())
-	{
-		if (hierarchyComp->parent != entt::null)
-			m_OldParent = Entity(hierarchyComp->parent, m_Entity.GetScene());
-		if (hierarchyComp->previousSibling != entt::null)
-			m_OldPreviousSibling = Entity(hierarchyComp->previousSibling, m_Entity.GetScene());
-		if (hierarchyComp->nextSibling != entt::null)
-			m_OldNextSibling = Entity(hierarchyComp->nextSibling, m_Entity.GetScene());
-	}
-}
+	Entity entity = Find(scene, m_Entity);
+	if (!entity)
+		return;
 
-void MoveSiblingCommand::Undo()
-{
-	if (m_OldPreviousSibling)
-		SceneGraph::MoveAfter(m_Entity, m_OldPreviousSibling);
-	else if (m_OldNextSibling)
-		SceneGraph::MoveBefore(m_Entity, m_OldNextSibling);
-	else if (m_OldParent)
-		SceneGraph::Reparent(m_Entity, m_OldParent);
+	if (Entity previousSibling = FindOptional(scene, m_OldPreviousSibling))
+		SceneGraph::MoveAfter(entity, previousSibling);
+	else if (Entity nextSibling = FindOptional(scene, m_OldNextSibling))
+		SceneGraph::MoveBefore(entity, nextSibling);
+	else if (Entity oldParent = FindOptional(scene, m_OldParent))
+		SceneGraph::Reparent(entity, oldParent);
 	else
-		SceneGraph::Unparent(m_Entity);
+		SceneGraph::Unparent(entity);
 }
 
-void MoveSiblingCommand::Redo()
+void MoveSiblingCommand::Redo(Scene& scene)
 {
+	Entity entity = Find(scene, m_Entity);
+	Entity anchor = Find(scene, m_NewAnchor);
+	if (!entity || !anchor)
+		return;
+
 	if (m_NewIsBefore)
-		SceneGraph::MoveBefore(m_Entity, m_NewAnchor);
+		SceneGraph::MoveBefore(entity, anchor);
 	else
-		SceneGraph::MoveAfter(m_Entity, m_NewAnchor);
-}
-
-void MoveSiblingCommand::End()
-{
+		SceneGraph::MoveAfter(entity, anchor);
 }

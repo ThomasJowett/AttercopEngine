@@ -5,7 +5,6 @@
 #include "Fonts/IconsMaterialDesignIcons.h"
 #include "Fonts/Fonts.h"
 #include "MainDockSpace.h"
-#include "History/HistoryManager.h"
 
 #include "ImGui/ImGuiTransform.h"
 #include "ImGui/ImGuiFileEdit.h"
@@ -94,8 +93,8 @@ static bool CollisionFilterEdit(uint16_t& layer, uint16_t& mask)
 	return changed;
 }
 
-PropertiesPanel::PropertiesPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor)
-	:Layer("Properties"), m_Show(show), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor)
+PropertiesPanel::PropertiesPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
+	:Layer("Properties"), m_Show(show), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history)
 {
 }
 
@@ -196,50 +195,38 @@ void PropertiesPanel::DrawComponents(Entity entity)
 		char buffer[256];
 		memset(buffer, 0, sizeof(buffer));
 		std::strncpy(buffer, name.c_str(), sizeof(buffer));
+		Scope<EditComponentCommand<NameComponent>> before = BeforeEdit<NameComponent>(entity);
 		if (ImGui::InputText("Entity Name##", buffer, sizeof(buffer)))
 		{
-			if (!m_EditNameComponent)
-				m_EditNameComponent = CreateRef<EditComponentCommand<NameComponent>>(entity);
+			RecordEdit(entity, before);
 			name = std::string(buffer);
 			SceneManager::CurrentScene()->MakeDirty();
-
-		}
-		if (!ImGui::IsItemActive() && m_EditNameComponent) {
-			HistoryManager::AddHistoryRecord(m_EditNameComponent);
-			m_EditNameComponent = nullptr;
 		}
 	}
 
 	// Transform------------------------------------------------------------------------------------------------------------
 	DrawComponent<TransformComponent>(ICON_MDI_AXIS_ARROW" Transform", entity, [&](auto& transform)
 		{
-			if (!m_EditTransformComponent.first)
-				m_EditTransformComponent.second = CreateRef<EditComponentCommand<TransformComponent>>(entity);
+			Scope<EditComponentCommand<TransformComponent>> before = BeforeEdit<TransformComponent>(entity);
 			Vector3f position = transform.GetPosition(), rotation = transform.GetRotation(), scale = transform.GetScale();
 			if (ImGui::Transform(position, rotation, scale))
 			{
+				RecordEdit(entity, before);
 				transform.SetPosition(position);
 				transform.SetRotation(rotation);
 				transform.SetScale(scale);
-				m_EditTransformComponent.first = true;
 				if (entity.HasComponent<RigidBody2DComponent>())
 				{
 					entity.GetComponent<RigidBody2DComponent>().SetTransform(position, rotation.z);
 				}
 				SceneManager::CurrentScene()->MakeDirty();
 			}
-			if (!ImGui::IsItemActive() && m_EditTransformComponent.first) {
-				HistoryManager::AddHistoryRecord(m_EditTransformComponent.second);
-				m_EditTransformComponent.first = false;
-				m_EditTransformComponent.second = nullptr;
-			}
 		});
 
 	// Widget--------------------------------------------------------------------------------------------------------------
 	DrawComponent<WidgetComponent>(ICON_MDI_WIDGETS" Widget", entity, [&](auto& widget)
 		{
-			if (!m_EditWidgetComponent.first)
-				m_EditWidgetComponent.second = CreateRef<EditComponentCommand<WidgetComponent>>(entity);
+			Scope<EditComponentCommand<WidgetComponent>> before = BeforeEdit<WidgetComponent>(entity);
 			ImGui::BeginGroup();
 
 			bool parentControlsRect = false;
@@ -299,6 +286,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				if (ImGui::SliderFloat("X##Anchor", &anchorLeft, 0.0f, 1.0f)) {
 					widget.SetAnchorLeft(anchorLeft);
 					widget.SetAnchorRight(anchorLeft);
+					edited = true;
 				}
 			}
 			else {
@@ -317,6 +305,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				if (ImGui::SliderFloat("Y##Anchor", &anchorTop, 0.0f, 1.0f)) {
 					widget.SetAnchorTop(anchorTop);
 					widget.SetAnchorBottom(anchorTop);
+					edited = true;
 				}
 			}
 			else
@@ -441,16 +430,11 @@ void PropertiesPanel::DrawComponents(Entity entity)
 
 			if (edited)
 			{
-				m_EditWidgetComponent.first = true;
+				RecordEdit(entity, before);
 				SceneManager::CurrentScene()->MakeDirty();
 			}
 
 			ImGui::EndGroup();
-			if (!ImGui::IsItemActive() && m_EditTransformComponent.first) {
-				HistoryManager::AddHistoryRecord(m_EditWidgetComponent.second);
-				m_EditWidgetComponent.first = false;
-				m_EditWidgetComponent.second = nullptr;
-			}
 		});
 
 	// Sprite--------------------------------------------------------------------------------------------------------------
@@ -460,14 +444,13 @@ void PropertiesPanel::DrawComponents(Entity entity)
 			float* tilingFactor = &sprite.tilingFactor;
 
 			sprite.GetTexture();
-			if (!m_EditSpriteCommand.first)
-				m_EditSpriteCommand.second = CreateRef<EditComponentCommand<SpriteComponent>>(entity);
+			Scope<EditComponentCommand<SpriteComponent>> before = BeforeEdit<SpriteComponent>(entity);
 			ImGui::BeginGroup();
 			Colour prevColour = sprite.tint;
 			if (ImGui::ColorEdit4("Tint", tint[0])) {
 				SceneManager::CurrentScene()->MakeDirty();
 				if (prevColour != sprite.tint)
-					m_EditSpriteCommand.first = true;
+					RecordEdit(entity, before);
 			}
 
 			if (sprite.texture)
@@ -478,10 +461,10 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
-							Ref<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateRef<EditComponentCommand<TransformComponent>>(entity);
+							Scope<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<TransformComponent>>(entity);
 							transformcomp->SetScale(Vector3f((float)sprite.texture->GetWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
 								(float)sprite.texture->GetHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
-							HistoryManager::AddHistoryRecord(pixelPerfectCommand);
+							m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
 						}
 					}
 					SceneManager::CurrentScene()->MakeDirty();
@@ -491,14 +474,14 @@ void PropertiesPanel::DrawComponents(Entity entity)
 
 			if (ImGui::Texture2DEdit("Texture", sprite.texture, sprite.filterMethod, sprite.wrapMethod)) {
 				sprite.texturePath = sprite.texture ? sprite.texture->GetFilepath() : std::filesystem::path();
-				m_EditSpriteCommand.first = true;
+				RecordEdit(entity, before);
 				SceneManager::CurrentScene()->MakeDirty();
 			}
 
 			if (sprite.texture)
 			{
 				if (ImGui::DragFloat("Tiling Factor", tilingFactor, 0.1f, 0.0f, 100.0f)) {
-					m_EditSpriteCommand.first = true;
+					RecordEdit(entity, before);
 					SceneManager::CurrentScene()->MakeDirty();
 				}
 
@@ -506,23 +489,17 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				{
 					*tilingFactor = 1.0f;
 					SceneManager::CurrentScene()->MakeDirty();
-					m_EditSpriteCommand.first = true;
+					RecordEdit(entity, before);
 				}
 			}
 			ImGui::EndGroup();
-			if (!ImGui::IsItemActive() && m_EditSpriteCommand.first) {
-				HistoryManager::AddHistoryRecord(m_EditSpriteCommand.second);
-				m_EditSpriteCommand.first = false;
-				m_EditSpriteCommand.second = nullptr;
-			}
 		});
 
 	// Animated Sprite--------------------------------------------------------------------------------------------------------------
 	DrawComponent<AnimatedSpriteComponent>(ICON_FA_IMAGE" Animated Sprite", entity, [&](auto& sprite)
 		{
 			ImGui::BeginGroup();
-			if (!m_EditAnimatedSpriteCommand.first)
-				m_EditAnimatedSpriteCommand.second = CreateRef<EditComponentCommand<AnimatedSpriteComponent>>(entity);
+			Scope<EditComponentCommand<AnimatedSpriteComponent>> before = BeforeEdit<AnimatedSpriteComponent>(entity);
 
 			float* tint[4] = { &sprite.tint.r, &sprite.tint.g, &sprite.tint.b, &sprite.tint.a };
 
@@ -531,7 +508,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 			{
 				SceneManager::CurrentScene()->MakeDirty();
 				if (prevColour != sprite.tint)
-					m_EditAnimatedSpriteCommand.first = true;
+					RecordEdit(entity, before);
 			}
 
 			std::string spritesheetName;
@@ -543,10 +520,10 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
 						{
-							Ref<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateRef<EditComponentCommand<TransformComponent>>(entity);
+							Scope<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<TransformComponent>>(entity);
 							transformcomp->SetScale(Vector3f((float)sprite.spriteSheet->GetSubTexture()->GetSpriteWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
 								(float)sprite.spriteSheet->GetSubTexture()->GetSpriteHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
-							HistoryManager::AddHistoryRecord(pixelPerfectCommand);
+							m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
 						}
 						SceneManager::CurrentScene()->MakeDirty();
 					}
@@ -576,7 +553,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					{
 						sprite.spriteSheet = AssetManager::GetAsset<SpriteSheet>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
 						SceneManager::CurrentScene()->MakeDirty();
-						m_EditAnimatedSpriteCommand.first = true;
+						RecordEdit(entity, before);
 					}
 					ImGui::Tooltip(file.string().c_str());
 				}
@@ -621,7 +598,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 							sprite.animation = name;
 							sprite.currentFrame = animation.GetStartFrame();
 							SceneManager::CurrentScene()->MakeDirty();
-							m_EditAnimatedSpriteCommand.first = true;
+							RecordEdit(entity, before);
 						}
 					}
 					ImGui::EndCombo();
@@ -629,42 +606,31 @@ void PropertiesPanel::DrawComponents(Entity entity)
 			}
 
 			ImGui::EndGroup();
-			if (!ImGui::IsItemActive() && m_EditAnimatedSpriteCommand.first) {
-				HistoryManager::AddHistoryRecord(m_EditAnimatedSpriteCommand.second);
-				m_EditAnimatedSpriteCommand.first = false;
-				m_EditAnimatedSpriteCommand.second = nullptr;
-			}
 		});
 
 	// Circle Renderer------------------------------------------------------------------------------------------------------------------
 	DrawComponent<CircleRendererComponent>(ICON_FA_CIRCLE" Circle Renderer", entity, [&](auto& circleRenderer)
 		{
 			ImGui::BeginGroup();
-			if (!m_EditCircleRendererCommand.first)
-				m_EditCircleRendererCommand.second = CreateRef<EditComponentCommand<CircleRendererComponent>>(entity);
+			Scope<EditComponentCommand<CircleRendererComponent>> before = BeforeEdit<CircleRendererComponent>(entity);
 
 			Colour prevColour = circleRenderer.colour;
 			float* colour[4] = { &circleRenderer.colour.r, &circleRenderer.colour.g, &circleRenderer.colour.b, &circleRenderer.colour.a };
 			if (ImGui::ColorEdit4("Colour", colour[0])) {
 				SceneManager::CurrentScene()->MakeDirty();
 				if (prevColour != circleRenderer.colour)
-					m_EditCircleRendererCommand.first = true;
+					RecordEdit(entity, before);
 			}
 			if (ImGui::DragFloat("Thickness", &circleRenderer.thickness, 0.025f, 0.0f, 1.0f)) {
 				SceneManager::CurrentScene()->MakeDirty();
-				m_EditCircleRendererCommand.first = true;
+				RecordEdit(entity, before);
 			}
 			if (ImGui::DragFloat("Fade", &circleRenderer.fade, 0.00025f, 0.0f, 1.0f)) {
 				SceneManager::CurrentScene()->MakeDirty();
-				m_EditCircleRendererCommand.first = true;
+				RecordEdit(entity, before);
 			}
 
 			ImGui::EndGroup();
-			if (!ImGui::IsItemActive() && m_EditCircleRendererCommand.first) {
-				HistoryManager::AddHistoryRecord(m_EditCircleRendererCommand.second);
-				m_EditCircleRendererCommand.first = false;
-				m_EditCircleRendererCommand.second = nullptr;
-			}
 		});
 
 	// Tilemap ------------------------------------------------------------------------------------------------------------------------
@@ -1273,15 +1239,14 @@ void PropertiesPanel::DrawComponents(Entity entity)
 				{
 					if (WidgetComponent* widgetComp = entity.TryGetComponent<WidgetComponent>())
 					{
-						Ref<EditComponentCommand<WidgetComponent>> pixelPerfectCommand = CreateRef<EditComponentCommand<WidgetComponent>>(entity);
+						Scope<EditComponentCommand<WidgetComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<WidgetComponent>>(entity);
 						// Fixed width/height is what makes the size setting below actually take effect -
 						// otherwise the widget is in stretch mode and size is derived from anchors instead.
 						widgetComp->fixedWidth = true;
 						widgetComp->fixedHeight = true;
 						widgetComp->SetSizeX((float)button.normalTexture->GetWidth());
 						widgetComp->SetSizeY((float)button.normalTexture->GetHeight());
-						pixelPerfectCommand->End();
-						HistoryManager::AddHistoryRecord(pixelPerfectCommand);
+						m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
 						SceneManager::CurrentScene()->MakeDirty();
 					}
 				}
@@ -1351,7 +1316,7 @@ void PropertiesPanel::DrawComponents(Entity entity)
 		});
 
 	// Lua Script ---------------------------------------------------------------------------------------------------------------------
-	DrawComponent<LuaScriptComponent>(ICON_FA_FILE_CODE" Lua Script", entity, [&entity](auto& luaScript)
+	DrawComponent<LuaScriptComponent>(ICON_FA_FILE_CODE" Lua Script", entity, [this, &entity](auto& luaScript)
 		{
 			std::string scriptName = luaScript.script ? luaScript.script->GetFilepath().filename().string() : "";
 
@@ -1362,10 +1327,10 @@ void PropertiesPanel::DrawComponents(Entity entity)
 					const bool is_selected = false;
 					if (ImGui::Selectable(file.filename().string().c_str(), is_selected))
 					{
-						Ref<EditComponentCommand<LuaScriptComponent>> editLuaCommand = CreateRef<EditComponentCommand<LuaScriptComponent>>(entity);
+						Scope<EditComponentCommand<LuaScriptComponent>> editLuaCommand = CreateScope<EditComponentCommand<LuaScriptComponent>>(entity);
 						luaScript.script = AssetManager::GetAsset<LuaScript>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
 						SceneManager::CurrentScene()->MakeDirty();
-						HistoryManager::AddHistoryRecord(editLuaCommand);
+						m_History->Push(*SceneManager::CurrentScene(), std::move(editLuaCommand));
 						break;
 					}
 					ImGui::Tooltip(file.string().c_str());
@@ -1451,24 +1416,4 @@ void PropertiesPanel::DrawAddComponent(Entity entity)
 		}
 		ImGui::EndPopup();
 	}
-}
-
-void PropertiesPanel::Undo(int asteps)
-{
-	HistoryManager::Undo(asteps);
-}
-
-void PropertiesPanel::Redo(int asteps)
-{
-	HistoryManager::Redo(asteps);
-}
-
-bool PropertiesPanel::CanUndo() const
-{
-	return HistoryManager::CanUndo();
-}
-
-bool PropertiesPanel::CanRedo() const
-{
-	return HistoryManager::CanRedo();
 }

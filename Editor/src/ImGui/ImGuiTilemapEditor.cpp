@@ -15,8 +15,8 @@
 #include "Input/MouseButtonCodes.h"
 #include "ImGui/ImGuiUtilities.h"
 
-TilemapEditor::TilemapEditor(bool* show)
-	:Layer("Tilemap Editor"), m_Show(show)
+TilemapEditor::TilemapEditor(bool* show, Ref<SceneHistory> history)
+	:Layer("Tilemap Editor"), m_Show(show), m_History(history)
 {
 	m_HoveredCoords[0] = -1;
 	m_HoveredCoords[1] = -1;
@@ -276,14 +276,15 @@ void TilemapEditor::OnRender(const Vector3f& mousePosition)
 
 	if (IsHovered())
 	{
-		if (Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !m_EditTilemapComponent.first && !Input::IsKeyPressed(KEY_LEFT_ALT))
+		if (Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !m_Painting && !Input::IsKeyPressed(KEY_LEFT_ALT))
 		{
-			m_EditTilemapComponent.second = CreateRef<EditComponentCommand<TilemapComponent>>(m_TilemapEntity);
-			m_EditTilemapComponent.first = true;
+			m_History->Begin(*m_TilemapEntity.GetScene(), ComponentEditKey<TilemapComponent>(m_TilemapEntity),
+				CreateScope<EditComponentCommand<TilemapComponent>>(m_TilemapEntity));
+			m_Painting = true;
 			m_RectStartCoords[0] = m_HoveredCoords[0];
 			m_RectStartCoords[1] = m_HoveredCoords[1];
 		}
-		else if (Input::IsKeyPressed(KEY_LEFT_SHIFT) && !m_EditTilemapComponent.first && !Input::IsKeyPressed(KEY_LEFT_ALT))
+		else if (Input::IsKeyPressed(KEY_LEFT_SHIFT) && !m_Painting && !Input::IsKeyPressed(KEY_LEFT_ALT))
 		{
 			m_RectStartCoords[0] = m_HoveredCoords[0];
 			m_RectStartCoords[1] = m_HoveredCoords[1];
@@ -428,7 +429,7 @@ void TilemapEditor::OnRender(const Vector3f& mousePosition)
 		}
 	}
 
-	if (!Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && m_EditTilemapComponent.first)
+	if (!Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && m_Painting)
 	{
 		if (m_DrawMode == DrawMode::Rect)
 		{
@@ -460,9 +461,8 @@ void TilemapEditor::OnRender(const Vector3f& mousePosition)
 			m_TilemapComp->Rebuild();
 		}
 
-		HistoryManager::AddHistoryRecord(m_EditTilemapComponent.second);
-		m_EditTilemapComponent.first = false;
-		m_EditTilemapComponent.second = nullptr;
+		m_Painting = false;
+		m_History->End(*m_TilemapEntity.GetScene());
 	}
 }
 

@@ -4,6 +4,7 @@
 #include "Core/Layer.h"
 
 #include "History/HistoryCommands.h"
+#include "History/SceneHistory.h"
 
 class TilemapEditor : public Layer
 {
@@ -15,7 +16,7 @@ class TilemapEditor : public Layer
 		Rect
 	};
 public:
-	TilemapEditor(bool* show);
+	TilemapEditor(bool* show, Ref<SceneHistory> history);
 	virtual void OnImGuiRender() override;
 	virtual void OnEvent(Event& event) override;
 	void OnRender(const Vector3f& mousePosition);
@@ -23,6 +24,8 @@ public:
 	bool HasSelection();
 	bool IsShown() const { return *m_Show; }
 	bool IsHovered() const;
+	// A stroke is in progress
+	bool IsPainting() const { return m_Painting; }
 
 	void Show();
 	void Hide();
@@ -49,5 +52,6 @@ private:
 	TilemapComponent* m_TilemapComp = nullptr;
 	const TransformComponent* m_TransformComp = nullptr;
 
-	std::pair<bool, Ref<EditComponentCommand<TilemapComponent>>> m_EditTilemapComponent;
+	Ref<SceneHistory> m_History;
+	bool m_Painting = false;
 };

@@ -5,6 +5,7 @@
 #include "Toolbars/PlayPauseToolbar.h"
 #include "Toolbars/SaveOpenToolbar.h"
 #include "ImGui/ImGuiTilemapEditor.h"
+#include "History/SceneHistory.h"
 
 class ContentExplorerPanel;
 
@@ -30,6 +31,10 @@ private:
 	bool OnOpenProject(AppOpenDocumentChangedEvent& event);
 
 	void HandleKeyBoardInputs();
+	void UndoScene();
+	void RedoScene();
+	// Closes the open history step once nothing is being dragged, typed or painted
+	void CloseFinishedEdit();
 
 	void ShowDefaultWindows();
 	void BuildDefaultLayout(ImGuiID dockspaceId);
@@ -70,6 +75,11 @@ private:
 	static std::weak_ptr<Layer> s_CurrentlyFocusedPanel;
 
 	Ref<ContentExplorerPanel> m_ContentExplorer;
+	Ref<TilemapEditor> m_TilemapEditor;
+
+	Ref<SceneHistory> m_History;
+	// The scene the history belongs to
+	std::filesystem::path m_HistoryScene;
 
 	std::vector<std::filesystem::path> m_RecentProjects;
 #ifdef __EMSCRIPTEN__
