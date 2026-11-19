@@ -4,6 +4,7 @@
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
 #include "Asset/Asset.h"
+#include "Asset/Material.h"
 #include "Logging/Logger.h"
 #include "Utilities/SerializationUtils.h"
 
@@ -195,8 +196,9 @@ namespace Reflection
 					Value value = field.get(component);
 					if (const AssetValue* asset = value.TryAs<AssetValue>())
 					{
-						// Unset, or the component's default, as the default font or material
-						if (!asset->IsSet() || (!defaultAsset.empty() && asset->path == defaultAsset))
+						// Unset, the component's default, as the default font, or the default material
+						if (!asset->IsSet() || (!defaultAsset.empty() && asset->path == defaultAsset)
+							|| asset->path == Material::DefaultFilepath)
 							return;
 						if (field.Has(FieldFlags::MainAsset))
 						{

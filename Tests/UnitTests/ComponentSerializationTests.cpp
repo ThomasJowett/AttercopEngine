@@ -297,6 +297,26 @@ TEST_CASE("Every primitive shape keeps its own settings")
 	}
 }
 
+TEST_CASE("A primitive with the default material doesn't save it, and DefaultMaterial in a scene loads it")
+{
+	Scene source("");
+	Entity entity = source.CreateEntity("Shape");
+	entity.AddComponent<PrimitiveComponent>().SetCube(1.0f, 1.0f, 1.0f);
+	REQUIRE(entity.GetComponent<PrimitiveComponent>().material == Material::GetDefaultMaterial());
+	CHECK(SceneSerializer::SerializeEntity(entity).find("Material") == std::string::npos);
+
+	const char* saved = R"xml(<Entity Name="Shape" ID="1001-2002">
+    <Primitive Type="0">
+        <Material Filepath="DefaultMaterial"/>
+        <Cube Width="1" Height="1" Depth="1"/>
+    </Primitive>
+</Entity>)xml";
+	Scene loaded("");
+	Entity fromXml = SceneSerializer::DeserializeEntity(&loaded, saved);
+	REQUIRE(fromXml.HasComponent<PrimitiveComponent>());
+	CHECK(fromXml.GetComponent<PrimitiveComponent>().material == Material::GetDefaultMaterial());
+}
+
 TEST_CASE("A duplicated entity gets new IDs and keeps everything else")
 {
 	Scene scene("");

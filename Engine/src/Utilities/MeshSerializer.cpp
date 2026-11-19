@@ -37,7 +37,7 @@ static bool GetLayout(MeshLayout layoutType, BufferLayout& layout)
 
 static Ref<Material> LoadMaterial(const std::string& materialPath)
 {
-	if (materialPath.empty() || materialPath == "DefaultMaterial")
+	if (materialPath.empty() || materialPath == Material::DefaultFilepath)
 		return Material::GetDefaultMaterial();
 
 	// A material that fails to load is the checker placeholder, which keeps its path
