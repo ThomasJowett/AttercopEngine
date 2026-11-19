@@ -48,5 +48,3 @@ end
   Comparing with `==` does compare values.
 - **Spawned copies:** entities spawned with `InstantiateScene` or `InstantiateEntity` get new
   IDs, not the IDs in the prefab.
-
---8<-- "LuaAPI/_fragments/IDComponent.md"

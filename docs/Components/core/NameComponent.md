@@ -16,5 +16,3 @@ with `entity:GetName()` and `entity:SetName()`. Names don't have to be unique.
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
 | `Name` | attribute on `<Entity>` | string | `Unnamed Entity` |
-
---8<-- "LuaAPI/_fragments/NameComponent.md"
