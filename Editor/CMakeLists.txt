@@ -1,8 +1,20 @@
+# The undo history, a library so the unit tests can link it without the Editor
+file(GLOB EDITOR_CORE_SOURCES CONFIGURE_DEPENDS
+    src/History/*.cpp
+    src/History/*.h
+)
+add_library(EditorCore STATIC ${EDITOR_CORE_SOURCES})
+target_link_libraries(EditorCore PUBLIC Engine)
+target_include_directories(EditorCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+attercop_target_warnings(EditorCore)
+if (MSVC)
+    target_compile_options(EditorCore PRIVATE "/utf-8")
+endif()
+
 file(GLOB SOURCES
     src/*.cpp
     src/FileSystem/*.cpp
     src/Fonts/*.cpp
-    src/History/*.cpp
     src/ImGui/*.cpp
     "src/ImGui/Node Editor/*.cpp"
     src/Importers/*.cpp
@@ -18,7 +30,6 @@ file(GLOB HEADERS
     src/*.h
     src/FileSystem/*.h
     src/Fonts/*.h
-    src/History/*.h
     src/ImGui/*.h
     "src/ImGui/Node Editor/*.h"
     src/Importers/*.h
@@ -80,7 +91,7 @@ group_files_by_directory("SOURCES")
 group_files_by_directory("HEADERS")
 source_group("Data" FILES ${DATA_FILES})
 
-target_link_libraries(Editor PRIVATE Engine)
+target_link_libraries(Editor PRIVATE EditorCore)
 attercop_target_shaders(Editor)
 attercop_target_warnings(Editor)
 
