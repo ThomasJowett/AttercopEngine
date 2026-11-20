@@ -64,7 +64,7 @@ void CameraComponent::Describe(Reflection::Builder<CameraComponent>& c)
 		.Label("Near").Range(0.001f, 10000.0f).Speed(1.0f).ShowIf(&IsPerspective);
 	c.Property<&GetPerspectiveFar, &SetPerspectiveFar>("PerspectiveFar", "Far clip plane of the perspective view")
 		.Label("Far").Range(0.001f, 10000.0f).Speed(1.0f).ShowIf(&IsPerspective);
-	c.Property<&GetFov, &SetFov>("Fov", "Vertical field of view of the perspective view, in radians")
+	c.Property<&GetFov, &SetFov>("Fov", "Vertical field of view of the perspective view")
 		.Label("Field of View").Degrees().Range(1.0f, 180.0f).Speed(1.0f).ShowIf(&IsPerspective);
 	c.Property<&GetAspectRatio, &SetAspectRatio>("AspectRatio", "Width divided by height, when FixedAspectRatio is set")
 		.ShowIf(&HasFixedAspectRatio).SaveIf(&HasFixedAspectRatio);

@@ -42,7 +42,7 @@ void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 		"Position relative to the parent entity, or to the world if it has no parent");
 	// Stored as Euler angles
 	c.Property<&TransformComponent::GetRotation, &TransformComponent::SetRotation>("Rotation",
-		"Rotation as Euler angles in radians, relative to the parent").Degrees();
+		"Rotation as Euler angles, relative to the parent").Degrees();
 	c.Property<&TransformComponent::GetScale, &TransformComponent::SetScale>("Scale", "Scale relative to the parent").LockParts();
 
 	c.OnChanged(&TransformComponentReflection::TeleportBody);

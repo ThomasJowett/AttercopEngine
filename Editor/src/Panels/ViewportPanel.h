@@ -78,6 +78,8 @@ private:
 
 	OperationMode m_Operation;
 	TranslationMode m_Translation;
+	// Whether the gizmo drag in progress snaps rotation, in degrees, rather than units
+	bool m_SnapInDegrees = false;
 	bool m_Is2DMode = true;
 	char m_GridAxis = 'z';
 
