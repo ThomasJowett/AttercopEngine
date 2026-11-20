@@ -134,11 +134,14 @@ void RigidBody2DComponent::Describe(Reflection::Builder<RigidBody2DComponent>& c
 	c.Name("RigidBody2D").Category("Physics 2D")
 		.Description("Makes the entity a Box2D body that moves under physics");
 
-	c.Field<&RigidBody2DComponent::type>("Type", "BodyType.Static, BodyType.Kinematic or BodyType.Dynamic");
+	c.Field<&RigidBody2DComponent::type>("Type", "BodyType.Static, BodyType.Kinematic or BodyType.Dynamic").Label("Body Type");
 	c.Field<&RigidBody2DComponent::fixedRotation>("FixedRotation", "Stop the body from rotating").ShowIf(&IsDynamic);
-	c.Field<&RigidBody2DComponent::gravityScale>("GravityScale", "Multiplier on the scene's gravity for this body").ShowIf(&IsDynamic);
-	c.Field<&RigidBody2DComponent::angularDamping>("AngularDamping", "How quickly the body's spin slows down").ShowIf(&IsDynamic);
-	c.Field<&RigidBody2DComponent::linearDamping>("LinearDamping", "How quickly the body's movement slows down").ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::gravityScale>("GravityScale", "Multiplier on the scene's gravity for this body")
+		.Range(-1.0f, 2.0f).Speed(0.01f).ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::angularDamping>("AngularDamping", "How quickly the body's spin slows down")
+		.Range(0.0f, 1.0f).Speed(0.01f).ShowIf(&IsDynamic);
+	c.Field<&RigidBody2DComponent::linearDamping>("LinearDamping", "How quickly the body's movement slows down")
+		.Range(0.0f, 1.0f).Speed(0.01f).ShowIf(&IsDynamic);
 
 	c.OnChanged(&ApplyToBody);
 }

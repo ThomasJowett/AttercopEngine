@@ -35,6 +35,8 @@ namespace SpriteComponentReflection
 		if (!atlas || c.tilingFactor != 1.0f || !atlas->GetRegion(c.texturePath))
 			c.GetTexture();
 	}
+
+	bool HasTexture(const SpriteComponent& c) { return c.texture || !c.texturePath.empty(); }
 }
 
 void SpriteComponent::Describe(Reflection::Builder<SpriteComponent>& c)
@@ -55,9 +57,9 @@ void SpriteComponent::Describe(Reflection::Builder<SpriteComponent>& c)
 		.Description("Draws a textured, tinted quad");
 
 	c.Field<&SpriteComponent::tilingFactor>("TilingFactor", "How many times the texture repeats across the sprite")
-		.OnChanged(&LoadTexture);
-	c.Field<&SpriteComponent::filterMethod>("FilterMethod", "FilterMethod.Linear or FilterMethod.Nearest");
-	c.Field<&SpriteComponent::wrapMethod>("WrapMethod", "WrapMethod.Clamp, WrapMethod.Mirror or WrapMethod.Repeat");
+		.Range(0.0f, 100.0f).ShowIf(&HasTexture).OnChanged(&LoadTexture);
+	c.Field<&SpriteComponent::filterMethod>("FilterMethod", "FilterMethod.Linear or FilterMethod.Nearest").ShowIf(&HasTexture);
+	c.Field<&SpriteComponent::wrapMethod>("WrapMethod", "WrapMethod.Clamp, WrapMethod.Mirror or WrapMethod.Repeat").ShowIf(&HasTexture);
 	c.Field<&SpriteComponent::tint>("Tint", "Colour multiplied over the texture");
 	c.Property<&GetTextureValue, &SetTextureValue>("Texture", "The texture drawn on the sprite, or nil for a plain coloured quad")
 		.AssetType("Texture2D").OnChanged(&LoadTexture);

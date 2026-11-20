@@ -55,17 +55,17 @@ void CameraComponent::Describe(Reflection::Builder<CameraComponent>& c)
 	c.Field<&CameraComponent::fixedAspectRatio>("FixedAspectRatio", "Keep the camera's own aspect ratio instead of matching the viewport");
 	c.Property<&GetProjection, &SetProjection>("Projection", "ProjectionType.Perspective or ProjectionType.Orthographic");
 	c.Property<&GetOrthoSize, &SetOrthoSize>("OrthoSize", "Height of the orthographic view, in world units")
-		.Label("Size").ShowIf(&IsOrthographic);
+		.Label("Size").Range(0.0f, 100.0f).ShowIf(&IsOrthographic);
 	c.Property<&GetOrthoNear, &SetOrthoNear>("OrthoNear", "Near clip plane of the orthographic view")
-		.Label("Near").ShowIf(&IsOrthographic);
+		.Label("Near").Speed(1.0f).ShowIf(&IsOrthographic);
 	c.Property<&GetOrthoFar, &SetOrthoFar>("OrthoFar", "Far clip plane of the orthographic view")
-		.Label("Far").ShowIf(&IsOrthographic);
+		.Label("Far").Speed(1.0f).ShowIf(&IsOrthographic);
 	c.Property<&GetPerspectiveNear, &SetPerspectiveNear>("PerspectiveNear", "Near clip plane of the perspective view")
-		.Label("Near").ShowIf(&IsPerspective);
+		.Label("Near").Range(0.001f, 10000.0f).Speed(1.0f).ShowIf(&IsPerspective);
 	c.Property<&GetPerspectiveFar, &SetPerspectiveFar>("PerspectiveFar", "Far clip plane of the perspective view")
-		.Label("Far").ShowIf(&IsPerspective);
+		.Label("Far").Range(0.001f, 10000.0f).Speed(1.0f).ShowIf(&IsPerspective);
 	c.Property<&GetFov, &SetFov>("Fov", "Vertical field of view of the perspective view, in radians")
-		.Label("Field of View").ShowIf(&IsPerspective);
+		.Label("Field of View").Degrees().Range(1.0f, 180.0f).Speed(1.0f).ShowIf(&IsPerspective);
 	c.Property<&GetAspectRatio, &SetAspectRatio>("AspectRatio", "Width divided by height, when FixedAspectRatio is set")
 		.ShowIf(&HasFixedAspectRatio).SaveIf(&HasFixedAspectRatio);
 
