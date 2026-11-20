@@ -21,6 +21,8 @@ namespace Reflection
 	const std::vector<const ComponentType*>& Components();
 	// By XML element name, "Sprite"; nullptr if none
 	const ComponentType* FindComponent(std::string_view name);
+	// A component on the entity that the type can't be added beside; nullptr if none
+	const ComponentType* ExcludedBy(entt::registry& registry, entt::entity entity, const ComponentType& type);
 
 	const std::vector<const EnumType*>& Enums();
 	// By name, "BodyType"; nullptr if none

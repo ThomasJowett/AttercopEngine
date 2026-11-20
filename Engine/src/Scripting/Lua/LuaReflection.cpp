@@ -341,6 +341,12 @@ namespace Lua
 				|| type == &Reflection::TypeOf<StateMachineComponent>();
 		}
 
+		void CheckNotExcluded(sol::this_state state, Entity& entity, const ComponentType& type)
+		{
+			if (const ComponentType* other = Reflection::ExcludedBy(entity.GetScene()->GetRegistry(), entity.GetHandle(), type))
+				RaiseError(state, entity.GetName() + " has a " + other->luaName + ", which can't be on the same entity as a " + type.luaName);
+		}
+
 		void BindAccessors(sol::usertype<Entity>& entityType, const ComponentType* type)
 		{
 			const std::string& name = type->luaName;
@@ -353,12 +359,13 @@ namespace Lua
 					RegisterLuaApiEntry(std::move(entry));
 				};
 
-			registerAccessor("Add" + name, "Add a " + name + " to this entity; errors if it already has one", [type, function = "Add" + name](sol::this_state state, Entity& entity)
+			registerAccessor("Add" + name, "Add a " + name + " to this entity; errors if it already has one, or has a component it can't be beside", [type, function = "Add" + name](sol::this_state state, Entity& entity)
 				{
 					CheckEntityValid(entity, function.c_str(), state);
 					entt::registry& registry = entity.GetScene()->GetRegistry();
 					if (type->tryGet(registry, entity.GetHandle()))
 						RaiseError(state, entity.GetName() + " already has a " + type->luaName + "; use GetOrAdd" + type->luaName + " instead");
+					CheckNotExcluded(state, entity, *type);
 					type->emplace(registry, entity.GetHandle());
 					entity.GetScene()->MakeDirty();
 					return ComponentRef{ type, entity.GetHandle(), entity.GetScene() };
@@ -395,6 +402,7 @@ namespace Lua
 					entt::registry& registry = entity.GetScene()->GetRegistry();
 					if (!type->tryGet(registry, entity.GetHandle()))
 					{
+						CheckNotExcluded(state, entity, *type);
 						type->emplace(registry, entity.GetHandle());
 						entity.GetScene()->MakeDirty();
 					}

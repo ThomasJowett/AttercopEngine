@@ -8,6 +8,7 @@
 
 #include "TinyXml2/tinyxml2.h"
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <sstream>
@@ -344,6 +345,19 @@ namespace Reflection
 		{
 			if (type->name == name)
 				return type;
+		}
+		return nullptr;
+	}
+
+	const ComponentType* ExcludedBy(entt::registry& registry, entt::entity entity, const ComponentType& type)
+	{
+		for (const ComponentType* other : Components())
+		{
+			if (other == &type || !other->tryGet(registry, entity))
+				continue;
+			if (std::find(type.excludes.begin(), type.excludes.end(), other->name) != type.excludes.end()
+				|| std::find(other->excludes.begin(), other->excludes.end(), type.name) != other->excludes.end())
+				return other;
 		}
 		return nullptr;
 	}
