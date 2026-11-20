@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include "ImGui/ImGuiShortcut.h"
 
 namespace
 {
@@ -175,25 +176,25 @@ void StateMachineView::OnImGuiRender()
 
 			if (ImGui::BeginMenu("Edit"))
 			{
-				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT" Undo", "Ctrl-Z", nullptr, CanUndo()))
+				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT" Undo", ShortcutLabel("Z").c_str(), nullptr, CanUndo()))
 					Undo(1);
-				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_RIGHT" Redo", "Ctrl-Y", nullptr, CanRedo()))
+				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_RIGHT" Redo", ShortcutLabel("Y", "Shift + Z").c_str(), nullptr, CanRedo()))
 					Redo(1);
 				ImGui::Separator();//---------------------------------------------------------------
 
-				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl-X", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, HasSelection()))
 					Cut();
-				if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl-C", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, HasSelection()))
 					Copy();
-				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl-V", nullptr, ImGui::GetClipboardText() != nullptr))
+				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, ImGui::GetClipboardText() != nullptr))
 					Paste();
-				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl-D", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, HasSelection()))
 					Duplicate();
 				if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, HasSelection()))
 					Delete();
 				ImGui::Separator();//---------------------------------------------------------------
 
-				if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select all", "Ctrl-A", nullptr))
+				if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select all", ShortcutLabel("A").c_str(), nullptr))
 					SelectAll();
 				ImGui::EndMenu();
 			}

@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include "FileSystem/WebProject.h"
+#include "ImGui/ImGuiShortcut.h"
 
 TilesetView::TilesetView(bool* show, std::filesystem::path filepath)
 	:View("TilesetView"), m_Show(show), m_Filepath(filepath)
@@ -104,11 +105,11 @@ void TilesetView::OnImGuiRender()
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", "Ctrl + S"))
+				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", ShortcutLabel("S").c_str()))
 				{
 					Save();
 				}
-				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", "Ctrl + Shift + S"))
+				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", ShortcutLabel("Shift + S").c_str()))
 				{
 					SaveAs();
 				}

@@ -26,6 +26,16 @@ EM_JS(void, Window_TrackPointer, (), {
 	Module.canvas.addEventListener('pointerdown', (event) => { Module.lastPointerId = event.pointerId; });
 });
 
+// macOS browsers send no keyup for a key released while Cmd is held, so it's released straight away
+EM_JS(void, Window_ReleaseKeysPressedWithCmd, (), {
+	if (!/Mac|iPhone|iPad|iPod/.test(navigator.platform))
+		return;
+	window.addEventListener('keydown', (event) => {
+		if (event.metaKey && event.key !== 'Meta')
+			GLFW.onKeyChanged(event.keyCode, 0);
+	}, true);
+});
+
 EM_JS(void, Window_CaptureMouse, (), {
 	const canvas = Module.canvas;
 	canvas.style.cursor = 'move';
@@ -613,6 +623,7 @@ bool Window::Init(const WindowProps& props)
 #ifdef __EMSCRIPTEN__
 	// CaptureMouse needs the pointer that pressed the button
 	Window_TrackPointer();
+	Window_ReleaseKeysPressedWithCmd();
 #endif
 	{
 		glfwSetDropCallback(m_Window, [](GLFWwindow* window, int numDropped, const char** filenames)

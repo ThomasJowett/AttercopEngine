@@ -50,6 +50,7 @@
 #include "Renderer/RenderCommand.h"
 #include "Events/SceneEvent.h"
 #include "Events/ApplicationEvent.h"
+#include "ImGui/ImGuiShortcut.h"
 
 std::weak_ptr<Layer> MainDockSpace::s_CurrentlyFocusedPanel;
 
@@ -323,11 +324,11 @@ void MainDockSpace::OnImGuiRender()
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem(ICON_FA_FOLDER_PLUS" New Project", "Ctrl + Shift + N", false, ProjectsStartScreen::CanCreateProjects()))
+			if (ImGui::MenuItem(ICON_FA_FOLDER_PLUS" New Project", ShortcutLabel("Shift + N").c_str(), false, ProjectsStartScreen::CanCreateProjects()))
 			{
 				Application::GetLayerStack().AddOverlay(CreateRef<ProjectsStartScreen>(true));
 			}
-			if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN" Open Project...", "Ctrl + O"))
+			if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN" Open Project...", ShortcutLabel("O").c_str()))
 			{
 				OpenProjectDialog();
 			}
@@ -360,7 +361,7 @@ void MainDockSpace::OnImGuiRender()
 				}
 				ImGui::EndMenu();
 			}
-			if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save Scene", "Ctrl + S", nullptr, SceneManager::IsSceneLoaded()))
+			if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save Scene", ShortcutLabel("S").c_str(), nullptr, SceneManager::IsSceneLoaded()))
 			{
 				SceneManager::CurrentScene()->Save();
 			}
@@ -415,14 +416,14 @@ void MainDockSpace::OnImGuiRender()
 			const bool undoable = iUndo ? iUndo->CanUndo() : m_History->CanUndo();
 			const bool redoable = iUndo ? iUndo->CanRedo() : m_History->CanRedo();
 
-			if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT" Undo", "Ctrl + Z", nullptr, undoable))
+			if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT" Undo", ShortcutLabel("Z").c_str(), nullptr, undoable))
 			{
 				if (iUndo)
 					iUndo->Undo();
 				else
 					UndoScene();
 			}
-			if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT" Redo", "Ctrl + Y", nullptr, redoable))
+			if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT" Redo", ShortcutLabel("Y", "Shift + Z").c_str(), nullptr, redoable))
 			{
 				if (iUndo)
 					iUndo->Redo();
@@ -430,21 +431,21 @@ void MainDockSpace::OnImGuiRender()
 					RedoScene();
 			}
 			ImGui::Separator();//-----------------------------------------------
-			if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl + X", nullptr, copyable && iCopy->HasSelection()))
+			if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, copyable && iCopy->HasSelection()))
 				iCopy->Cut();
-			if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl + C", nullptr, copyable && iCopy->HasSelection()))
+			if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, copyable && iCopy->HasSelection()))
 				iCopy->Copy();
-			if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl + V", nullptr, copyable && ImGui::GetClipboardText() != nullptr))
+			if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, copyable && ImGui::GetClipboardText() != nullptr))
 				iCopy->Paste();
-			if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl + D", nullptr, copyable && iCopy->HasSelection()))
+			if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, copyable && iCopy->HasSelection()))
 				iCopy->Duplicate();
 			if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, copyable && iCopy->HasSelection()))
 				iCopy->Delete();
 			ImGui::Separator();//-----------------------------------------------
-			if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select All", "Ctrl + A", nullptr, copyable))
+			if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select All", ShortcutLabel("A").c_str(), nullptr, copyable))
 				iCopy->SelectAll();
 			ImGui::Separator();//-----------------------------------------------
-			if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS" Find in Files", "Ctrl + Shift + F"))
+			if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS" Find in Files", ShortcutLabel("Shift + F").c_str()))
 				FindInFilesPanel::RequestFocus();
 			ImGui::Separator();//-----------------------------------------------
 			ImGui::MenuItem(ICON_FA_GEAR" Preferences", "", &m_ShowEditorPreferences);

@@ -594,6 +594,13 @@ Module.preRun.push(() => AttercopWeb.mountPersistent());
 	document.head.appendChild(icon);
 })();
 
+// The Editor's shortcuts instead of the browser's (save page, open file, bookmark, find, select all)
+window.addEventListener('keydown', (event) => {
+	const command = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? event.metaKey : event.ctrlKey;
+	if (command && !event.altKey && ['KeyS', 'KeyO', 'KeyD', 'KeyF', 'KeyA'].includes(event.code))
+		event.preventDefault();
+});
+
 window.addEventListener('beforeunload', (event) => {
 	if (AttercopWeb.hasUnsavedChanges()) {
 		event.preventDefault();

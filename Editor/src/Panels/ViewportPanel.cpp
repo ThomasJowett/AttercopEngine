@@ -31,6 +31,7 @@
 #include "Math/MathUtils.h"
 
 #include "Events/SceneEvent.h"
+#include "ImGui/ImGuiShortcut.h"
 
 ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
 	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history),
@@ -806,13 +807,13 @@ void ViewportPanel::OnImGuiRender()
 			if (ImGui::BeginPopupContextItem("Viewport Right Click"))
 			{
 				m_RightClickMenuOpen = true;
-				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl + X", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, HasSelection()))
 					Cut();
-				if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl + C", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, HasSelection()))
 					Copy();
-				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl + V", nullptr, ImGui::GetClipboardText() != nullptr))
+				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, ImGui::GetClipboardText() != nullptr))
 					Paste();
-				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl + D", nullptr, HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, HasSelection()))
 					Duplicate();
 				if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, HasSelection()))
 					Delete();
