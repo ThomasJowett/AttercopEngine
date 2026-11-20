@@ -285,3 +285,17 @@ TEST_CASE("Lua errors name the property for wrong types and unknown layers")
 	CHECK(error("root:GetBoxCollider2DComponent().Layer = \"Nowhere\"").find("no collision layer called \"Nowhere\"") != std::string::npos);
 	CHECK(error("root:GetSpriteComponent().Sparkle = 1").find("SpriteComponent.Sparkle isn't a property") != std::string::npos);
 }
+
+TEST_CASE("Lua can't add a component beside one it excludes")
+{
+	LuaFixture lua;
+	for (const char* add : { "child:AddWidgetComponent()", "child:GetOrAddWidgetComponent()" })
+	{
+		CAPTURE(add);
+		sol::protected_function_result result = LuaManager::GetState().safe_script(add, sol::script_pass_on_error);
+		REQUIRE_FALSE(result.valid());
+		sol::error failure = result;
+		CHECK(std::string(failure.what()).find("Child has a TransformComponent, which can't be on the same entity as a WidgetComponent") != std::string::npos);
+	}
+	CHECK_FALSE(lua.root.GetChild().HasComponent<WidgetComponent>());
+}

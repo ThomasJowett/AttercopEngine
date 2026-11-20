@@ -82,7 +82,7 @@ Use the provided spdlog-based macros for all logging:
 
 ### Inspector
 - The Properties panel draws components from their descriptions (`Editor/src/Panels/ComponentInspector.cpp`): a widget per value type, with the label, tooltip, `.Range`, `.Speed`, `.ShowIf` and `.EnableIf` from the description, and every edit through `Reflection::Set`. Give new fields a range and speed that suit them.
-- The Add Component menu is built from each component's `Category`; its icon and title are in the Editor's table in `ComponentInspector.cpp`.
+- The Add Component menu is built from each component's `Category`; its icon and title are in the Editor's table in `ComponentInspector.cpp`. A component that can't share an entity with another says so with `.Excludes` (the transform excludes the widget), which the menu and Lua's `Add` respect.
 - Overrides (`ReplaceComponent`, `AppendToComponent`, `ReplaceField`, registered in `PropertiesPanel.cpp`) are for UI no description option covers, such as the tile painting UI. Prefer a description option where one fits.
 
 ## 📁 Directory Structure

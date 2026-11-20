@@ -498,7 +498,8 @@ namespace Lua
 				if (field.Has(Reflection::FieldFlags::NoLua) || field.IsCustom())
 					continue;
 				binding.fields.emplace(field.name, (int)i);
-				RegisterLuaApiEntry({ field.name, field.description, LuaApiEntry::Kind::Property, type->luaName, LuaTypeOf(field, field.type), true });
+				const std::string description = field.Has(Reflection::FieldFlags::Degrees) ? field.description + ", in radians" : field.description;
+				RegisterLuaApiEntry({ field.name, description, LuaApiEntry::Kind::Property, type->luaName, LuaTypeOf(field, field.type), true });
 			}
 
 			if (type->luaFunctions)

@@ -331,7 +331,7 @@ TEST_CASE("Every component is registered, in the fixture, and reads back through
 	CHECK(TypeOf<NameComponent>().IsInternal());
 	CHECK(TypeOf<HierarchyComponent>().IsInternal());
 	CHECK_FALSE(TypeOf<SpriteComponent>().IsInternal());
-	CHECK(TypeOf<TransformComponent>().Has(ComponentFlags::Required));
+	CHECK_FALSE(TypeOf<TransformComponent>().Has(ComponentFlags::Required));
 	CHECK(TypeOf<SpriteComponent>().luaName == "SpriteComponent");
 	CHECK(FindComponent("RigidBody2D") == &TypeOf<RigidBody2DComponent>());
 	CHECK(FindComponent("RigidBody2DComponent") == nullptr);
@@ -1103,5 +1103,24 @@ TEST_CASE("A resize applied from the captured start keeps the tiles")
 	REQUIRE(Set(root, width, 1u, ChangeSource::Editor));
 	REQUIRE(Set(root, width, 3u, ChangeSource::Editor));
 	CHECK(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1, 0, 0 }, { 4, 0, 0 } });
+}
+TEST_CASE("A component that excludes another names it, either way round")
+{
+	RegisterComponents();
+	for (const ComponentType* type : Components())
+	{
+		for (const std::string& name : type->excludes)
+			CHECK_MESSAGE(FindComponent(name) != nullptr, (type->name + " excludes " + name));
+	}
+
+	Scene scene("");
+	Entity entity = scene.CreateEntity("Entity");
+	entity.AddComponent<TransformComponent>();
+	CHECK(ExcludedBy(scene.GetRegistry(), entity.GetHandle(), TypeOf<WidgetComponent>()) == &TypeOf<TransformComponent>());
+	CHECK(ExcludedBy(scene.GetRegistry(), entity.GetHandle(), TypeOf<SpriteComponent>()) == nullptr);
+
+	Entity widget = scene.CreateEntity("Widget");
+	widget.AddComponent<WidgetComponent>();
+	CHECK(ExcludedBy(scene.GetRegistry(), widget.GetHandle(), TypeOf<TransformComponent>()) == &TypeOf<WidgetComponent>());
 }
 }
