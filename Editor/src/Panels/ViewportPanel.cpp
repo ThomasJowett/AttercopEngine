@@ -760,6 +760,20 @@ void ViewportPanel::OnImGuiRender()
 				ImGui::EndMenu();
 			}
 
+			// Fullscreen, at the right-hand end
+			const char* fullscreenIcon = m_Fullscreen ? ICON_FA_COMPRESS : ICON_FA_EXPAND;
+			const float fullscreenWidth = ImGui::CalcTextSize(fullscreenIcon).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+			ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - fullscreenWidth - ImGui::GetStyle().ItemSpacing.x));
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+			if (ImGui::Button(fullscreenIcon))
+				m_Fullscreen = !m_Fullscreen;
+			ImGui::PopStyleColor();
+#if defined(__APPLE__) || defined(__EMSCRIPTEN__)
+			ImGui::Tooltip(m_Fullscreen ? "Exit Fullscreen (Shift + Space)" : "Fullscreen (Shift + Space)");
+#else
+			ImGui::Tooltip(m_Fullscreen ? "Exit Fullscreen (Shift + Space or F11)" : "Fullscreen (Shift + Space or F11)");
+#endif
+
 			ImGui::EndMenuBar();
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		}
@@ -1356,7 +1370,10 @@ void ViewportPanel::HandleKeyboardInputs()
 		SceneManager::ChangeSceneState(SceneState::Edit);
 	}
 
-	if (ImGui::IsKeyPressed(ImGuiKey_F11))
+	// Shift + Space is left to the game in play mode; F11 is taken by macOS and browsers
+	const bool shiftSpace = m_WindowHovered && shift && !ctrl && !alt && !io.WantTextInput
+		&& SceneManager::GetSceneState() != SceneState::Play && ImGui::IsKeyPressed(ImGuiKey_Space, false);
+	if (shiftSpace || ImGui::IsKeyPressed(ImGuiKey_F11, false))
 	{
 		m_Fullscreen = !m_Fullscreen;
 	}
