@@ -166,7 +166,7 @@ void ScriptView::OnImGuiRender()
 		{
 			MainDockSpace::SetFocussedWindow(this);
 
-			bool ctrl = ImGui::GetIO().ConfigMacOSXBehaviors ? ImGui::GetIO().KeySuper : ImGui::GetIO().KeyCtrl;
+			bool ctrl = ImGui::GetIO().KeyCtrl;
 			bool shift = ImGui::GetIO().KeyShift;
 
 			if (ctrl && ImGui::IsKeyPressed(ImGuiKey_F))

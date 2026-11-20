@@ -684,8 +684,9 @@ void MainDockSpace::HandleKeyBoardInputs()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	bool shift = io.KeyShift;
-	bool ctrl = io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
-	bool alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
+	// Cmd on macOS, as ImGui swaps it with Ctrl
+	bool ctrl = io.KeyCtrl;
+	bool alt = io.KeyAlt;
 
 	Ref<Layer> focusedPanel = s_CurrentlyFocusedPanel.lock();
 	// An ImGui text field handles its own undo

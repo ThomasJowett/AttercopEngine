@@ -759,8 +759,8 @@ void TextEditor::HandleKeyboardInputs()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	auto shift = io.KeyShift;
-	auto ctrl = io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
-	auto alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
+	auto ctrl = io.KeyCtrl;
+	auto alt = io.KeyAlt;
 
 	if (ImGui::IsWindowFocused())
 	{
@@ -868,8 +868,8 @@ void TextEditor::HandleMouseInputs()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	auto shift = io.KeyShift;
-	auto ctrl = io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
-	auto alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
+	auto ctrl = io.KeyCtrl;
+	auto alt = io.KeyAlt;
 
 	if (ImGui::IsWindowHovered())
 	{
