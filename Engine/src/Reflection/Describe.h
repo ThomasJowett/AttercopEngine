@@ -405,6 +405,8 @@ namespace Reflection
 		Builder& Description(const char* description) { m_Type.description = description; return *this; }
 		// Shown without a delete option
 		Builder& Required() { m_Type.flags |= ComponentFlags::Required; return *this; }
+		// A component, by name, that can't be on the same entity; either side may say so
+		Builder& Excludes(const char* component) { m_Type.excludes.push_back(component); return *this; }
 		// Not in the Add Component menu, the inspector or Lua's generic accessors
 		Builder& Internal() { m_Type.flags |= ComponentFlags::Internal; return *this; }
 		// Runs after any field changes through Reflection::Set, and once after Restore

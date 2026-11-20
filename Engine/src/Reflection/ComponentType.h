@@ -29,6 +29,7 @@ namespace Reflection
 		AsText = 1 << 5,
 		Custom = 1 << 6,
 		// Inspector hints
+		// Radians shown in degrees; the description leaves the unit out, as each side adds its own
 		Degrees = 1 << 7,
 		LockParts = 1 << 8,
 		EditFromStart = 1 << 9,
@@ -145,6 +146,8 @@ namespace Reflection
 		std::string category;
 		std::string description;
 		ComponentFlags flags = ComponentFlags::None;
+		// Names of components that can't be on the same entity
+		std::vector<std::string> excludes;
 
 		std::vector<FieldInfo> fields;
 		std::vector<GroupInfo> groups;

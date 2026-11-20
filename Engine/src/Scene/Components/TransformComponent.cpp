@@ -34,7 +34,8 @@ namespace TransformComponentReflection
 void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 {
 	c.LuaFunctions(&TransformComponentReflection::RegisterLuaFunctions);
-	c.Name("Transform").Category("Core").Required()
+	// A widget is placed by its canvas instead
+	c.Name("Transform").Category("Core").Excludes("Widget")
 		.Description("Position, rotation and scale relative to the parent entity");
 
 	c.Property<&TransformComponent::GetPosition, &TransformComponent::SetPosition>("Position",
