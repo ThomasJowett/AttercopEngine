@@ -2,6 +2,8 @@
 
 #include "math/Vector3f.h"
 
+#include <cstdint>
+
 class BoundingBox
 {
 public:
