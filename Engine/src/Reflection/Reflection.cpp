@@ -313,24 +313,24 @@ namespace Reflection
 			registry.enums.push_back(&type);
 			return type;
 		}
+	}
 
-		std::string SplitWords(const std::string& name)
+	std::string SplitWords(const std::string& name)
+	{
+		std::string words;
+		for (size_t i = 0; i < name.size(); ++i)
 		{
-			std::string words;
-			for (size_t i = 0; i < name.size(); ++i)
-			{
-				const char c = name[i];
-				const bool upper = std::isupper((unsigned char)c);
-				const bool previousLower = i > 0 && std::islower((unsigned char)name[i - 1]);
-				const bool nextLower = i + 1 < name.size() && std::islower((unsigned char)name[i + 1]);
-				const bool previousUpper = i > 0 && std::isupper((unsigned char)name[i - 1]);
-				// A new word at "aB", or at the last capital of a run like "IDs" or "UIScale"
-				if (i > 0 && upper && (previousLower || (previousUpper && nextLower)))
-					words += ' ';
-				words += c;
-			}
-			return words;
+			const char c = name[i];
+			const bool upper = std::isupper((unsigned char)c);
+			const bool previousLower = i > 0 && std::islower((unsigned char)name[i - 1]);
+			const bool nextLower = i + 1 < name.size() && std::islower((unsigned char)name[i + 1]);
+			const bool previousUpper = i > 0 && std::isupper((unsigned char)name[i - 1]);
+			// A new word at "aB", or at the last capital of a run like "IDs" or "UIScale"
+			if (i > 0 && upper && (previousLower || (previousUpper && nextLower)))
+				words += ' ';
+			words += c;
 		}
+		return words;
 	}
 
 	const std::vector<const ComponentType*>& Components()
@@ -512,7 +512,7 @@ namespace Reflection
 		return entity.GetScene()->IsRunning();
 	}
 
-	bool Set(Entity entity, const PropertyPath& path, const Value& value, ChangeSource source)
+	bool Set(Entity entity, const PropertyPath& path, const Value& value, ChangeSource source, uint32_t interaction)
 	{
 		if (!path.component || path.field < 0)
 			return false;
@@ -547,7 +547,7 @@ namespace Reflection
 		if (newFieldValue == oldFieldValue)
 			return true;
 
-		if (!field.set(component, newFieldValue))
+		if (!(field.edit ? field.edit : field.set)(component, newFieldValue))
 		{
 			ENGINE_WARN("Can't set {0} to {1}: the value doesn't fit", pathText, value.ToString());
 			return false;
@@ -563,7 +563,7 @@ namespace Reflection
 		if (scene->HasPropertyChangedListeners())
 		{
 			std::optional<Value> oldValue = Extract(oldFieldValue, path);
-			scene->SendPropertyChanged({ entity.GetID(), path, oldValue ? *oldValue : Value(), value, source });
+			scene->SendPropertyChanged({ entity.GetID(), path, oldValue ? *oldValue : Value(), value, source, interaction });
 		}
 		return true;
 	}
@@ -608,7 +608,7 @@ namespace Reflection
 		return CaptureFrom(type, component);
 	}
 
-	void Restore(Entity entity, const ComponentValues& values, ChangeSource source)
+	void Restore(Entity entity, const ComponentValues& values, ChangeSource source, uint32_t interaction)
 	{
 		CORE_ASSERT(values.type, "Restoring values with no component type");
 		const ComponentType& type = *values.type;
@@ -699,7 +699,8 @@ namespace Reflection
 		for (Change& change : changes)
 		{
 			PropertyPath path{ &type, change.field };
-			scene->SendPropertyChanged({ entity.GetID(), path, std::move(change.oldValue), type.fields[change.field].get(component), source });
+			scene->SendPropertyChanged({ entity.GetID(), path, std::move(change.oldValue), type.fields[change.field].get(component), source,
+				interaction });
 		}
 	}
 

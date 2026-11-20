@@ -28,6 +28,10 @@ namespace Reflection
 		MainAsset = 1 << 4,
 		AsText = 1 << 5,
 		Custom = 1 << 6,
+		// Inspector hints
+		Degrees = 1 << 7,
+		LockParts = 1 << 8,
+		EditFromStart = 1 << 9,
 	};
 
 	inline FieldFlags operator|(FieldFlags a, FieldFlags b) { return (FieldFlags)((uint16_t)a | (uint16_t)b); }
@@ -55,6 +59,15 @@ namespace Reflection
 
 		explicit operator bool() const { return function != nullptr; }
 		bool operator()(const void* component) const { return !function || call(function, component); }
+	};
+
+	struct Choices
+	{
+		ErasedFunction function = nullptr;
+		std::vector<std::string> (*call)(ErasedFunction function, const void* component) = nullptr;
+
+		explicit operator bool() const { return function != nullptr; }
+		std::vector<std::string> operator()(const void* component) const { return call(function, component); }
 	};
 
 	struct ChangeHook
@@ -104,8 +117,14 @@ namespace Reflection
 		Value (*get)(const void* component) = nullptr;
 		// False, with the component unchanged, if the value doesn't fit
 		bool (*set)(void* component, const Value& value) = nullptr;
+		// Used by Reflection::Set instead of set when there is one; loading and Restore use set
+		bool (*edit)(void* component, const Value& value) = nullptr;
 
 		Predicate showIf;
+		// Greyed out in the inspector unless it holds
+		Predicate enableIf;
+		// The values the inspector offers for a string
+		Choices choices;
 		// Written to files only when it holds; read whenever it's there
 		Predicate saveIf;
 		ChangeHook onChanged;

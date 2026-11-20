@@ -14,6 +14,9 @@ class Entity;
 
 namespace Reflection
 {
+	// "TilingFactor" to "Tiling Factor", for inspector labels
+	std::string SplitWords(const std::string& name);
+
 	// Every registered component, in registration order: the order of a scene file and the inspector
 	const std::vector<const ComponentType*>& Components();
 	// By XML element name, "Sprite"; nullptr if none
@@ -104,6 +107,8 @@ namespace Reflection
 		Value oldValue;
 		Value newValue;
 		ChangeSource source;
+		// The same for every change of one inspector edit, such as a drag; 0 for changes not made in the inspector
+		uint32_t interaction = 0;
 	};
 
 	// nullopt if the entity doesn't have the component or the list item doesn't exist
@@ -111,7 +116,7 @@ namespace Reflection
 
 	// The one way generic code writes a property: checks the value fits, does nothing if it's equal, runs the
 	// field's then the component's OnChanged, marks the scene changed when it isn't running and sends PropertyChanged
-	bool Set(Entity entity, const PropertyPath& path, const Value& value, ChangeSource source);
+	bool Set(Entity entity, const PropertyPath& path, const Value& value, ChangeSource source, uint32_t interaction = 0);
 
 	struct ComponentValues
 	{
@@ -124,7 +129,7 @@ namespace Reflection
 
 	ComponentValues Capture(Entity entity, const ComponentType& type);
 	// Adds the component if it's missing, sets every field that isn't read-only, then runs each OnChanged hook once
-	void Restore(Entity entity, const ComponentValues& values, ChangeSource source);
+	void Restore(Entity entity, const ComponentValues& values, ChangeSource source, uint32_t interaction = 0);
 	// From a default-constructed component
 	ComponentValues Defaults(const ComponentType& type);
 }
