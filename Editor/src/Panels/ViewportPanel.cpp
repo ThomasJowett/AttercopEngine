@@ -939,10 +939,12 @@ void ViewportPanel::OnImGuiRender()
 
 					ImGuizmo::DecomposeMatrixToComponents(transformMat.m16, translation, rotation, scale);
 
-					bool snap = Input::IsKeyPressed(KEY_LEFT_CONTROL);
-					float snapValue = 0.5f;
-					if (m_Operation == OperationMode::Rotate)
-						snapValue = 10.0f;
+					const bool snap = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
+					// Universal snaps in degrees on its rings, which are only used when no arrow or scale handle is under the mouse
+					if (!ImGuizmo::IsUsing())
+						m_SnapInDegrees = m_Operation == OperationMode::Rotate || (m_Operation == OperationMode::Universal
+							&& ImGuizmo::IsOver(ImGuizmo::ROTATE) && !ImGuizmo::IsOver(ImGuizmo::TRANSLATE) && !ImGuizmo::IsOver(ImGuizmo::SCALEU));
+					const float snapValue = m_SnapInDegrees ? 10.0f : 0.5f;
 
 					BoundingBox localBounds = GetLocalBounds(selectedEntity);
 					float bounds[6] = {
@@ -1345,8 +1347,8 @@ void ViewportPanel::HandleKeyboardInputs()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	auto shift = io.KeyShift;
-	auto ctrl = io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
-	auto alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
+	auto ctrl = io.KeyCtrl;
+	auto alt = io.KeyAlt;
 
 	if (ImGui::IsKeyPressed(ImGuiKey_Escape))
 	{

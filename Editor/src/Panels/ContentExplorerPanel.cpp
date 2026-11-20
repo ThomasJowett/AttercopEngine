@@ -546,8 +546,8 @@ void ContentExplorerPanel::HandleKeyboardInputs()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	bool shift = io.KeyShift;
-	bool ctrl = io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
-	bool alt = io.ConfigMacOSXBehaviors ? io.KeyCtrl : io.KeyAlt;
+	bool ctrl = io.KeyCtrl;
+	bool alt = io.KeyAlt;
 
 	if (ImGui::IsWindowFocused())
 	{
