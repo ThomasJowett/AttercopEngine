@@ -245,6 +245,20 @@ namespace Reflection
 			}
 		}
 
+		// The value a setter takes: void (T::*)(V) or void (*)(T&, V)
+		template<typename F>
+		struct SetterValue;
+		template<typename C, typename R, typename A>
+		struct SetterValue<R(C::*)(A)> { using Type = std::decay_t<A>; };
+		template<typename C, typename R, typename A>
+		struct SetterValue<R(*)(C&, A)> { using Type = std::decay_t<A>; };
+
+		template<typename T, auto Setter>
+		bool SetVia(void* component, const Value& value)
+		{
+			return SetProperty<T, Setter, typename SetterValue<decltype(Setter)>::Type>(component, value);
+		}
+
 		template<typename T, auto Save>
 		void SaveCustom(const void* component, tinyxml2::XMLElement* element)
 		{
@@ -264,13 +278,16 @@ namespace Reflection
 		}
 
 		template<typename T>
+		std::vector<std::string> CallChoices(ErasedFunction function, const void* component)
+		{
+			return reinterpret_cast<std::vector<std::string>(*)(const T&)>(function)(*static_cast<const T*>(component));
+		}
+
+		template<typename T>
 		void CallHook(ErasedFunction function, Entity entity, void* component)
 		{
 			reinterpret_cast<void(*)(Entity, T&)>(function)(entity, *static_cast<T*>(component));
 		}
-
-		// "TilingFactor" to "Tiling Factor"
-		std::string SplitWords(const std::string& name);
 
 		// Fills in the type details of a field from its C++ type
 		template<typename V>
@@ -306,6 +323,31 @@ namespace Reflection
 		// Limits and step for the inspector's drag widgets; not enforced on Lua or files
 		FieldBuilder& Range(float min, float max) { Field().hasRange = true; Field().min = min; Field().max = max; return *this; }
 		FieldBuilder& Speed(float speed) { Field().speed = speed; return *this; }
+		// Radians shown in degrees in the inspector; Range and Speed are in degrees
+		FieldBuilder& Degrees() { Field().flags |= FieldFlags::Degrees; return *this; }
+		// A lock in the inspector that moves every part of a vector together
+		FieldBuilder& LockParts() { Field().flags |= FieldFlags::LockParts; return *this; }
+		// Each step of an inspector edit starts from the component as the edit found it
+		FieldBuilder& EditFromStart() { Field().flags |= FieldFlags::EditFromStart; return *this; }
+		// Greyed out in the inspector unless the predicate holds
+		FieldBuilder& EnableIf(bool(*predicate)(const T&))
+		{
+			Field().enableIf = { reinterpret_cast<ErasedFunction>(predicate), &Detail::CallPredicate<T> };
+			return *this;
+		}
+		// The values the inspector offers for a string, as a drop-down
+		FieldBuilder& Choices(std::vector<std::string>(*choices)(const T&))
+		{
+			Field().choices = { reinterpret_cast<ErasedFunction>(choices), &Detail::CallChoices<T> };
+			return *this;
+		}
+		// Reflection::Set uses this setter; loading and Restore write the field directly
+		template<auto Setter>
+		FieldBuilder& SetWith()
+		{
+			Field().edit = &Detail::SetVia<T, Setter>;
+			return *this;
+		}
 		// Shown in the inspector only when the predicate holds; still saved
 		FieldBuilder& ShowIf(bool(*predicate)(const T&))
 		{
@@ -459,7 +501,7 @@ namespace Reflection
 			FieldInfo& field = m_Type.fields.emplace_back();
 			field.name = name;
 			field.xmlName = name;
-			field.label = Detail::SplitWords(name);
+			field.label = SplitWords(name);
 			field.description = description;
 			return field;
 		}
