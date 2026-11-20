@@ -80,6 +80,11 @@ Use the provided spdlog-based macros for all logging:
 - A component's Lua functions are written in its own `.cpp` with the `REFLECT_LUA_*` macros (see `Engine/src/Scripting/Lua/LuaBindings.h`) and passed to the builder's `LuaFunctions`. Component headers don't include sol2. Global tables are bound in `Engine/src/Scripting/Lua/`.
 - **Lua names**: properties and functions are PascalCase (e.g. `body.GravityScale`, `body:ApplyImpulse()`); a property's name is its field's name in the description. The exception is the components properties that are a single character, which stay lowercase like the C++ fields (`v.x`, `colour.r`).
 
+### Inspector
+- The Properties panel draws components from their descriptions (`Editor/src/Panels/ComponentInspector.cpp`): a widget per value type, with the label, tooltip, `.Range`, `.Speed`, `.ShowIf` and `.EnableIf` from the description, and every edit through `Reflection::Set`. Give new fields a range and speed that suit them.
+- The Add Component menu is built from each component's `Category`; its icon and title are in the Editor's table in `ComponentInspector.cpp`.
+- Overrides (`ReplaceComponent`, `AppendToComponent`, `ReplaceField`, registered in `PropertiesPanel.cpp`) are for UI no description option covers, such as the tile painting UI. Prefer a description option where one fits.
+
 ## 📁 Directory Structure
 - `Engine/`: Core engine source and vendor libraries.
 - `Editor/`: Editor-specific logic and UI (ImGui).
