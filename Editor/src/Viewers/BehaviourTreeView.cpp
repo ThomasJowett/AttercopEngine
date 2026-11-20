@@ -148,7 +148,7 @@ BehaviourTreeView::BehaviourTreeView(bool* show, const std::filesystem::path& fi
 
 void BehaviourTreeView::OnAttach()
 {
-	m_WindowName = ICON_FA_DIAGRAM_PROJECT + std::string(" " + m_Filepath.filename().string());
+	m_WindowName = ICON_FA_CODE_BRANCH + std::string(" " + m_Filepath.filename().string());
 
 	NodeEditor::Config config;
 	config.SettingsFile = "";

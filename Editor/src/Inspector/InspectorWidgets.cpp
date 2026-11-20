@@ -2,7 +2,7 @@
 
 namespace Inspector
 {
-	static const AssetKind k_AssetKinds[] = {
+	static const AssetKind s_AssetKinds[] = {
 		{ "Texture2D", FileType::IMAGE },
 		{ "Material", FileType::MATERIAL },
 		{ "PhysicsMaterial", FileType::PHYSICSMATERIAL },
@@ -18,7 +18,7 @@ namespace Inspector
 
 	const AssetKind* FindAssetKind(std::string_view type)
 	{
-		for (const AssetKind& kind : k_AssetKinds)
+		for (const AssetKind& kind : s_AssetKinds)
 		{
 			if (type == kind.type)
 				return &kind;
