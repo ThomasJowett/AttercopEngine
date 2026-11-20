@@ -239,6 +239,11 @@ namespace ComponentFixture
 		const TransformComponent& transform = root.GetComponent<TransformComponent>();
 		CHECK(transform.GetPosition() == Vector3f(1.0f, 2.0f, 3.0f));
 		CHECK(transform.GetEulerAngles() == Vector3f(0.25f, 0.5f, 0.75f));
+		const Quaternion rotation = Quaternion(Vector3f(0.25f, 0.5f, 0.75f));
+		CHECK(transform.GetRotation().r == rotation.r);
+		CHECK(transform.GetRotation().i == rotation.i);
+		CHECK(transform.GetRotation().j == rotation.j);
+		CHECK(transform.GetRotation().k == rotation.k);
 		CHECK(transform.GetScale() == Vector3f(2.0f, 3.0f, 4.0f));
 
 		REQUIRE(root.HasComponent<CameraComponent>());
