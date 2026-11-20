@@ -426,10 +426,13 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 
 	// Billboards turn to point at the camera rendering this view, leaving their own transform alone
 
-	// A rotation whose +Z points from position at the camera; upright only turns around the world Y axis
-	auto pointAtCamera = [](const Vector3f& position, const Matrix4x4& camera, bool upright)
+	// Orthographic projections have no perspective divide, so their bottom row is (0, 0, 0, 1)
+	const bool orthographic = projection(3, 3) == 1.0f;
+
+	// A rotation whose +Z points at the camera, or back along its view when orthographic; upright only turns around the world Y axis
+	auto pointAtCamera = [orthographic](const Vector3f& position, const Matrix4x4& camera, bool upright)
 		{
-			Vector3f toCamera = camera.ExtractTranslation() - position;
+			Vector3f toCamera = orthographic ? Vector3f(camera(0, 2), camera(1, 2), camera(2, 2)) : camera.ExtractTranslation() - position;
 			Vector3f up = upright ? Vector3f(0.0f, 1.0f, 0.0f) : Vector3f(camera(0, 1), camera(1, 1), camera(2, 1));
 			if (upright)
 				toCamera.y = 0.0f;
