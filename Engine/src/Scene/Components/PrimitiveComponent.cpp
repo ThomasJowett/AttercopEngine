@@ -52,7 +52,7 @@ void PrimitiveComponent::Describe(Reflection::Builder<PrimitiveComponent>& c)
 	c.Name("Primitive").Category("Rendering 3D")
 		.Description("Draws a generated shape: a cube, sphere, plane, cylinder, cone or torus");
 
-	c.Field<&P::type>("Type", "The shape to generate");
+	c.Field<&P::type>("Type", "The shape to generate").Label("Shape");
 	c.Field<&P::material>("Material", "The material the shape is drawn with");
 
 	c.Field<&P::cubeWidth>("Width", "Size of the cube along X").Group("Cube", &IsCube);
@@ -60,30 +60,30 @@ void PrimitiveComponent::Describe(Reflection::Builder<PrimitiveComponent>& c)
 	c.Field<&P::cubeDepth>("Depth", "Size of the cube along Z").Group("Cube", &IsCube);
 
 	c.Field<&P::sphereRadius>("Radius", "Radius of the sphere").Group("Sphere", &IsSphere);
-	c.Field<&P::sphereLongitudeLines>("LongitudeLines", "Number of lines from pole to pole").Group("Sphere", &IsSphere);
-	c.Field<&P::sphereLatitudeLines>("LatitudeLines", "Number of lines around the sphere").Group("Sphere", &IsSphere);
+	c.Field<&P::sphereLongitudeLines>("LongitudeLines", "Number of lines from pole to pole").Range(3.0f, 600.0f).Group("Sphere", &IsSphere);
+	c.Field<&P::sphereLatitudeLines>("LatitudeLines", "Number of lines around the sphere").Range(3.0f, 600.0f).Group("Sphere", &IsSphere);
 
 	c.Field<&P::planeWidth>("Width", "Size of the plane along X").Group("Plane", &IsPlane);
 	c.Field<&P::planeLength>("Length", "Size of the plane along Z").Group("Plane", &IsPlane);
-	c.Field<&P::planeWidthLines>("WidthLines", "Number of grid lines across the width").Group("Plane", &IsPlane);
-	c.Field<&P::planeLengthLines>("LengthLines", "Number of grid lines along the length").Group("Plane", &IsPlane);
+	c.Field<&P::planeWidthLines>("WidthLines", "Number of grid lines across the width").Range(2.0f, 1000.0f).Group("Plane", &IsPlane);
+	c.Field<&P::planeLengthLines>("LengthLines", "Number of grid lines along the length").Range(2.0f, 1000.0f).Group("Plane", &IsPlane);
 	c.Field<&P::planeTileU>("TileU", "How many times the texture repeats across the width").Group("Plane", &IsPlane);
 	c.Field<&P::planeTileV>("TileV", "How many times the texture repeats along the length").Group("Plane", &IsPlane);
 
 	c.Field<&P::cylinderBottomRadius>("BottomRadius", "Radius of the cylinder's base").Group("Cylinder", &IsCylinder);
 	c.Field<&P::cylinderTopRadius>("TopRadius", "Radius of the cylinder's top").Group("Cylinder", &IsCylinder);
 	c.Field<&P::cylinderHeight>("Height", "Height of the cylinder").Group("Cylinder", &IsCylinder);
-	c.Field<&P::cylinderSliceCount>("SliceCount", "Number of segments around the cylinder").Group("Cylinder", &IsCylinder);
-	c.Field<&P::cylinderStackCount>("StackCount", "Number of segments up the cylinder").Group("Cylinder", &IsCylinder);
+	c.Field<&P::cylinderSliceCount>("SliceCount", "Number of segments around the cylinder").Range(3.0f, 600.0f).Group("Cylinder", &IsCylinder);
+	c.Field<&P::cylinderStackCount>("StackCount", "Number of segments up the cylinder").Range(1.0f, 600.0f).Group("Cylinder", &IsCylinder);
 
 	c.Field<&P::coneBottomRadius>("BottomRadius", "Radius of the cone's base").Group("Cone", &IsCone);
 	c.Field<&P::coneHeight>("Height", "Height of the cone").Group("Cone", &IsCone);
-	c.Field<&P::coneSliceCount>("SliceCount", "Number of segments around the cone").Group("Cone", &IsCone);
-	c.Field<&P::coneStackCount>("StackCount", "Number of segments up the cone").Group("Cone", &IsCone);
+	c.Field<&P::coneSliceCount>("SliceCount", "Number of segments around the cone").Range(3.0f, 600.0f).Group("Cone", &IsCone);
+	c.Field<&P::coneStackCount>("StackCount", "Number of segments up the cone").Range(1.0f, 600.0f).Group("Cone", &IsCone);
 
-	c.Field<&P::torusOuterRadius>("OuterRadius", "Radius of the ring, to the middle of the tube").Group("Torus", &IsTorus);
-	c.Field<&P::torusInnerRadius>("InnerRadius", "Radius of the tube").Group("Torus", &IsTorus);
-	c.Field<&P::torusSliceCount>("SliceCount", "Number of segments around the ring").Group("Torus", &IsTorus);
+	c.Field<&P::torusOuterRadius>("OuterRadius", "Radius of the ring, to the middle of the tube").Range(0.0f, 100.0f).Group("Torus", &IsTorus);
+	c.Field<&P::torusInnerRadius>("InnerRadius", "Radius of the tube").Range(0.0f, 100.0f).Group("Torus", &IsTorus);
+	c.Field<&P::torusSliceCount>("SliceCount", "Number of segments around the ring").Range(3.0f, 600.0f).Group("Torus", &IsTorus);
 
 	c.OnChanged(&MarkForUpdate);
 }

@@ -19,12 +19,17 @@ void AudioSourceComponent::Describe(Reflection::Builder<AudioSourceComponent>& c
 		.Description("Plays an audio clip from the entity's position");
 
 	c.Field<&AudioSourceComponent::audioClip>("Clip", "The audio clip to play").MainAsset();
-	c.Field<&AudioSourceComponent::volume>("Volume", "Volume multiplier, 1 being the clip's own volume");
-	c.Field<&AudioSourceComponent::pitch>("Pitch", "Playback speed and pitch multiplier");
+	c.Field<&AudioSourceComponent::volume>("Volume", "Volume multiplier, 1 being the clip's own volume")
+		.Range(0.0f, 1.0f).Speed(0.01f);
+	c.Field<&AudioSourceComponent::pitch>("Pitch", "Playback speed and pitch multiplier")
+		.Range(0.0f, 3.0f).Speed(0.01f);
 	c.Field<&AudioSourceComponent::loop>("Loop", "Restart the clip when it finishes");
-	c.Field<&AudioSourceComponent::minDistance>("MinDistance", "Distance from the listener within which the clip plays at full volume");
-	c.Field<&AudioSourceComponent::maxDistance>("MaxDistance", "Distance from the listener beyond which the clip stops getting quieter");
-	c.Field<&AudioSourceComponent::rolloff>("Rolloff", "How quickly the volume falls off between MinDistance and MaxDistance");
+	c.Field<&AudioSourceComponent::minDistance>("MinDistance", "Distance from the listener within which the clip plays at full volume")
+		.Range(0.0f, 100.0f).Speed(0.5f);
+	c.Field<&AudioSourceComponent::maxDistance>("MaxDistance", "Distance from the listener beyond which the clip stops getting quieter")
+		.Range(0.0f, 100.0f).Speed(0.5f);
+	c.Field<&AudioSourceComponent::rolloff>("Rolloff", "How quickly the volume falls off between MinDistance and MaxDistance")
+		.Range(0.0f, 100.0f).Speed(0.5f);
 	c.Field<&AudioSourceComponent::stream>("Stream", "Stream the clip from disk instead of decoding it all up front");
 	c.Field<&AudioSourceComponent::playOnStart>("PlayOnStart", "Start playing when the scene starts");
 }

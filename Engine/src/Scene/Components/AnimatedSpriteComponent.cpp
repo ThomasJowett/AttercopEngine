@@ -2,6 +2,8 @@
 
 #include "Reflection/Describe.h"
 
+#include <algorithm>
+
 std::vector<FiredAnimationEvent> AnimatedSpriteComponent::Animate(float deltaTime)
 {
 	std::vector<FiredAnimationEvent> fired;
@@ -55,6 +57,18 @@ namespace AnimatedSpriteComponentReflection
 		if (Animation* animation = c.spriteSheet && !c.animation.empty() ? c.spriteSheet->GetAnimation(c.animation) : nullptr)
 			c.currentFrame = animation->GetStartFrame();
 	}
+
+	std::vector<std::string> AnimationNames(const AnimatedSpriteComponent& c)
+	{
+		std::vector<std::string> names;
+		if (c.spriteSheet)
+		{
+			for (const auto& [name, animation] : c.spriteSheet->GetAnimations())
+				names.push_back(name);
+		}
+		std::sort(names.begin(), names.end());
+		return names;
+	}
 }
 
 void AnimatedSpriteComponent::Describe(Reflection::Builder<AnimatedSpriteComponent>& c)
@@ -68,5 +82,5 @@ void AnimatedSpriteComponent::Describe(Reflection::Builder<AnimatedSpriteCompone
 		.OnChanged(&ShowStartFrame);
 	c.Field<&AnimatedSpriteComponent::tint>("Tint", "Colour multiplied over the sprite sheet");
 	c.Field<&AnimatedSpriteComponent::animation>("Animation", "Name of the sprite sheet animation to play")
-		.OnChanged(&ShowStartFrame);
+		.Choices(&AnimationNames).OnChanged(&ShowStartFrame);
 }

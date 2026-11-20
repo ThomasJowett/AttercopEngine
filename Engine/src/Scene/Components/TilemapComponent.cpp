@@ -514,8 +514,8 @@ void TilemapComponent::Describe(Reflection::Builder<TilemapComponent>& c)
 		.Description("A grid of tiles from a tileset, with collision from the tileset's shapes");
 
 	c.Field<&TilemapComponent::tileset>("Tileset", "The tileset this map draws its tiles from").MainAsset();
-	c.Field<&TilemapComponent::tilesWide>("TilesWide", "Number of tile columns").Label("Width").OnChanged(&ResizeTiles);
-	c.Field<&TilemapComponent::tilesHigh>("TilesHigh", "Number of tile rows").Label("Height").OnChanged(&ResizeTiles);
+	c.Field<&TilemapComponent::tilesWide>("TilesWide", "Number of tile columns").Label("Width").Range(0.0f, 1000.0f).Speed(1.0f).EditFromStart().OnChanged(&ResizeTiles);
+	c.Field<&TilemapComponent::tilesHigh>("TilesHigh", "Number of tile rows").Label("Height").Range(0.0f, 1000.0f).Speed(1.0f).EditFromStart().OnChanged(&ResizeTiles);
 	c.Field<&TilemapComponent::tileWidth>("TileWidth", "Width of a single tile, in pixels");
 	c.Field<&TilemapComponent::tileHeight>("TileHeight", "Height of a single tile, in pixels");
 	c.Field<&TilemapComponent::tint>("Tint", "Colour multiplied over every tile");

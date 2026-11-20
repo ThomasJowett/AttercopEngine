@@ -36,8 +36,10 @@ void CapsuleCollider2DComponent::Describe(Reflection::Builder<CapsuleCollider2DC
 
 	c.Field<&CapsuleCollider2DComponent::physicsMaterial>("PhysicsMaterial", "Density, friction and restitution of the shape, or nil for the defaults");
 	c.Field<&CapsuleCollider2DComponent::direction>("Direction", "Whether the capsule's length runs up or across");
-	c.Field<&CapsuleCollider2DComponent::radius>("Radius", "Radius of the capsule's rounded ends");
-	c.Field<&CapsuleCollider2DComponent::height>("Height", "Total height of the capsule");
+	c.Field<&CapsuleCollider2DComponent::radius>("Radius", "Radius of the capsule's rounded ends")
+		.Range(0.0f, 10.0f).Speed(0.01f);
+	c.Field<&CapsuleCollider2DComponent::height>("Height", "Total height of the capsule")
+		.Range(0.0f, 10.0f).Speed(0.01f);
 	c.Field<&CapsuleCollider2DComponent::offset>("Offset", "Offset of the shape from the entity's position");
 	c.Field<&CapsuleCollider2DComponent::isTrigger>("IsTrigger", "Whether the shape only reports overlaps instead of physically blocking");
 	c.Layer<&CapsuleCollider2DComponent::layer>("Layer", "The collision layer this collider is on");
