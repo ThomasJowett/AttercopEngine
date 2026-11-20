@@ -129,7 +129,7 @@ void PropertiesPanel::RegisterOverrides()
 				return;
 			if (const Ref<Texture2D>& texture = sprite.GetTexture())
 			{
-				if (ImGui::Button("Pixel Perfect"))
+				if (ImGui::Button(ICON_FA_EXPAND " Pixel Perfect"))
 					PixelPerfect(inspector, entity, texture->GetWidth(), texture->GetHeight());
 				ImGui::Tooltip("Set Scale to pixel perfect scaling");
 			}
@@ -144,7 +144,7 @@ void PropertiesPanel::RegisterOverrides()
 			bool reloaded = false;
 			ReloadIfChanged(sprite.spriteSheet, spriteSheetWriteTime, reloaded);
 
-			if (ImGui::Button("Pixel Perfect"))
+			if (ImGui::Button(ICON_FA_EXPAND " Pixel Perfect"))
 			{
 				const Ref<SubTexture2D> frame = sprite.spriteSheet->GetSubTexture();
 				PixelPerfect(inspector, entity, frame->GetSpriteWidth(), frame->GetSpriteHeight());
@@ -157,7 +157,7 @@ void PropertiesPanel::RegisterOverrides()
 			ButtonComponent& button = entity.GetComponent<ButtonComponent>();
 			if (!button.normalTexture)
 				return;
-			if (ImGui::Button("Pixel Perfect"))
+			if (ImGui::Button(ICON_FA_EXPAND " Pixel Perfect"))
 			{
 				if (WidgetComponent* widget = entity.TryGetComponent<WidgetComponent>())
 				{

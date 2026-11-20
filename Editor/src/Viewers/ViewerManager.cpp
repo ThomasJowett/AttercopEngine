@@ -257,7 +257,7 @@ const char* ViewerManager::GetIcon(FileType fileType)
 	case FileType::SPRITESHEET:		return ICON_FA_PHOTO_FILM;
 	case FileType::PHYSICSMATERIAL:	return ICON_FA_VOLLEYBALL;
 	case FileType::FONT:			return ICON_FA_FONT;
-	case FileType::BEHAVIOURTREE:
+	case FileType::BEHAVIOURTREE:	return ICON_FA_CODE_BRANCH;
 	case FileType::STATEMACHINE:	return ICON_FA_DIAGRAM_PROJECT;
 	default:						return ICON_FA_FILE;
 	}
