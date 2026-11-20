@@ -43,16 +43,16 @@ namespace
 	};
 
 	// Editor-only, as the icon fonts are; a component missing here is shown with its name
-	const ComponentLook k_Looks[] = {
+	const ComponentLook s_Looks[] = {
 		{ "Transform", ICON_MDI_AXIS_ARROW " Transform" },
 		{ "Widget", ICON_MDI_WIDGETS " Widget" },
 		{ "Sprite", ICON_FA_IMAGE " Sprite" },
-		{ "AnimatedSprite", ICON_FA_IMAGE " Animated Sprite" },
+		{ "AnimatedSprite", ICON_FA_FILM " Animated Sprite" },
 		{ "CircleRenderer", ICON_FA_CIRCLE " Circle Renderer" },
 		{ "Tilemap", ICON_FA_BORDER_ALL " Tilemap" },
 		{ "StaticMesh", ICON_FA_SHAPES " Static Mesh" },
 		{ "Camera", ICON_FA_VIDEO " Camera" },
-		{ "Primitive", ICON_FA_SHAPES " Primitive" },
+		{ "Primitive", ICON_FA_CUBE " Primitive" },
 		{ "Text", ICON_FA_FONT " Text" },
 		{ "RigidBody2D", ICON_FA_BASEBALL " Rigid Body 2D" },
 		{ "BoxCollider2D", ICON_FA_VECTOR_SQUARE " Box Collider 2D" },
@@ -61,7 +61,7 @@ namespace
 		{ "CapsuleCollider2D", ICON_FA_CAPSULES " Capsule Collider 2D" },
 		{ "WeldJoint2D", ICON_FA_LINK " Weld Joint 2D" },
 		{ "PointLight", ICON_FA_LIGHTBULB " Point Light" },
-		{ "BehaviourTree", ICON_FA_DIAGRAM_PROJECT " Behaviour Tree" },
+		{ "BehaviourTree", ICON_FA_CODE_BRANCH " Behaviour Tree" },
 		{ "StateMachine", ICON_FA_DIAGRAM_PROJECT " State Machine" },
 		{ "Billboard", ICON_FA_SIGN_HANGING " Billboard" },
 		{ "Canvas", ICON_FA_OBJECT_GROUP " Canvas" },
@@ -78,7 +78,7 @@ namespace
 
 	const ComponentLook* FindLook(const std::string& name)
 	{
-		for (const ComponentLook& look : k_Looks)
+		for (const ComponentLook& look : s_Looks)
 		{
 			if (name == look.name)
 				return &look;
@@ -98,7 +98,7 @@ namespace
 		return nullptr;
 	}
 
-	constexpr float k_DegreesPerRadian = 57.2957795f;
+	constexpr float s_DegreesPerRadian = 57.2957795f;
 
 	int ResizeString(ImGuiInputTextCallbackData* data)
 	{
@@ -395,7 +395,7 @@ bool ComponentInspector::DrawField(Entity entity, const ComponentType& type, int
 	std::optional<Value> edited = DrawWidget(field, field.get(component), DefaultOf(type, index), component);
 	ImGui::EndGroup();
 	ImGui::EndDisabled();
-	DescriptionTooltip(field.description);
+	DescriptionTooltip(field.Has(FieldFlags::Degrees) ? field.description + ", in degrees" : field.description);
 
 	if (ImGui::IsItemActivated())
 		m_Edits.Begin(entity, path);
@@ -426,7 +426,7 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 {
 	const char* label = field.label.c_str();
 	const bool degrees = field.Has(FieldFlags::Degrees);
-	const float scale = degrees ? k_DegreesPerRadian : 1.0f;
+	const float scale = degrees ? s_DegreesPerRadian : 1.0f;
 
 	switch (field.type)
 	{
@@ -508,22 +508,26 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 		const Vector3f before = value.As<Vector3f>() * scale;
 		Vector3f vector = before;
 
-		bool locked = false;
-		if (field.Has(FieldFlags::LockParts))
+		const bool lockable = field.Has(FieldFlags::LockParts);
+		const bool locked = lockable && m_Unlocked.find(&field) == m_Unlocked.end();
+		const bool edited = ImGui::Vector(label, vector, defaultValue.As<Vector3f>() * scale);
+
+		// After the label, so the parts line up with the fields above
+		if (lockable)
 		{
-			locked = m_Unlocked.find(&field) == m_Unlocked.end();
-			if (ImGui::Checkbox(locked ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN, &locked))
+			ImGui::SameLine();
+			bool lock = locked;
+			if (ImGui::Checkbox(locked ? ICON_FA_LOCK : ICON_FA_LOCK_OPEN, &lock))
 			{
-				if (locked)
+				if (lock)
 					m_Unlocked.erase(&field);
 				else
 					m_Unlocked[&field] = true;
 			}
 			ImGui::Tooltip("Lock the parts together");
-			ImGui::SameLine();
 		}
 
-		if (!ImGui::Vector(label, vector, defaultValue.As<Vector3f>() * scale))
+		if (!edited)
 			return std::nullopt;
 
 		if (locked)
@@ -643,8 +647,9 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 {
 	ImGui::Dummy({ 0, 0 });
 	const float width = ImGui::GetContentRegionAvail().x;
-	ImGui::SameLine((width / 2.0f) - (ImGui::CalcTextSize("Add Component").x / 2.0f));
-	if (ImGui::Button("Add Component"))
+	const char* addLabel = ICON_FA_CIRCLE_PLUS " Add Component";
+	ImGui::SameLine((width / 2.0f) - (ImGui::CalcTextSize(addLabel).x / 2.0f));
+	if (ImGui::Button(addLabel))
 		ImGui::OpenPopup("Components");
 
 	if (!ImGui::BeginPopup("Components"))
@@ -667,6 +672,7 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 			if (!IsShown(*type) || type->category != category)
 				continue;
 			const bool has = type->tryGet(scene.GetRegistry(), entity.GetHandle()) != nullptr;
+			const ComponentType* excluded = ExcludedBy(scene.GetRegistry(), entity.GetHandle(), *type);
 
 			// A script is chosen as it's added
 			if (type == &TypeOf<LuaScriptComponent>())
@@ -687,7 +693,10 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 				continue;
 			}
 
-			if (ImGui::MenuItem(Title(*type).c_str(), nullptr, false, !has))
+			const bool added = ImGui::MenuItem(Title(*type).c_str(), nullptr, false, !has && !excluded);
+			if (excluded && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+				ImGui::SetTooltip("Can't be on the same entity as a %s", SplitWords(excluded->name).c_str());
+			if (added)
 			{
 				Scope<AddComponentCommand> command = CreateScope<AddComponentCommand>(entity, *type);
 				type->emplace(scene.GetRegistry(), entity.GetHandle());
