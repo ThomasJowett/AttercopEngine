@@ -238,7 +238,7 @@ namespace ComponentFixture
 		REQUIRE(root.HasComponent<TransformComponent>());
 		const TransformComponent& transform = root.GetComponent<TransformComponent>();
 		CHECK(transform.GetPosition() == Vector3f(1.0f, 2.0f, 3.0f));
-		CHECK(transform.GetRotation() == Vector3f(0.25f, 0.5f, 0.75f));
+		CHECK(transform.GetEulerAngles() == Vector3f(0.25f, 0.5f, 0.75f));
 		CHECK(transform.GetScale() == Vector3f(2.0f, 3.0f, 4.0f));
 
 		REQUIRE(root.HasComponent<CameraComponent>());

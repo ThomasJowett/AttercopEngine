@@ -84,7 +84,7 @@ TEST_CASE("World rotation combines a 3D parent rotation with the child's")
 	SceneGraph::Traverse(registry);
 
 	const TransformComponent& childTransform = registry.get<TransformComponent>(child);
-	CheckSameRotation(FromEuler(childTransform.GetWorldRotation()), RotationPart(childTransform.GetWorldMatrix()));
+	CheckSameRotation(FromEuler(childTransform.GetWorldEulerAngles()), RotationPart(childTransform.GetWorldMatrix()));
 }
 
 TEST_CASE("World rotation of a mirrored 2D parent")
@@ -103,7 +103,7 @@ TEST_CASE("World rotation of a mirrored 2D parent")
 
 	// Rotation then the mirrored scale must rebuild the world matrix
 	const TransformComponent& childTransform = registry.get<TransformComponent>(child);
-	Matrix4x4 rebuilt = FromEuler(childTransform.GetWorldRotation()) * Matrix4x4::Scale(Vector3f(-1.0f, 1.0f, 1.0f));
+	Matrix4x4 rebuilt = FromEuler(childTransform.GetWorldEulerAngles()) * Matrix4x4::Scale(Vector3f(-1.0f, 1.0f, 1.0f));
 	CheckSameRotation(rebuilt, childTransform.GetWorldMatrix());
 }
 
@@ -118,4 +118,47 @@ TEST_CASE("Scale is extracted from a rotated, translated matrix")
 		CHECK(scale.y == doctest::Approx(0.5f).epsilon(k_Tolerance));
 		CHECK(scale.z == doctest::Approx(3.0f).epsilon(k_Tolerance));
 	}
+}
+
+TEST_CASE("SetEulerAngles stores the angles exactly as given, past a whole turn included")
+{
+	TransformComponent transform;
+	Vector3f angles((float)DegToRad(7.0), (float)DegToRad(-400.0), (float)DegToRad(370.0));
+	transform.SetEulerAngles(angles);
+	CHECK(transform.GetEulerAngles() == angles);
+}
+
+TEST_CASE("The 2D angle is the Z Euler angle, and setting it keeps X and Y")
+{
+	TransformComponent transform;
+	transform.SetEulerAngles(Vector3f(0.25f, -0.5f, 0.75f));
+	CHECK(transform.GetAngle2D() == 0.75f);
+
+	// Box2D's angle isn't wrapped, so neither is the stored one
+	const float threeTurns = (float)(PI * 6.0) + 0.1f;
+	transform.SetAngle2D(threeTurns);
+	CHECK(transform.GetAngle2D() == threeTurns);
+	CHECK(transform.GetEulerAngles() == Vector3f(0.25f, -0.5f, threeTurns));
+
+	transform.SetAngle2D(-1.0f);
+	CHECK(transform.GetAngle2D() == -1.0f);
+}
+
+TEST_CASE("SetAngle2D marks the transform dirty only when the angle changes")
+{
+	entt::registry registry;
+	entt::entity entity = registry.create();
+	registry.emplace<TransformComponent>(entity, Vector3f(0.0f, 0.0f, 0.0f), Vector3f(0.0f, 0.0f, 0.5f), Vector3f(1.0f, 1.0f, 1.0f));
+	registry.emplace<HierarchyComponent>(entity);
+	SceneGraph::Traverse(registry);
+
+	TransformComponent& transform = registry.get<TransformComponent>(entity);
+	REQUIRE_FALSE(transform.IsDirty());
+	transform.SetAngle2D(0.5f);
+	CHECK_FALSE(transform.IsDirty());
+	transform.SetAngle2D(1.0f);
+	CHECK(transform.IsDirty());
+
+	SceneGraph::Traverse(registry);
+	CheckSameRotation(transform.GetWorldMatrix(), FromEuler(Vector3f(0.0f, 0.0f, 1.0f)));
 }

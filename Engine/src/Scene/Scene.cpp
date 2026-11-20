@@ -242,7 +242,7 @@ Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 			transformComp->GetWorldMatrix().Decompose(position, rotation, scale);
 			SceneGraph::Unparent(newEntity);
 			transformComp->SetPosition(position);
-			transformComp->SetRotation(rotation);
+			transformComp->SetEulerAngles(rotation);
 			transformComp->SetScale(scale);
 		}
 	}
@@ -464,7 +464,7 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		// The entity's own rotation applies on top, e.g. 180 degrees around Y to show its back
 		bool upright = billboardComp.orientation == BillboardComponent::Orientation::WorldUp;
 		Matrix4x4 facing = pointAtCamera(position, cameraTransform, upright);
-		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.GetRotation()));
+		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.GetEulerAngles()));
 		transformComp.OverrideWorldMatrix(Matrix4x4::Translate(position) * facing * localRotation * Matrix4x4::Scale(transformComp.GetWorldMatrix().ExtractScale()));
 	}
 
@@ -567,7 +567,7 @@ void Scene::Render()
 	if (cameraEntity)
 	{
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
+		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
 		projection = cameraComp.camera.GetProjectionMatrix();
 	}
 
@@ -882,37 +882,37 @@ void Scene::OnFixedUpdate()
 			{
 				// Bodies added this step get their Box2D body at the start of the next one
 				if (rigidBodyComp.runtimeBody)
-					rigidBodyComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					rigidBodyComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 
 		m_Registry.view<TransformComponent, BoxCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 
 		m_Registry.view<TransformComponent, CircleCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 
 		m_Registry.view<TransformComponent, PolygonCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 
 		m_Registry.view<TransformComponent, CapsuleCollider2DComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 
 		m_Registry.view<TransformComponent, TilemapComponent>(entt::exclude<RigidBody2DComponent>).each([=](auto entity, auto& transformComp, auto& colliderComp)
 			{
 				if (colliderComp.runtimeBody)
-					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetRotation().z);
+					colliderComp.runtimeBody->SetTransform(b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y), transformComp.GetAngle2D());
 			});
 	}
 
@@ -1175,7 +1175,7 @@ std::tuple<Matrix4x4, Matrix4x4> Scene::GetPrimaryCameraViewProjection()
 	{
 		SceneGraph::UpdateWorldTransform(m_Registry, cameraEntity);
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
+		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
 		Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();
 		return std::make_tuple(view, projection);
 	}

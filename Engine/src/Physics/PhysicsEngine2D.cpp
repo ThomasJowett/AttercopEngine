@@ -235,9 +235,8 @@ void PhysicsEngine2D::OnFixedUpdate()
 				ApplyRigidBodySettings(rigidBodyComp);
 			}
 			const b2Vec2& position = rigidBodyComp.runtimeBody->GetPosition();
-			const Vector3f& rotation = transformComp.GetRotation();
 			transformComp.SetPosition(Vector3f(position.x, position.y, transformComp.GetPosition().z));
-			transformComp.SetRotation(Vector3f(rotation.x, rotation.y, (float)rigidBodyComp.runtimeBody->GetAngle()));
+			transformComp.SetAngle2D((float)rigidBodyComp.runtimeBody->GetAngle());
 		});
 }
 
@@ -329,9 +328,8 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 	{
 		Pose2D pose = GetWorldPose(registry, entity.GetHandle());
 		SceneGraph::Unparent(entity);
-		const Vector3f& rotation = transformComp.GetRotation();
 		transformComp.SetPosition(pose.position);
-		transformComp.SetRotation(Vector3f(rotation.x, rotation.y, pose.angle));
+		transformComp.SetAngle2D(pose.angle);
 		transformComp.SetScale(Vector3f(pose.scale.x, pose.scale.y, transformComp.GetScale().z));
 	}
 
@@ -340,7 +338,7 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		b2BodyDef bodyDef;
 		bodyDef.type = (b2BodyType)GetRigidBodyBox2DType(rigidBodyComp->type);
 		bodyDef.position = b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y);
-		bodyDef.angle = (float)transformComp.GetRotation().z;
+		bodyDef.angle = transformComp.GetAngle2D();
 
 		if (rigidBodyComp->type == RigidBody2DComponent::BodyType::DYNAMIC)
 		{
@@ -365,7 +363,7 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		b2BodyDef bodyDef;
 		bodyDef.type = b2BodyType::b2_kinematicBody;
 		bodyDef.position = b2Vec2(transformComp.GetPosition().x, transformComp.GetPosition().y);
-		bodyDef.angle = (float)transformComp.GetRotation().z;
+		bodyDef.angle = transformComp.GetAngle2D();
 		body = m_Box2DWorld->CreateBody(&bodyDef);
 	}
 	else

@@ -213,7 +213,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 			TransformComponent& transformComp = selectedEntity.GetComponent<TransformComponent>();
 
 			CameraComponent& cameraComp = selectedEntity.GetComponent<CameraComponent>();
-			Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
+			Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
 			Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();
 			m_CameraPreview->Bind();
 			RenderCommand::Clear();
@@ -239,7 +239,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 
 				Matrix4x4 transform = transformComp.GetParentMatrix()
 					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
+					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
 					* Matrix4x4::Translate(Vector3f(circleComp.offset.x, circleComp.offset.y, 0.001f))
 					* Matrix4x4::Scale(Vector3f(scale, scale, 1.0f));
 
@@ -252,7 +252,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 
 				Matrix4x4 transform = transformComp.GetParentMatrix()
 					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
+					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
 					* Matrix4x4::Translate(Vector3f(boxComp.offset.x, boxComp.offset.y, 0.001f))
 					* Matrix4x4::Scale(Vector3f(boxComp.size.x * transformComp.GetScale().x * 2, boxComp.size.y * transformComp.GetScale().y * 2, 1.0f));
 
@@ -270,7 +270,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 				{
 					Matrix4x4 transform = transformComp.GetParentMatrix()
 						* Matrix4x4::Translate(transformComp.GetPosition())
-						* Matrix4x4::RotateZ(transformComp.GetRotation().z)
+						* Matrix4x4::RotateZ(transformComp.GetAngle2D())
 						* Matrix4x4::Translate(Vector3f(polygonComp.offset.x + vertex.x * transformComp.GetScale().x,
 							polygonComp.offset.y + vertex.y * transformComp.GetScale().y, 0.001f));
 					vertices.push_back(transform * Vector3f());
@@ -284,7 +284,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 				CapsuleCollider2DComponent& capsuleComp = selectedEntity.GetComponent<CapsuleCollider2DComponent>();
 				Matrix4x4 transform = transformComp.GetParentMatrix()
 					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetRotation().z)
+					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
 					* Matrix4x4::Translate(Vector3f(capsuleComp.offset.x, capsuleComp.offset.y, 0.001f));
 				float scaledradius;
 				float halfHeight;
@@ -495,7 +495,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		SceneManager::CurrentScene()->GetRegistry().view<TransformComponent, CameraComponent>().each(
 			[](const auto entity, auto& transformComp, auto& cameraComp)
 			{
-				Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldRotation()));
+				Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
 				Matrix4x4 projection = Matrix4x4::Inverse(cameraComp.camera.GetProjectionMatrix());
 
 				Vector4f frontTopLeft_4 = Vector4f(-1.0f, 1.0f, 0.0f, 1.0f) * projection * view;
@@ -1033,9 +1033,9 @@ void ViewportPanel::OnImGuiRender()
 						{
 							rigidBody2DComp->SetTransform(Vector2f(translation[0], translation[1]), rotationRad.z);
 							const Vector3f& currentPosition = transformComp->GetPosition();
-							const Vector3f& currentRotation = transformComp->GetRotation();
+							const Vector3f& currentRotation = transformComp->GetEulerAngles();
 							transformComp->SetPosition(Vector3f(currentPosition.x, currentPosition.y, translation[2]));
-							transformComp->SetRotation(Vector3f(rotationRad.x, rotationRad.y, currentRotation.z));
+							transformComp->SetEulerAngles(Vector3f(rotationRad.x, rotationRad.y, currentRotation.z));
 
 							if (SceneManager::GetSceneState() == SceneState::SimulatePause)
 							{
@@ -1044,12 +1044,12 @@ void ViewportPanel::OnImGuiRender()
 
 								rigidBody2DComp->GetTransform(bodyPosition, angle);
 								transformComp->SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, translation[2]));
-								transformComp->SetRotation(Vector3f(rotationRad.x, rotationRad.y, angle));
+								transformComp->SetEulerAngles(Vector3f(rotationRad.x, rotationRad.y, angle));
 							}
 						}
 						else
 						{
-							Vector3f deltaRotation = rotationRad - transformComp->GetRotation();
+							Vector3f deltaRotation = rotationRad - transformComp->GetEulerAngles();
 							if (gizmoOperation == ImGuizmo::OPERATION::TRANSLATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
 								Vector3f translationVec = Vector3f(translation[0], translation[1], translation[2]);
@@ -1061,7 +1061,7 @@ void ViewportPanel::OnImGuiRender()
 							{
 								if (deltaRotation.SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetRotation(transformComp->GetRotation() + deltaRotation);
+								transformComp->SetEulerAngles(transformComp->GetEulerAngles() + deltaRotation);
 							}
 							if (gizmoOperation == ImGuizmo::OPERATION::SCALE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
