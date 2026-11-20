@@ -54,6 +54,16 @@ TEST_CASE("Multiplying quaternions applies the right-hand one first")
 	CheckSameVector(Rotate(a * b, v), Rotate(a, Rotate(b, v)));
 }
 
+TEST_CASE("Multiplying works on const quaternions")
+{
+	const Quaternion a(Vector3f(0.0f, 0.0f, 1.0f), k_QuarterTurn);
+	const Quaternion b(Vector3f(1.0f, 0.0f, 0.0f), k_QuarterTurn);
+	const Quaternion product = a * b;
+	Vector3f v(0.0f, 1.0f, 0.0f);
+	CheckSameVector(product * v, a * (b * v));
+	CheckSameVector(a * Vector3f(1.0f, 0.0f, 0.0f), Vector3f(0.0f, 1.0f, 0.0f));
+}
+
 TEST_CASE("Slerp goes from the first rotation to the second at a steady rate")
 {
 	Quaternion start(Vector3f(0.0f, 0.0f, 1.0f), 0.0f);
@@ -65,12 +75,41 @@ TEST_CASE("Slerp goes from the first rotation to the second at a steady rate")
 	CHECK(Length(Quaternion::Slerp(start, end, 0.3)) == doctest::Approx(1.0f));
 }
 
+TEST_CASE("Slerp gives the ends at t = 0 and t = 1")
+{
+	Quaternion start(Vector3f(0.3f, -0.7f, 1.2f));
+	Quaternion end(Vector3f(-1.0f, 0.4f, 0.2f));
+	Quaternion atStart = Quaternion::Slerp(start, end, 0.0);
+	Quaternion atEnd = Quaternion::Slerp(start, end, 1.0);
+	// q and -q are the same rotation
+	CHECK(std::abs(Quaternion::Dot(atStart, start)) == doctest::Approx(1.0f));
+	CHECK(std::abs(Quaternion::Dot(atEnd, end)) == doctest::Approx(1.0f));
+}
+
+TEST_CASE("Slerp between very close rotations interpolates by t")
+{
+	const float tiny = 0.0005f;	// well under 0.1 degrees
+	Quaternion start(Vector3f(0.0f, 0.0f, 1.0f), 0.0f);
+	Quaternion end(Vector3f(0.0f, 0.0f, 1.0f), tiny);
+	CHECK(AngleAboutZ(Quaternion::Slerp(start, end, 0.0)) == doctest::Approx(0.0f).scale(1.0f));
+	CHECK(AngleAboutZ(Quaternion::Slerp(start, end, 0.25)) == doctest::Approx(tiny * 0.25f).epsilon(0.01));
+	CHECK(AngleAboutZ(Quaternion::Slerp(start, end, 1.0)) == doctest::Approx(tiny).epsilon(0.01));
+	CHECK(Length(Quaternion::Slerp(start, end, 0.25)) == doctest::Approx(1.0f));
+
+	Quaternion same = Quaternion::Slerp(end, end, 0.5);
+	CHECK(std::abs(Quaternion::Dot(same, end)) == doctest::Approx(1.0f));
+}
+
 TEST_CASE("Slerp takes the shorter way round")
 {
 	Quaternion start(Vector3f(0.0f, 0.0f, 1.0f), 0.0f);
 	Quaternion end(Vector3f(0.0f, 0.0f, 1.0f), k_QuarterTurn);
 	Quaternion negatedEnd(-end.r, -end.i, -end.j, -end.k);
 	CHECK(AngleAboutZ(Quaternion::Slerp(start, negatedEnd, 0.5)) == doctest::Approx(k_QuarterTurn * 0.5f));
+
+	// 350 degrees apart one way is 10 the other
+	Quaternion farEnd(Vector3f(0.0f, 0.0f, 1.0f), (float)DegToRad(350.0));
+	CHECK(AngleAboutZ(Quaternion::Slerp(start, farEnd, 0.5)) == doctest::Approx((float)DegToRad(-5.0)));
 }
 
 TEST_CASE("Nlerp reaches both ends, stays unit length and takes the shorter way round")
