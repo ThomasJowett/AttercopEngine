@@ -2,6 +2,8 @@
 
 #include "History/HistoryCommands.h"
 #include "History/SceneHistory.h"
+#include "ComponentFixture.h"
+#include "Reflection/Reflection.h"
 #include "Scene/Components.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
@@ -32,7 +34,7 @@ namespace HistoryTests
 	// Moves the entity as one pushed step
 	void PushMove(SceneHistory& history, Scene& scene, Entity entity, float x)
 	{
-		Scope<EditComponentCommand<TransformComponent>> command = CreateScope<EditComponentCommand<TransformComponent>>(entity);
+		Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>());
 		SetX(entity, x);
 		history.Push(scene, std::move(command));
 	}
@@ -42,7 +44,7 @@ namespace HistoryTests
 	{
 		const EditKey key = ComponentEditKey<TransformComponent>(entity);
 		if (!history.IsOpen(key))
-			history.Begin(scene, key, CreateScope<EditComponentCommand<TransformComponent>>(entity));
+			history.Begin(scene, key, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
 		SetX(entity, x);
 	}
 
@@ -151,7 +153,7 @@ TEST_CASE("A step that changed nothing isn't pushed")
 
 	SUBCASE("pushed with no change")
 	{
-		history.Push(scene, CreateScope<EditComponentCommand<TransformComponent>>(entity));
+		history.Push(scene, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
 		CHECK(history.GetStepCount() == 0);
 	}
 
@@ -459,11 +461,11 @@ TEST_CASE("Adding and removing a component undo and redo")
 	Entity entity = scene.CreateEntity("Entity");
 	SceneHistory history;
 
-	Scope<AddComponentCommand<CircleRendererComponent>> add = CreateScope<AddComponentCommand<CircleRendererComponent>>(entity);
+	Scope<AddComponentCommand> add = CreateScope<AddComponentCommand>(entity, Reflection::TypeOf<CircleRendererComponent>());
 	entity.AddComponent<CircleRendererComponent>().thickness = 0.5f;
 	history.Push(scene, std::move(add));
 
-	Scope<RemoveComponentCommand<CircleRendererComponent>> remove = CreateScope<RemoveComponentCommand<CircleRendererComponent>>(entity);
+	Scope<RemoveComponentCommand> remove = CreateScope<RemoveComponentCommand>(entity, Reflection::TypeOf<CircleRendererComponent>());
 	entity.RemoveComponent<CircleRendererComponent>();
 	history.Push(scene, std::move(remove));
 
@@ -475,4 +477,69 @@ TEST_CASE("Adding and removing a component undo and redo")
 	history.Redo(scene);
 	REQUIRE(entity.HasComponent<CircleRendererComponent>());
 	CHECK(entity.GetComponent<CircleRendererComponent>().thickness == 0.5f);
+}
+
+TEST_CASE("The edit command undoes and redoes the whole of every component in the fixture")
+{
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	Entity child = root.GetChild();
+	SceneHistory history;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		for (Entity entity : { root, child })
+		{
+			if (!type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+				continue;
+			INFO(type->name);
+			const Reflection::ComponentValues edited = Reflection::Capture(entity, *type);
+
+			// The edit puts the component back to its defaults
+			Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, *type);
+			Reflection::Restore(entity, Reflection::Defaults(*type), Reflection::ChangeSource::Editor);
+			const Reflection::ComponentValues defaults = Reflection::Capture(entity, *type);
+			const size_t position = history.GetPosition();
+			history.Push(scene, std::move(command));
+			if (defaults.values == edited.values && defaults.custom == edited.custom)
+			{
+				CHECK(history.GetPosition() == position);
+				continue;
+			}
+			REQUIRE(history.GetPosition() == position + 1);
+
+			history.Undo(scene);
+			Reflection::ComponentValues undone = Reflection::Capture(entity, *type);
+			CHECK(undone.values == edited.values);
+			CHECK(undone.custom == edited.custom);
+
+			history.Redo(scene);
+			Reflection::ComponentValues redone = Reflection::Capture(entity, *type);
+			CHECK(redone.values == defaults.values);
+			CHECK(redone.custom == defaults.custom);
+
+			// Back to the fixture's values for the next component
+			history.Undo(scene);
+		}
+	}
+	ComponentFixture::Check(root);
+}
+
+TEST_CASE("Ending an edit that changed nothing pushes no step")
+{
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	SceneHistory history;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal() || !type->tryGet(scene.GetRegistry(), root.GetHandle()))
+			continue;
+		INFO(type->name);
+		history.Begin(scene, ComponentEditKey(root, *type), CreateScope<EditComponentCommand>(root, *type));
+		history.End(scene);
+		CHECK(history.GetStepCount() == 0);
+	}
 }

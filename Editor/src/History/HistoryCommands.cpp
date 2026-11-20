@@ -21,34 +21,27 @@ namespace HistoryCommands
 		return id ? Find(scene, *id) : Entity();
 	}
 
-	static std::string SaveCustomField(const Reflection::FieldInfo& field, const void* component)
+	static size_t SizeOf(const Reflection::Value& value)
 	{
-		tinyxml2::XMLDocument document;
-		tinyxml2::XMLElement* element = document.NewElement("Component");
-		document.InsertEndChild(element);
-		field.save(component, element);
-		tinyxml2::XMLPrinter printer(nullptr, true);
-		document.Print(&printer);
-		return printer.CStr();
+		size_t size = sizeof(value);
+		if (const std::string* text = value.TryAs<std::string>())
+			size += text->capacity();
+		else if (const Reflection::AssetValue* asset = value.TryAs<Reflection::AssetValue>())
+			size += asset->path.native().capacity() * sizeof(std::filesystem::path::value_type);
+		else if (const Reflection::ValueList* list = value.TryAs<Reflection::ValueList>())
+		{
+			for (const Reflection::Value& item : *list)
+				size += SizeOf(item);
+		}
+		return size;
 	}
 
-	bool SameSavedValues(const Reflection::ComponentType& type, const void* a, const void* b)
+	size_t SizeOf(const Reflection::ComponentValues& values)
 	{
-		for (const Reflection::FieldInfo& field : type.fields)
-		{
-			if (!field.IsSaved())
-				continue;
-			if (field.IsCustom())
-			{
-				if (SaveCustomField(field, a) != SaveCustomField(field, b))
-					return false;
-			}
-			else if (!(field.get(a) == field.get(b)))
-			{
-				return false;
-			}
-		}
-		return true;
+		size_t size = sizeof(values) + values.custom.capacity();
+		for (const Reflection::Value& value : values.values)
+			size += SizeOf(value);
+		return size;
 	}
 
 	static std::optional<Uuid> ParentID(Entity entity)
@@ -196,4 +189,97 @@ void MoveSiblingCommand::Redo(Scene& scene)
 		SceneGraph::MoveBefore(entity, anchor);
 	else
 		SceneGraph::MoveAfter(entity, anchor);
+}
+
+EditKey ComponentEditKey(Entity entity, const Reflection::ComponentType& type)
+{
+	return EditKey({ entity.GetID() }, &type);
+}
+
+static bool SameValues(const Reflection::ComponentValues& a, const Reflection::ComponentValues& b)
+{
+	return a.values == b.values && a.custom == b.custom;
+}
+
+AddComponentCommand::AddComponentCommand(Entity entity, const Reflection::ComponentType& type)
+	: m_Entity(entity.GetID())
+{
+	m_Added.type = &type;
+}
+
+void AddComponentCommand::Undo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		m_Added.type->remove(scene.GetRegistry(), entity.GetHandle());
+}
+
+void AddComponentCommand::Redo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		Reflection::Restore(entity, m_Added, Reflection::ChangeSource::Undo);
+}
+
+bool AddComponentCommand::End(Scene& scene)
+{
+	Entity entity = HistoryCommands::Find(scene, m_Entity);
+	if (!entity || !m_Added.type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+		return false;
+	m_Added = Reflection::Capture(entity, *m_Added.type);
+	return true;
+}
+
+std::string AddComponentCommand::GetName() const { return "Add " + m_Added.type->name; }
+size_t AddComponentCommand::GetSize() const { return sizeof(*this) + HistoryCommands::SizeOf(m_Added); }
+
+RemoveComponentCommand::RemoveComponentCommand(Entity entity, const Reflection::ComponentType& type)
+	: m_Entity(entity.GetID()), m_Removed(Reflection::Capture(entity, type))
+{
+}
+
+void RemoveComponentCommand::Undo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		Reflection::Restore(entity, m_Removed, Reflection::ChangeSource::Undo);
+}
+
+void RemoveComponentCommand::Redo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		m_Removed.type->remove(scene.GetRegistry(), entity.GetHandle());
+}
+
+std::string RemoveComponentCommand::GetName() const { return "Remove " + m_Removed.type->name; }
+size_t RemoveComponentCommand::GetSize() const { return sizeof(*this) + HistoryCommands::SizeOf(m_Removed); }
+
+EditComponentCommand::EditComponentCommand(Entity entity, const Reflection::ComponentType& type)
+	: m_Entity(entity.GetID()), m_Before(Reflection::Capture(entity, type))
+{
+}
+
+bool EditComponentCommand::End(Scene& scene)
+{
+	Entity entity = HistoryCommands::Find(scene, m_Entity);
+	if (!entity || !m_Before.type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+		return false;
+	m_After = Reflection::Capture(entity, *m_Before.type);
+	return !SameValues(m_Before, m_After);
+}
+
+void EditComponentCommand::Undo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		Reflection::Restore(entity, m_Before, Reflection::ChangeSource::Undo);
+}
+
+void EditComponentCommand::Redo(Scene& scene)
+{
+	if (Entity entity = HistoryCommands::Find(scene, m_Entity))
+		Reflection::Restore(entity, m_After, Reflection::ChangeSource::Undo);
+}
+
+std::string EditComponentCommand::GetName() const { return "Edit " + m_Before.type->name; }
+
+size_t EditComponentCommand::GetSize() const
+{
+	return sizeof(*this) + HistoryCommands::SizeOf(m_Before) + HistoryCommands::SizeOf(m_After);
 }

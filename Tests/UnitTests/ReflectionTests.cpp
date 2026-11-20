@@ -6,6 +6,8 @@
 #include "Reflection/Reflection.h"
 #include "Reflection/SceneXml.h"
 #include "History/HistoryCommands.h"
+#include "Inspector/InspectorWidgets.h"
+#include "Inspector/PropertyEdits.h"
 #include "Physics/CollisionLayers.h"
 #include "Scene/Components.h"
 #include "Scene/SceneGraph.h"
@@ -1008,5 +1010,98 @@ TEST_CASE("Renaming collision layers rewrites scenes so each collider keeps its 
 	CollisionLayers::SetNames(CollisionLayers::DefaultNames());
 
 	CHECK_FALSE(SceneXml::RenameCollisionLayers(document.RootElement(), newNames, newNames));
+}
+
+TEST_CASE("Every described field has an inspector widget for its value type")
+{
+	Setup();
+	// Drawn by the Editor's overrides
+	const std::set<std::string> overridden = { "StaticMesh.Materials", "Tilemap.Tiles" };
+	for (const ComponentType* type : Components())
+	{
+		if (IsTestComponent(type) || type->IsInternal())
+			continue;
+		for (const FieldInfo& field : type->fields)
+		{
+			if (field.Has(FieldFlags::HideInInspector))
+				continue;
+			const std::string path = type->name + "." + field.name;
+			INFO(path);
+			if (field.IsCustom())
+				CHECK(overridden.count(path) == 1);
+			else
+				CHECK(Inspector::WidgetFor(field) != Inspector::Widget::None);
+		}
+	}
+}
+
+TEST_CASE("An inspector drag's changes share an interaction number, and other changes have 0")
+{
+	Setup();
+	Scene scene("");
+	Entity entity = scene.CreateEntity("Mover");
+	entity.AddComponent<TransformComponent>();
+
+	std::vector<PropertyChanged> changes;
+	ChangeRecorder listener{ &changes };
+	scene.OnPropertyChanged().connect<&ChangeRecorder::OnChanged>(listener);
+
+	PropertyEdits edits;
+	const PropertyPath position = Path("Transform.Position");
+	edits.Begin(entity, position);
+	for (float x : { 1.0f, 2.0f, 3.0f })
+		REQUIRE(edits.Set(entity, position, Vector3f(x, 0.0f, 0.0f)));
+	edits.End();
+
+	REQUIRE(changes.size() == 3);
+	CHECK(changes[0].interaction != 0);
+	CHECK(changes[1].interaction == changes[0].interaction);
+	CHECK(changes[2].interaction == changes[0].interaction);
+
+	// The next drag, a one-off inspector change and a change from elsewhere
+	edits.Begin(entity, position);
+	REQUIRE(edits.Set(entity, position, Vector3f(4.0f, 0.0f, 0.0f)));
+	edits.End();
+	REQUIRE(edits.Set(entity, Path("Transform.Scale"), Vector3f(2.0f, 2.0f, 2.0f)));
+	REQUIRE(Set(entity, position, Vector3f(5.0f, 0.0f, 0.0f), ChangeSource::Lua));
+
+	REQUIRE(changes.size() == 6);
+	CHECK(changes[3].interaction != 0);
+	CHECK(changes[3].interaction != changes[0].interaction);
+	CHECK(changes[4].interaction != 0);
+	CHECK(changes[4].interaction != changes[3].interaction);
+	CHECK(changes[5].interaction == 0);
+	for (size_t i = 0; i < 5; ++i)
+		CHECK(changes[i].source == ChangeSource::Editor);
+
+	scene.OnPropertyChanged().disconnect(listener);
+}
+
+TEST_CASE("A resize applied from the captured start keeps the tiles")
+{
+	Setup();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	TilemapComponent& tilemap = root.GetComponent<TilemapComponent>();
+	REQUIRE(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1, 2, 3 }, { 4, 5, 6 } });
+
+	// Typing 100 over 3: the width is 1, then 10, then 100
+	PropertyEdits edits;
+	const PropertyPath width = Path("Tilemap.TilesWide");
+	edits.Begin(root, width);
+	for (uint32_t typed : { 1u, 10u, 100u })
+		REQUIRE(edits.Set(root, width, typed));
+	edits.End();
+
+	CHECK(tilemap.tilesWide == 100);
+	REQUIRE(tilemap.tiles.size() == 2);
+	REQUIRE(tilemap.tiles[0].size() == 100);
+	CHECK(std::vector<uint32_t>(tilemap.tiles[0].begin(), tilemap.tiles[0].begin() + 4) == std::vector<uint32_t>{ 1, 2, 3, 0 });
+	CHECK(std::vector<uint32_t>(tilemap.tiles[1].begin(), tilemap.tiles[1].begin() + 4) == std::vector<uint32_t>{ 4, 5, 6, 0 });
+
+	// Each step set on its own loses the cut-off tiles
+	REQUIRE(Set(root, width, 1u, ChangeSource::Editor));
+	REQUIRE(Set(root, width, 3u, ChangeSource::Editor));
+	CHECK(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1, 0, 0 }, { 4, 0, 0 } });
 }
 }

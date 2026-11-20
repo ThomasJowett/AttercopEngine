@@ -1,112 +1,177 @@
 #include "PropertiesPanel.h"
 
 #include "IconsFontAwesome6.h"
-#include "IconsMaterialDesign.h"
-#include "Fonts/IconsMaterialDesignIcons.h"
-#include "Fonts/Fonts.h"
 #include "MainDockSpace.h"
 
-#include "ImGui/ImGuiTransform.h"
-#include "ImGui/ImGuiFileEdit.h"
-#include "ImGui/ImGuiTextureEdit.h"
 #include "ImGui/ImGuiAssetEdit.h"
 #include "ImGui/ImGuiVectorEdit.h"
 
 #include "Viewers/ViewerManager.h"
 #include "FileSystem/Directory.h"
+#include "Scene/Components.h"
 #include "Scene/SceneManager.h"
 #include "ImGui/ImGuiUtilities.h"
 
-#define Dirty(x) if(x) SceneManager::CurrentScene()->MakeDirty()
-
-// Layer dropdown and Mask checklist, populated from the project's named collision layers
-static bool CollisionFilterEdit(uint16_t& layer, uint16_t& mask)
+namespace PropertiesPanelOverrides
 {
-	bool changed = false;
-
-	if (ImGui::BeginCombo("Layer", CollisionLayers::GetLayerName(layer).c_str()))
+	// Scales the transform so the texture's pixels match the scene's pixels per unit
+	void PixelPerfect(ComponentInspector& inspector, Entity entity, uint32_t width, uint32_t height)
 	{
-		for (int i = 0; i < CollisionLayers::MaxLayers; ++i)
-		{
-			if (!CollisionLayers::IsNamed(i))
-				continue;
-
-			const uint16_t bit = (uint16_t)(1 << i);
-			if (ImGui::Selectable(CollisionLayers::GetDisplayName(i).c_str(), layer == bit))
-			{
-				layer = bit;
-				changed = true;
-			}
-		}
-		ImGui::EndCombo();
-	}
-	ImGui::Tooltip("Which collision layer this collider is on");
-
-	uint16_t namedBits = 0;
-	for (int i = 0; i < CollisionLayers::MaxLayers; ++i)
-	{
-		if (CollisionLayers::IsNamed(i))
-			namedBits |= (uint16_t)(1 << i);
+		TransformComponent* transform = entity.TryGetComponent<TransformComponent>();
+		if (!transform)
+			return;
+		const float pixelsPerUnit = (float)entity.GetScene()->GetPixelsPerUnit();
+		const Vector3f scale((float)width / pixelsPerUnit, (float)height / pixelsPerUnit, transform->GetScale().z);
+		if (std::optional<Reflection::PropertyPath> path = Reflection::PropertyPath::Parse("Transform.Scale"))
+			inspector.Set(entity, *path, scale);
 	}
 
-	std::string maskPreview;
-	if ((mask & namedBits) == namedBits)
-		maskPreview = "Everything";
-	else if ((mask & namedBits) == 0)
-		maskPreview = "Nothing";
-	else
+	// Reloads an asset when its file changes on disk
+	template<typename A>
+	void ReloadIfChanged(const Ref<A>& asset, std::filesystem::file_time_type& lastWriteTime, bool& reloaded)
 	{
-		for (const std::string& name : CollisionLayers::GetMaskNames(mask))
-			maskPreview += (maskPreview.empty() ? "" : ", ") + name;
+		reloaded = false;
+		std::error_code error;
+		const std::filesystem::path path = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / asset->GetFilepath());
+		const std::filesystem::file_time_type writeTime = std::filesystem::last_write_time(path, error);
+		if (!error && writeTime != lastWriteTime)
+		{
+			asset->Reload();
+			lastWriteTime = writeTime;
+			reloaded = true;
+		}
 	}
-
-	if (ImGui::BeginCombo("Mask", maskPreview.c_str()))
-	{
-		if (ImGui::Button("Everything"))
-		{
-			mask = CollisionLayers::Everything;
-			changed = true;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Nothing"))
-		{
-			mask = 0;
-			changed = true;
-		}
-
-		for (int i = 0; i < CollisionLayers::MaxLayers; ++i)
-		{
-			if (!CollisionLayers::IsNamed(i))
-				continue;
-
-			unsigned int flags = mask;
-			if (ImGui::CheckboxFlags(CollisionLayers::GetDisplayName(i).c_str(), &flags, 1u << i))
-			{
-				mask = (uint16_t)flags;
-				changed = true;
-			}
-		}
-		ImGui::EndCombo();
-	}
-	ImGui::Tooltip("Which collision layers this collider collides with. Two colliders only interact\nwhen each one's mask includes the other's layer");
-
-	return changed;
 }
 
 PropertiesPanel::PropertiesPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
-	:Layer("Properties"), m_Show(show), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history)
+	:Layer("Properties"), m_Show(show), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history),
+	m_Inspector(history.get())
 {
+	RegisterOverrides();
 }
 
-void PropertiesPanel::OnAttach()
+void PropertiesPanel::RegisterOverrides()
 {
-	m_DefaultMaterial = Material::GetDefaultMaterial();
+	using namespace PropertiesPanelOverrides;
 
-	m_DefaultPhysMaterial = PhysicsMaterial::GetDefaultPhysicsMaterial();
-}
+	// The tile painting UI: the fields, kept rebuilt as the tileset changes, and the Tilemap Editor
+	m_Inspector.ReplaceComponent("Tilemap", [this](ComponentInspector& inspector, Entity entity)
+		{
+			TilemapComponent& tilemap = entity.GetComponent<TilemapComponent>();
+			tilemap.UpdateRebuild();
+			if (tilemap.tileset)
+			{
+				static std::filesystem::file_time_type tilesetWriteTime;
+				bool reloaded = false;
+				ReloadIfChanged(tilemap.tileset, tilesetWriteTime, reloaded);
+				if (reloaded)
+					tilemap.Rebuild();
+			}
 
-void PropertiesPanel::OnUpdate(float deltaTime)
-{
+			inspector.DrawFields(entity, Reflection::TypeOf<TilemapComponent>());
+
+			if (ImGui::Button("Edit Tilemap"))
+				m_TilemapEditor->Show();
+		});
+
+	// One row per material slot of the mesh; clearing a row goes back to the mesh's own material
+	m_Inspector.ReplaceField("StaticMesh.Materials", [](ComponentInspector& inspector, Entity entity, const Reflection::FieldInfo&)
+		{
+			StaticMeshComponent& staticMesh = entity.GetComponent<StaticMeshComponent>();
+			for (size_t slot = 0; slot < staticMesh.GetMaterialSlotCount(); ++slot)
+			{
+				Ref<Material> material = staticMesh.GetMaterial(slot);
+				const Ref<Material> previous = material;
+				ImGui::AssetEdit<Material>(("Material " + std::to_string(slot)).c_str(), material, staticMesh.GetMeshMaterial(slot), FileType::MATERIAL);
+				if (material != previous)
+				{
+					inspector.GetEdits().RecordComponentEdit(entity, Reflection::TypeOf<StaticMeshComponent>());
+					staticMesh.SetMaterialOverride(slot, material);
+					entity.GetScene()->MakeDirty();
+				}
+			}
+		});
+
+	// The script drop-down, with a button that opens it
+	m_Inspector.ReplaceField("LuaScript.Script", [](ComponentInspector& inspector, Entity entity, const Reflection::FieldInfo&)
+		{
+			const Reflection::ComponentType& type = Reflection::TypeOf<LuaScriptComponent>();
+			LuaScriptComponent& luaScript = entity.GetComponent<LuaScriptComponent>();
+			std::string scriptName = luaScript.script ? luaScript.script->GetFilepath().filename().string() : "";
+
+			if (ImGui::BeginAssetCombo("##luaScript", scriptName, luaScript.script.get()))
+			{
+				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCRIPT)))
+				{
+					if (ImGui::Selectable(file.filename().string().c_str()))
+					{
+						const Reflection::AssetValue script{ FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()), nullptr };
+						inspector.Set(entity, Reflection::PropertyPath{ &type, type.FindField("Script") }, script);
+						break;
+					}
+					ImGui::Tooltip(file.string().c_str());
+				}
+				ImGui::EndCombo();
+			}
+			if (luaScript.script)
+			{
+				ImGui::SameLine();
+				if (ImGui::Button(ICON_FA_PEN_TO_SQUARE "##LuaScript"))
+					ViewerManager::OpenViewer(luaScript.script->GetFilepath());
+				ImGui::Tooltip("Edit script");
+			}
+		});
+
+	m_Inspector.AppendToComponent("Sprite", [](ComponentInspector& inspector, Entity entity)
+		{
+			SpriteComponent& sprite = entity.GetComponent<SpriteComponent>();
+			if (!sprite.texture && sprite.texturePath.empty())
+				return;
+			if (const Ref<Texture2D>& texture = sprite.GetTexture())
+			{
+				if (ImGui::Button("Pixel Perfect"))
+					PixelPerfect(inspector, entity, texture->GetWidth(), texture->GetHeight());
+				ImGui::Tooltip("Set Scale to pixel perfect scaling");
+			}
+		});
+
+	m_Inspector.AppendToComponent("AnimatedSprite", [](ComponentInspector& inspector, Entity entity)
+		{
+			AnimatedSpriteComponent& sprite = entity.GetComponent<AnimatedSpriteComponent>();
+			if (!sprite.spriteSheet)
+				return;
+			static std::filesystem::file_time_type spriteSheetWriteTime;
+			bool reloaded = false;
+			ReloadIfChanged(sprite.spriteSheet, spriteSheetWriteTime, reloaded);
+
+			if (ImGui::Button("Pixel Perfect"))
+			{
+				const Ref<SubTexture2D> frame = sprite.spriteSheet->GetSubTexture();
+				PixelPerfect(inspector, entity, frame->GetSpriteWidth(), frame->GetSpriteHeight());
+			}
+			ImGui::Tooltip("Set Scale to pixel perfect scaling");
+		});
+
+	m_Inspector.AppendToComponent("Button", [](ComponentInspector& inspector, Entity entity)
+		{
+			ButtonComponent& button = entity.GetComponent<ButtonComponent>();
+			if (!button.normalTexture)
+				return;
+			if (ImGui::Button("Pixel Perfect"))
+			{
+				if (WidgetComponent* widget = entity.TryGetComponent<WidgetComponent>())
+				{
+					inspector.GetEdits().RecordComponentEdit(entity, Reflection::TypeOf<WidgetComponent>());
+					// A fixed size is what makes the size below take effect
+					widget->fixedWidth = true;
+					widget->fixedHeight = true;
+					widget->SetSizeX((float)button.normalTexture->GetWidth());
+					widget->SetSizeY((float)button.normalTexture->GetHeight());
+					entity.GetScene()->MakeDirty();
+				}
+			}
+			ImGui::Tooltip("Set the Widget's size to the Normal texture's pixel dimensions");
+		});
 }
 
 void PropertiesPanel::OnImGuiRender()
@@ -131,9 +196,10 @@ void PropertiesPanel::OnImGuiRender()
 		if (entity)
 		{
 			ImGui::BeginGroup();
-			DrawComponents(entity);
+			m_Inspector.DrawField(entity, Reflection::TypeOf<NameComponent>(), 0);
+			m_Inspector.Draw(entity);
 			ImGui::Separator();
-			DrawAddComponent(entity);
+			m_Inspector.DrawAddComponentMenu(entity);
 			ImVec2 available = ImGui::GetContentRegionAvail();
 			ImGui::Dummy(available);
 			ImGui::EndGroup();
@@ -183,1237 +249,4 @@ void PropertiesPanel::OnImGuiRender()
 		}
 	}
 	ImGui::End();
-}
-
-void PropertiesPanel::DrawComponents(Entity entity)
-{
-	// Name------------------------------------------------------------------------------------------------------------------
-	if (entity.HasComponent<NameComponent>())
-	{
-		auto& name = entity.GetComponent<NameComponent>().name;
-
-		char buffer[256];
-		memset(buffer, 0, sizeof(buffer));
-		std::strncpy(buffer, name.c_str(), sizeof(buffer));
-		Scope<EditComponentCommand<NameComponent>> before = BeforeEdit<NameComponent>(entity);
-		if (ImGui::InputText("Entity Name##", buffer, sizeof(buffer)))
-		{
-			RecordEdit(entity, before);
-			name = std::string(buffer);
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-	}
-
-	// Transform------------------------------------------------------------------------------------------------------------
-	DrawComponent<TransformComponent>(ICON_MDI_AXIS_ARROW" Transform", entity, [&](auto& transform)
-		{
-			Scope<EditComponentCommand<TransformComponent>> before = BeforeEdit<TransformComponent>(entity);
-			Vector3f position = transform.GetPosition(), rotation = transform.GetRotation(), scale = transform.GetScale();
-			if (ImGui::Transform(position, rotation, scale))
-			{
-				RecordEdit(entity, before);
-				transform.SetPosition(position);
-				transform.SetRotation(rotation);
-				transform.SetScale(scale);
-				if (entity.HasComponent<RigidBody2DComponent>())
-				{
-					entity.GetComponent<RigidBody2DComponent>().SetTransform(position, rotation.z);
-				}
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-		});
-
-	// Widget--------------------------------------------------------------------------------------------------------------
-	DrawComponent<WidgetComponent>(ICON_MDI_WIDGETS" Widget", entity, [&](auto& widget)
-		{
-			Scope<EditComponentCommand<WidgetComponent>> before = BeforeEdit<WidgetComponent>(entity);
-			ImGui::BeginGroup();
-
-			bool parentControlsRect = false;
-			const char* parentControlDescription = "";
-			if (HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
-			{
-				if (hierarchyComp->parent != entt::null)
-				{
-					Entity parentEntity(hierarchyComp->parent, SceneManager::CurrentScene());
-					if (parentEntity.HasComponent<StackLayoutComponent>())
-					{
-						parentControlsRect = true;
-						parentControlDescription = "Stack Layout";
-					}
-					else if (parentEntity.HasComponent<GridLayoutComponent>())
-					{
-						parentControlsRect = true;
-						parentControlDescription = "Grid Layout";
-					}
-					else if (parentEntity.HasComponent<ScrollBoxComponent>())
-					{
-						parentControlsRect = true;
-						parentControlDescription = "Scroll Box";
-					}
-				}
-			}
-			if (parentControlsRect)
-				ImGui::TextDisabled("Position/anchors/margins are set by the parent's %s", parentControlDescription);
-
-			bool edited = false;
-
-			if (ImGui::Checkbox("Disabled", &widget.disabled))
-				edited = true;
-			if (ImGui::Checkbox("Fixed Width", &widget.fixedWidth)) {
-				edited = true;
-				widget.SetAnchorRight(widget.anchorLeft);
-			}
-
-			if (ImGui::Checkbox("Fixed Height", &widget.fixedHeight)) {
-				edited = true;
-				widget.SetAnchorBottom(widget.anchorTop);
-			}
-
-			float anchorLeft = widget.anchorLeft;
-			float anchorRight = widget.anchorRight;
-			float anchorTop = widget.anchorTop;
-			float anchorBottom = widget.anchorBottom;
-
-			if (parentControlsRect)
-				ImGui::BeginDisabled();
-
-			ImGui::TextUnformatted("Anchor");
-
-
-			if (widget.fixedWidth) {
-
-				if (ImGui::SliderFloat("X##Anchor", &anchorLeft, 0.0f, 1.0f)) {
-					widget.SetAnchorLeft(anchorLeft);
-					widget.SetAnchorRight(anchorLeft);
-					edited = true;
-				}
-			}
-			else {
-				if (ImGui::SliderFloat("Left##Anchor", &anchorLeft, 0.0f, 1.0f))
-				{
-					widget.SetAnchorLeft(anchorLeft);
-					edited = true;
-				}
-				if (ImGui::SliderFloat("Right##Anchor", &anchorRight, 0.0f, 1.0f))
-				{
-					widget.SetAnchorRight(anchorRight);
-					edited = true;
-				}
-			}
-			if (widget.fixedHeight) {
-				if (ImGui::SliderFloat("Y##Anchor", &anchorTop, 0.0f, 1.0f)) {
-					widget.SetAnchorTop(anchorTop);
-					widget.SetAnchorBottom(anchorTop);
-					edited = true;
-				}
-			}
-			else
-			{
-				if (ImGui::SliderFloat("Top##Anchor", &anchorTop, 0.0f, 1.0f))
-				{
-					widget.SetAnchorTop(anchorTop);
-					edited = true;
-				}
-
-				if (ImGui::SliderFloat("Bottom##Anchor", &anchorBottom, 0.0f, 1.0f))
-				{
-					widget.SetAnchorBottom(anchorBottom);
-					edited = true;
-				}
-			}
-
-			float marginLeft = widget.marginLeft;
-			float marginRight = widget.marginRight;
-			float marginTop = widget.marginTop;
-			float marginBottom = widget.marginBottom;
-
-			ImGui::TextUnformatted("Margin");
-			if (ImGui::DragFloat("Left##Margin", &marginLeft))
-			{
-				widget.SetMarginLeft(marginLeft);
-				edited = true;
-			}
-			if (ImGui::DragFloat("Top##Margin", &marginTop))
-			{
-				widget.SetMarginTop(marginTop);
-				edited = true;
-			}
-			if (ImGui::DragFloat("Right##Margin", &marginRight))
-			{
-				widget.SetMarginRight(marginRight);
-				edited = true;
-			}
-			if (ImGui::DragFloat("Bottom##Margin", &marginBottom))
-			{
-				widget.SetMarginBottom(marginBottom);
-				edited = true;
-			}
-
-			Vector2f size = widget.size;
-			Vector2f position = widget.position;
-
-			float width = ImGui::GetContentRegionAvail().x;
-
-			ImGui::TextUnformatted("Position");
-
-			ImGui::TextColored({ 245,0,0,255 }, "X");
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(width / 2 - 20);
-			if (ImGui::DragFloat("##posX", &position.x, 0.1f)) {
-				edited = true;
-				widget.SetPositionX(position.x);
-			}
-			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-			{
-				position.x = 0.0f;
-				edited = true;
-			}
-
-			ImGui::SameLine();
-			ImGui::TextColored({ 0,245,0,255 }, "Y");
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(width / 2 - 20);
-			if (ImGui::DragFloat("##posY", &position.y, 0.1f)) {
-				edited = true;
-				widget.SetPositionY(position.y);
-			}
-			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-			{
-				position.y = 0.0f;
-				edited = true;
-			}
-
-			if (parentControlsRect)
-				ImGui::EndDisabled();
-
-			ImGui::TextUnformatted("Size");
-			ImGui::TextColored({ 245,0,0,255 }, "X");
-			if (!widget.fixedWidth)
-				ImGui::BeginDisabled();
-
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(width / 2 - 20);
-
-			if (ImGui::DragFloat("##scaleX", &size.x, 0.1f)) {
-				edited = true;
-				widget.SetSizeX(size.x);
-			}
-			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-			{
-				size.x = 100.0f;
-				edited = true;
-			}
-			if (!widget.fixedWidth)
-				ImGui::EndDisabled();
-
-
-			if (!widget.fixedHeight)
-				ImGui::BeginDisabled();
-			ImGui::SameLine();
-			ImGui::TextColored({ 0,245,0,255 }, "Y");
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(width / 2 - 20);
-
-			if (ImGui::DragFloat("##scaleY", &size.y, 0.1f)) {
-				edited = true;
-				widget.SetSizeY(size.y);
-			}
-			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-			{
-				size.y = 100.0f;
-				edited = true;
-			}
-
-			if (!widget.fixedHeight)
-				ImGui::EndDisabled();
-
-			if (edited)
-			{
-				RecordEdit(entity, before);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			ImGui::EndGroup();
-		});
-
-	// Sprite--------------------------------------------------------------------------------------------------------------
-	DrawComponent<SpriteComponent>(ICON_FA_IMAGE" Sprite", entity, [&](auto& sprite)
-		{
-			float* tint[4] = { &sprite.tint.r, &sprite.tint.g, &sprite.tint.b, &sprite.tint.a };
-			float* tilingFactor = &sprite.tilingFactor;
-
-			sprite.GetTexture();
-			Scope<EditComponentCommand<SpriteComponent>> before = BeforeEdit<SpriteComponent>(entity);
-			ImGui::BeginGroup();
-			Colour prevColour = sprite.tint;
-			if (ImGui::ColorEdit4("Tint", tint[0])) {
-				SceneManager::CurrentScene()->MakeDirty();
-				if (prevColour != sprite.tint)
-					RecordEdit(entity, before);
-			}
-
-			if (sprite.texture)
-			{
-				if (ImGui::Button("Pixel Perfect"))
-				{
-					if (sprite.texture)
-					{
-						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
-						{
-							Scope<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<TransformComponent>>(entity);
-							transformcomp->SetScale(Vector3f((float)sprite.texture->GetWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
-								(float)sprite.texture->GetHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
-							m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
-						}
-					}
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-				ImGui::Tooltip("Set Scale to pixel perfect scaling");
-			}
-
-			if (ImGui::Texture2DEdit("Texture", sprite.texture, sprite.filterMethod, sprite.wrapMethod)) {
-				sprite.texturePath = sprite.texture ? sprite.texture->GetFilepath() : std::filesystem::path();
-				RecordEdit(entity, before);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			if (sprite.texture)
-			{
-				if (ImGui::DragFloat("Tiling Factor", tilingFactor, 0.1f, 0.0f, 100.0f)) {
-					RecordEdit(entity, before);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-				{
-					*tilingFactor = 1.0f;
-					SceneManager::CurrentScene()->MakeDirty();
-					RecordEdit(entity, before);
-				}
-			}
-			ImGui::EndGroup();
-		});
-
-	// Animated Sprite--------------------------------------------------------------------------------------------------------------
-	DrawComponent<AnimatedSpriteComponent>(ICON_FA_IMAGE" Animated Sprite", entity, [&](auto& sprite)
-		{
-			ImGui::BeginGroup();
-			Scope<EditComponentCommand<AnimatedSpriteComponent>> before = BeforeEdit<AnimatedSpriteComponent>(entity);
-
-			float* tint[4] = { &sprite.tint.r, &sprite.tint.g, &sprite.tint.b, &sprite.tint.a };
-
-			Colour prevColour = sprite.tint;
-			if (ImGui::ColorEdit4("Tint", tint[0], ImGuiColorEditFlags_None))
-			{
-				SceneManager::CurrentScene()->MakeDirty();
-				if (prevColour != sprite.tint)
-					RecordEdit(entity, before);
-			}
-
-			std::string spritesheetName;
-			if (sprite.spriteSheet)
-			{
-				if (ImGui::Button("Pixel Perfect"))
-				{
-					if (sprite.spriteSheet)
-					{
-						if (TransformComponent* transformcomp = entity.TryGetComponent<TransformComponent>())
-						{
-							Scope<EditComponentCommand<TransformComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<TransformComponent>>(entity);
-							transformcomp->SetScale(Vector3f((float)sprite.spriteSheet->GetSubTexture()->GetSpriteWidth() / SceneManager::CurrentScene()->GetPixelsPerUnit(),
-								(float)sprite.spriteSheet->GetSubTexture()->GetSpriteHeight() / SceneManager::CurrentScene()->GetPixelsPerUnit(), transformcomp->GetScale().z));
-							m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
-						}
-						SceneManager::CurrentScene()->MakeDirty();
-					}
-				}
-				ImGui::Tooltip("Set Scale to pixel perfect scaling");
-				spritesheetName = sprite.spriteSheet->GetFilepath().filename().string();
-
-				static std::filesystem::file_time_type currentFileTime;
-
-				std::filesystem::path absoluteSpriteSheetPath = std::filesystem::absolute(Application::GetOpenDocumentDirectory() / sprite.spriteSheet->GetFilepath());
-				std::error_code fileTimeError;
-				std::filesystem::file_time_type lastWrittenTime = std::filesystem::last_write_time(absoluteSpriteSheetPath, fileTimeError);
-
-				if (!fileTimeError && lastWrittenTime != currentFileTime)
-				{
-					sprite.spriteSheet->Reload();
-					currentFileTime = lastWrittenTime;
-				}
-			}
-
-			if (ImGui::BeginAssetCombo("SpriteSheet", spritesheetName, sprite.spriteSheet.get()))
-			{
-				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SPRITESHEET)))
-				{
-					const bool is_selected = false;
-					if (ImGui::Selectable(file.filename().string().c_str(), is_selected))
-					{
-						sprite.spriteSheet = AssetManager::GetAsset<SpriteSheet>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
-						SceneManager::CurrentScene()->MakeDirty();
-						RecordEdit(entity, before);
-					}
-					ImGui::Tooltip(file.string().c_str());
-				}
-				ImGui::EndCombo();
-			}
-			if (ImGui::BeginDragDropTarget())
-			{
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_AcceptPeekOnly))
-				{
-					std::filesystem::path* file = (std::filesystem::path*)payload->Data;
-
-					for (std::string& ext : ViewerManager::GetExtensions(FileType::SPRITESHEET))
-					{
-						if (file->extension().string() == ext)
-						{
-							if (ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
-								sprite.spriteSheet = AssetManager::GetAsset<SpriteSheet>(FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory()));
-						}
-					}
-				}
-				ImGui::EndDragDropTarget();
-			}
-			if (sprite.spriteSheet)
-			{
-				ImGui::SameLine();
-
-				if (ImGui::Button(ICON_FA_PEN_TO_SQUARE"##AnimatedSprite"))
-				{
-					ViewerManager::OpenViewer(sprite.spriteSheet->GetFilepath());
-				}
-				ImGui::Tooltip("Edit Sprite Sheet");
-			}
-
-			if (sprite.spriteSheet)
-			{
-				if (ImGui::BeginCombo("Animation", sprite.animation.c_str()))
-				{
-					for (auto&& [name, animation] : sprite.spriteSheet->GetAnimations())
-					{
-						if (ImGui::Selectable(name.c_str()))
-						{
-							sprite.animation = name;
-							sprite.currentFrame = animation.GetStartFrame();
-							SceneManager::CurrentScene()->MakeDirty();
-							RecordEdit(entity, before);
-						}
-					}
-					ImGui::EndCombo();
-				}
-			}
-
-			ImGui::EndGroup();
-		});
-
-	// Circle Renderer------------------------------------------------------------------------------------------------------------------
-	DrawComponent<CircleRendererComponent>(ICON_FA_CIRCLE" Circle Renderer", entity, [&](auto& circleRenderer)
-		{
-			ImGui::BeginGroup();
-			Scope<EditComponentCommand<CircleRendererComponent>> before = BeforeEdit<CircleRendererComponent>(entity);
-
-			Colour prevColour = circleRenderer.colour;
-			float* colour[4] = { &circleRenderer.colour.r, &circleRenderer.colour.g, &circleRenderer.colour.b, &circleRenderer.colour.a };
-			if (ImGui::ColorEdit4("Colour", colour[0])) {
-				SceneManager::CurrentScene()->MakeDirty();
-				if (prevColour != circleRenderer.colour)
-					RecordEdit(entity, before);
-			}
-			if (ImGui::DragFloat("Thickness", &circleRenderer.thickness, 0.025f, 0.0f, 1.0f)) {
-				SceneManager::CurrentScene()->MakeDirty();
-				RecordEdit(entity, before);
-			}
-			if (ImGui::DragFloat("Fade", &circleRenderer.fade, 0.00025f, 0.0f, 1.0f)) {
-				SceneManager::CurrentScene()->MakeDirty();
-				RecordEdit(entity, before);
-			}
-
-			ImGui::EndGroup();
-		});
-
-	// Tilemap ------------------------------------------------------------------------------------------------------------------------
-	DrawComponent<TilemapComponent>(ICON_FA_BORDER_ALL" Tilemap", entity, [=](auto& tilemap)
-		{
-			tilemap.UpdateRebuild();
-			//m_TilemapEditor->OnImGuiRender(tilemap);
-
-			if (tilemap.tileset)
-			{
-				static std::filesystem::file_time_type currentFileTime;
-
-				if (std::filesystem::exists(tilemap.tileset->GetFilepath()))
-				{
-					std::filesystem::file_time_type lastWrittenTime = std::filesystem::last_write_time(tilemap.tileset->GetFilepath());
-
-					if (lastWrittenTime != currentFileTime)
-					{
-						tilemap.tileset->Reload();
-						tilemap.Rebuild();
-						currentFileTime = lastWrittenTime;
-					}
-				}
-			}
-
-			if (ImGui::Combo("Orientation", (int*)&tilemap.orientation,
-				"Orthogonal\0"
-				"Isometric\0"
-				"Isometric (staggered)\0"
-				"Hexagonal (staggered)\0"))
-			{
-				tilemap.Rebuild();
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			// Each step of a size edit resizes from the tiles at its start, so typing 1, 10, 100 keeps them
-			auto resizeTiles = [&](uint32_t tilesWide, uint32_t tilesHigh)
-			{
-				std::vector<std::vector<uint32_t>> tiles(tilesHigh, std::vector<uint32_t>(tilesWide, 0));
-				for (uint32_t y = 0; y < tilesHigh && y < m_TilesBeforeResize.size(); ++y)
-				{
-					for (uint32_t x = 0; x < tilesWide && x < m_TilesBeforeResize[y].size(); ++x)
-						tiles[y][x] = m_TilesBeforeResize[y][x];
-				}
-				tilemap.tiles = std::move(tiles);
-				tilemap.tilesWide = tilesWide;
-				tilemap.tilesHigh = tilesHigh;
-				tilemap.Rebuild();
-				SceneManager::CurrentScene()->MakeDirty();
-			};
-
-			int tilesWide = tilemap.tilesWide;
-			bool widthChanged = ImGui::DragInt("Width", &tilesWide, 1.0f, 0, 1000);
-			if (ImGui::IsItemActivated())
-				m_TilesBeforeResize = tilemap.tiles;
-			if (widthChanged)
-				resizeTiles((uint32_t)tilesWide, tilemap.tilesHigh);
-			if (ImGui::IsItemDeactivated())
-				m_TilesBeforeResize.clear();
-
-			int tilesHigh = tilemap.tilesHigh;
-			bool heightChanged = ImGui::DragInt("Height", &tilesHigh, 1.0f, 0, 1000);
-			if (ImGui::IsItemActivated())
-				m_TilesBeforeResize = tilemap.tiles;
-			if (heightChanged)
-				resizeTiles(tilemap.tilesWide, (uint32_t)tilesHigh);
-			if (ImGui::IsItemDeactivated())
-				m_TilesBeforeResize.clear();
-			int tileSize[2] = { (int)tilemap.tileWidth, (int)tilemap.tileHeight };
-			if (ImGui::InputInt2("Tile Size", tileSize)) {
-				tilemap.tileWidth = tileSize[0];
-				tilemap.tileHeight = tileSize[1];
-				tilemap.Rebuild();
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-			std::string tilesetName;
-			if (tilemap.tileset)
-				tilesetName = tilemap.tileset->GetFilepath().filename().string();
-
-			if (ImGui::BeginAssetCombo("Tileset", tilesetName, tilemap.tileset.get()))
-			{
-				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::TILESET)))
-				{
-					if (ImGui::Selectable(file.filename().string().c_str()))
-					{
-						tilemap.tileset = AssetManager::GetAsset<Tileset>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
-						tilemap.Rebuild();
-						SceneManager::CurrentScene()->MakeDirty();
-					}
-					ImGui::Tooltip(file.string().c_str());
-				}
-				ImGui::EndCombo();
-			}
-			if (ImGui::BeginDragDropTarget())
-			{
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_AcceptPeekOnly))
-				{
-					std::filesystem::path* file = (std::filesystem::path*)payload->Data;
-
-					for (std::string& ext : ViewerManager::GetExtensions(FileType::TILESET))
-					{
-						if (file->extension().string() == ext)
-						{
-							if (ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
-							{
-								tilemap.tileset = AssetManager::GetAsset<Tileset>(FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory()));
-								tilemap.Rebuild();
-								SceneManager::CurrentScene()->MakeDirty();
-							}
-						}
-					}
-				}
-				ImGui::EndDragDropTarget();
-			}
-			if (tilemap.tileset)
-			{
-				ImGui::SameLine();
-				if (ImGui::Button(ICON_FA_PEN_TO_SQUARE))
-				{
-					ViewerManager::OpenViewer(tilemap.tileset->GetFilepath());
-				}
-			}
-
-			Dirty(ImGui::Checkbox("Is Trigger", &tilemap.isTrigger));
-			Dirty(CollisionFilterEdit(tilemap.layer, tilemap.mask));
-
-			if (ImGui::Button("Edit Tilemap"))
-				m_TilemapEditor->Show();
-		});
-
-	// Static Mesh------------------------------------------------------------------------------------------------------------
-	DrawComponent<StaticMeshComponent>(ICON_FA_SHAPES" Static Mesh", entity, [=](auto& staticMesh)
-		{
-			Ref<StaticMesh> previousMesh = staticMesh.mesh;
-			ImGui::AssetEdit<StaticMesh>("Static Mesh", staticMesh.mesh, nullptr, FileType::MESH);
-			if (staticMesh.mesh != previousMesh)
-			{
-				staticMesh.SetMesh(staticMesh.mesh);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			// One row per material slot of the mesh; clearing a row goes back to the mesh's own material
-			for (size_t slot = 0; slot < staticMesh.GetMaterialSlotCount(); ++slot)
-			{
-				Ref<Material> material = staticMesh.GetMaterial(slot);
-				Ref<Material> previousMaterial = material;
-				ImGui::AssetEdit<Material>(std::string("Material " + std::to_string(slot)).c_str(), material,
-					staticMesh.GetMeshMaterial(slot), FileType::MATERIAL);
-				if (material != previousMaterial)
-				{
-					staticMesh.SetMaterialOverride(slot, material);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-			}
-		});
-
-	// Camera------------------------------------------------------------------------------------------------------------
-	DrawComponent<CameraComponent>(ICON_FA_VIDEO" Camera", entity, [](auto& cameraComp)
-		{
-			auto& camera = cameraComp.camera;
-
-			Dirty(ImGui::Checkbox("Primary", &cameraComp.primary));
-			Dirty(ImGui::Checkbox("Fixed Aspect Ratio", &cameraComp.fixedAspectRatio));
-
-			SceneCamera::ProjectionType projectionType = camera.GetProjectionType();
-			if (ImGui::Combo("Projection", (int*)&projectionType,
-				"Perspective\0"
-				"Orthographic\0"))
-			{
-				camera.SetProjection(projectionType);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			switch (camera.GetProjectionType())
-			{
-			case SceneCamera::ProjectionType::perspective:
-			{
-				float fov = (float)RadToDeg(camera.GetVerticalFov());
-				if (ImGui::DragFloat("FOV", &fov, 1.0f, 1.0f, 180.0f))
-				{
-					camera.SetVerticalFov((float)DegToRad(fov));
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-				{
-					camera.SetVerticalFov((float)PI * 0.5f);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				float nearClip = camera.GetPerspectiveNear();
-				if (ImGui::DragFloat("Near Clip##Perspective", &nearClip, 1.0f, 0.001f, 10000.0f))
-				{
-					camera.SetPerspectiveNear(nearClip);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-				{
-					camera.SetPerspectiveNear(1.0f);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				float farClip = camera.GetPerspectiveFar();
-				if (ImGui::DragFloat("Far Clip##Perspective", &farClip, 1.0f, 0.001f, 10000.0f))
-				{
-					camera.SetPerspectiveFar(farClip);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-				{
-					camera.SetPerspectiveFar(1000.0f);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				camera.RecalculateProjection();
-				break;
-			}
-			case SceneCamera::ProjectionType::orthographic:
-			{
-				float size = camera.GetOrthoSize();
-				if (ImGui::DragFloat("Size", &size, 0.1f, 0.0f, 100.0f))
-				{
-					camera.SetOrthoSize(size);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				float nearClip = camera.GetOrthoNear();
-				if (ImGui::DragFloat("Near Clip##Orthographic", &nearClip))
-				{
-					camera.SetOrthoNear(nearClip);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				float farClip = camera.GetOrthoFar();
-				if (ImGui::DragFloat("Far Clip##Orthographic", &farClip))
-				{
-					camera.SetOrthoFar(farClip);
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-
-				camera.RecalculateProjection();
-				break;
-			}
-			}
-		});
-
-	// Primitive--------------------------------------------------------------------------------------------------------------
-	DrawComponent<PrimitiveComponent>(ICON_FA_SHAPES" Primitive", entity, [=](auto& primitive)
-		{
-			if (ImGui::Combo("Shape", (int*)&primitive.type,
-			"Cube\0"
-			"Sphere\0"
-				"Plane\0"
-				"Cylinder\0"
-				"Cone\0"
-				"Torus\0"))
-			{
-				primitive.needsUpdating = true;
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-	switch (primitive.type)
-	{
-		int tempInt;
-	case PrimitiveComponent::Shape::Cube:
-		if (ImGui::DragFloat("Width##cube", &primitive.cubeWidth, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Height##cube", &primitive.cubeHeight, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Depth##cube", &primitive.cubeDepth, 0.1f, 0.0f))
-			primitive.needsUpdating = true;
-		break;
-	case PrimitiveComponent::Shape::Sphere:
-		if (ImGui::DragFloat("Radius##Sphere", &primitive.sphereRadius, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.sphereLongitudeLines;
-		if (ImGui::DragInt("Longitude Lines##Sphere", &tempInt, 1.0f, 3, 600))
-		{
-			primitive.sphereLongitudeLines = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.sphereLatitudeLines;
-		if (ImGui::DragInt("Latitude Lines##Sphere", &tempInt, 1.0f, 3, 600))
-		{
-			primitive.sphereLatitudeLines = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		break;
-	case PrimitiveComponent::Shape::Plane:
-		if (ImGui::DragFloat("Width##Plane", &primitive.planeWidth, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Length##Plane", &primitive.planeLength, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.planeWidthLines;
-		if (ImGui::DragInt("Width Lines##Plane", &tempInt, 1.0f, 2, 1000))
-		{
-			primitive.planeWidthLines = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.planeLengthLines;
-		if (ImGui::DragInt("Length Lines##Plane", &tempInt, 1.0f, 2, 1000))
-		{
-			primitive.planeLengthLines = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Tile U##Plane", &primitive.planeTileU, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Tile V##Plane", &primitive.planeTileV, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		break;
-	case PrimitiveComponent::Shape::Cylinder:
-		if (ImGui::DragFloat("Bottom Radius##Cylinder", &primitive.cylinderBottomRadius, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Top Radius##Cylinder", &primitive.cylinderTopRadius, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Height##Cylinder", &primitive.cylinderHeight, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.cylinderSliceCount;
-		if (ImGui::DragInt("Slice Count##Cylinder", &tempInt, 1.0f, 3, 600))
-		{
-			primitive.cylinderSliceCount = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.cylinderStackCount;
-		if (ImGui::DragInt("Stack Count##Cylinder", &tempInt, 1.0f, 1, 600))
-		{
-			primitive.cylinderStackCount = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		break;
-	case PrimitiveComponent::Shape::Cone:
-		if (ImGui::DragFloat("Bottom Radius##Cone", &primitive.coneBottomRadius, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Height##Cone", &primitive.coneHeight, 0.1f, 0.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.coneSliceCount;
-		if (ImGui::DragInt("Slice Count##Cone", &tempInt, 1.0f, 3, 600))
-		{
-			primitive.coneSliceCount = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.coneStackCount;
-		if (ImGui::DragInt("Stack Count##Cone", &tempInt, 1.0f, 1, 600))
-		{
-			primitive.coneStackCount = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		break;
-	case PrimitiveComponent::Shape::Torus:
-		if (ImGui::DragFloat("Outer Radius##Torus", &primitive.torusOuterRadius, 0.1f, 0.0f, 100.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		if (ImGui::DragFloat("Inner Radius##Torus", &primitive.torusInnerRadius, 0.1f, 0.0f, 100.0f))
-		{
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		tempInt = primitive.torusSliceCount;
-		if (ImGui::DragInt("Slice Count##Torus", &tempInt, 1.0f, 3, 600))
-		{
-			primitive.torusSliceCount = tempInt;
-			primitive.needsUpdating = true;
-			SceneManager::CurrentScene()->MakeDirty();
-		}
-		break;
-	default:
-		break;
-	}
-	Dirty(ImGui::AssetEdit<Material>("Material", primitive.material, m_DefaultMaterial, FileType::MATERIAL));
-		});
-
-	// Text Component ------------------------------------------------------------------------------------------------------------
-	DrawComponent<TextComponent>(ICON_FA_FONT" Text", entity, [](auto& text)
-		{
-			static char inputBuffer[1024] = "";
-			memset(inputBuffer, 0, sizeof(inputBuffer));
-			for (int i = 0; i < text.text.length(); i++)
-			{
-				inputBuffer[i] = text.text[i];
-			}
-
-			if (ImGui::InputTextMultiline("Text", inputBuffer, sizeof(inputBuffer), ImVec2(0, 0), ImGuiInputTextFlags_AllowTabInput))
-			{
-				text.text = inputBuffer;
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-
-			if (ImGui::AssetEdit<Font>("Font", text.font, Font::GetDefaultFont(), FileType::FONT))
-			{
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-			Dirty(ImGui::DragFloat("Max Width", &text.maxWidth, 0.001f, 0.0f, 100.0f, "%.2f"));
-			float* colour[4] = { &text.colour.r, &text.colour.g, &text.colour.b, &text.colour.a };
-			Dirty(ImGui::ColorEdit4("Colour", colour[0]));
-		});
-
-	// Rigid Body 2D--------------------------------------------------------------------------------------------------------------
-	DrawComponent<RigidBody2DComponent>(ICON_FA_BASEBALL" Rigid Body 2D", entity, [](auto& rigidBody2D)
-		{
-			Dirty(ImGui::Combo("Body Type", (int*)&rigidBody2D.type,
-			"Static\0"
-			"Kinematic\0"
-				"Dynamic\0"));
-
-	if (rigidBody2D.type == RigidBody2DComponent::BodyType::DYNAMIC)
-	{
-		Dirty(ImGui::Checkbox("Fixed Rotation", &rigidBody2D.fixedRotation));
-		Dirty(ImGui::DragFloat("Gravity Scale", &rigidBody2D.gravityScale, 0.01f, -1.0f, 2.0f));
-		Dirty(ImGui::DragFloat("Angular Damping", &rigidBody2D.angularDamping, 0.01f, 0.0f, 1.0f));
-		Dirty(ImGui::DragFloat("Linear Damping", &rigidBody2D.linearDamping, 0.01f, 0.0f, 1.0f));
-	}
-		});
-
-	// Box Collider 2D--------------------------------------------------------------------------------------------------------------
-	DrawComponent<BoxCollider2DComponent>(ICON_FA_VECTOR_SQUARE" Box Collider 2D", entity, [=](auto& boxCollider2D)
-		{
-			Dirty(ImGui::Vector("Offset", boxCollider2D.offset));
-			Dirty(ImGui::Vector("Size", boxCollider2D.size));
-			Dirty(ImGui::Checkbox("Is Trigger", &boxCollider2D.isTrigger));
-			Dirty(CollisionFilterEdit(boxCollider2D.layer, boxCollider2D.mask));
-			Dirty(ImGui::AssetEdit<PhysicsMaterial>("Physics Material", boxCollider2D.physicsMaterial, m_DefaultPhysMaterial, FileType::PHYSICSMATERIAL));
-		});
-
-	// Circle Collider 2D--------------------------------------------------------------------------------------------------------------
-	DrawComponent<CircleCollider2DComponent>(ICON_MDI_CIRCLE_OUTLINE" Circle Collider 2D", entity, [=](auto& circleCollider2D)
-		{
-			Dirty(ImGui::Vector("Offset", circleCollider2D.offset));
-			Dirty(ImGui::DragFloat("Radius", &circleCollider2D.radius, 0.01f, 0.0f, 10.0f));
-			Dirty(ImGui::Checkbox("Is Trigger", &circleCollider2D.isTrigger));
-			Dirty(CollisionFilterEdit(circleCollider2D.layer, circleCollider2D.mask));
-			Dirty(ImGui::AssetEdit<PhysicsMaterial>("Physics Material", circleCollider2D.physicsMaterial, m_DefaultPhysMaterial, FileType::PHYSICSMATERIAL));
-		});
-
-	// Polygon Collider 2D ------------------------------------------------------------------------------------------------------------
-	DrawComponent<PolygonCollider2DComponent>(ICON_FA_DRAW_POLYGON" Polygon Collider 2D", entity, [=](auto& polygonCollider2D)
-		{
-			Dirty(ImGui::Vector("Offset", polygonCollider2D.offset));
-
-			if (ImGui::TreeNode("Vertices"))
-			{
-				if (ImGui::Button(ICON_FA_PLUS"##AddVertex"))
-				{
-					polygonCollider2D.vertices.push_back(Vector2f());
-					SceneManager::CurrentScene()->MakeDirty();
-				}
-				size_t i = 0;
-				while (i < polygonCollider2D.vertices.size())
-				{
-					std::string deleteStr = ICON_FA_TRASH_CAN "##" + std::to_string(i);
-					if (ImGui::Button(deleteStr.c_str()))
-					{
-						polygonCollider2D.vertices.erase(polygonCollider2D.vertices.begin() + i);
-						continue;
-					}
-
-					ImGui::SameLine();
-					std::string labelStr = std::to_string(i);
-					Dirty(ImGui::Vector(labelStr.c_str(), polygonCollider2D.vertices[i]));
-
-					i++;
-				}
-				ImGui::TreePop();
-			}
-			Dirty(ImGui::Checkbox("Is Trigger", &polygonCollider2D.isTrigger));
-			Dirty(CollisionFilterEdit(polygonCollider2D.layer, polygonCollider2D.mask));
-
-			Dirty(ImGui::AssetEdit<PhysicsMaterial>("Physics Material", polygonCollider2D.physicsMaterial, m_DefaultPhysMaterial, FileType::PHYSICSMATERIAL));
-
-			if (polygonCollider2D.vertices.size() < 3)
-			{
-				Colour textColour(Colours::YELLOW);
-				ImGui::TextColored(ImVec4(textColour.r, textColour.g, textColour.b, textColour.a), "No Polygon Collider Created!");
-			}
-		});
-
-	// Capsule Collider ---------------------------------------------------------------------------------------------------------------
-	DrawComponent<CapsuleCollider2DComponent>(ICON_FA_CAPSULES" Capsule Collider 2D", entity, [=](auto& capsuleCollider2D)
-		{
-			Dirty(ImGui::Vector("Offset", capsuleCollider2D.offset));
-
-			Dirty(ImGui::DragFloat("Radius", &capsuleCollider2D.radius, 0.01f, 0.0f, 10.0f));
-
-			Dirty(ImGui::DragFloat("Height", &capsuleCollider2D.height, 0.01f, 0.0f, 10.0f));
-
-			Dirty(ImGui::Combo("Direction", (int*)&capsuleCollider2D.direction,
-				"Vertical\0"
-				"Horizontal\0"));
-
-			Dirty(ImGui::Checkbox("Is Trigger", &capsuleCollider2D.isTrigger));
-			Dirty(CollisionFilterEdit(capsuleCollider2D.layer, capsuleCollider2D.mask));
-
-			Dirty(ImGui::AssetEdit<PhysicsMaterial>("Physics Material", capsuleCollider2D.physicsMaterial, m_DefaultPhysMaterial, FileType::PHYSICSMATERIAL));
-		});
-
-	// Weld Joint 2D -----------------------------------------------------------------------------------------------------------------
-	DrawComponent<WeldJoint2DComponent>(ICON_FA_LINK" Weld Joint 2D", entity, [=](auto& weldJoint2D)
-		{
-			Dirty(ImGui::DragFloat("Damping", &weldJoint2D.damping, 0.01f, 0.0f, 1.0f));
-			Dirty(ImGui::DragFloat("Stiffness", &weldJoint2D.stiffness, 0.01f, 0.0f, 100.0f));
-			Dirty(ImGui::Checkbox("Collide Connected", &weldJoint2D.collideConnected));
-		});
-
-	// Point Light --------------------------------------------------------------------------------------------------------------------
-	DrawComponent<PointLightComponent>(ICON_FA_LIGHTBULB" Point Light", entity, [](auto& pointLight)
-		{
-			float* colour[4] = { &pointLight.colour.r, &pointLight.colour.g, &pointLight.colour.b, &pointLight.colour.a };
-			Dirty(ImGui::ColorEdit4("Colour", colour[0]));
-			Dirty(ImGui::Checkbox("Cast Shadows", &pointLight.castsShadows));
-			Dirty(ImGui::DragFloat("Range", &pointLight.range, 0.1f, 0.0f, 1000.0f, "%.2f"));
-			Dirty(ImGui::DragFloat("Attenuation", &pointLight.attenuation, 0.001f, 0.0f, 1.0f));
-		});
-
-	// Behaviour Tree -----------------------------------------------------------------------------------------------------------------
-	DrawComponent<BehaviourTreeComponent>(ICON_FA_DIAGRAM_PROJECT" Behaviour Tree", entity, [](auto& behaviourTree)
-		{
-			std::filesystem::path absolutePath = behaviourTree.filepath.empty() ? std::filesystem::path() : Application::GetOpenDocumentDirectory() / behaviourTree.filepath;
-			if (ImGui::FileSelect("Behaviour Tree", absolutePath, FileType::BEHAVIOURTREE))
-			{
-				behaviourTree.filepath = FileUtils::RelativePath(absolutePath, Application::GetOpenDocumentDirectory());
-				behaviourTree.behaviourTree = BehaviourTree::Serializer::Load(behaviourTree.filepath);
-			}
-		});
-
-	// State Machine ------------------------------------------------------------------------------------------------------------------
-	DrawComponent<StateMachineComponent>(ICON_FA_DIAGRAM_PROJECT" State Machine", entity, [](auto& stateMachine)
-		{
-			std::filesystem::path absolutePath = stateMachine.filepath.empty() ? std::filesystem::path() : Application::GetOpenDocumentDirectory() / stateMachine.filepath;
-			if (ImGui::FileSelect("State Machine", absolutePath, FileType::STATEMACHINE))
-			{
-				stateMachine.filepath = FileUtils::RelativePath(absolutePath, Application::GetOpenDocumentDirectory());
-				stateMachine.stateMachine = StateMachineSerializer::Load(stateMachine.filepath);
-			}
-		});
-
-	DrawComponent<BillboardComponent>(ICON_FA_SIGN_HANGING" Billboard", entity, [](auto& billboard)
-		{
-			//combo
-			Dirty(ImGui::Combo("Orientation", (int*)&billboard.orientation,
-			"World Up\0"
-			"Camera\0"));
-		});
-
-	DrawComponent<CanvasComponent>("Canvas", entity, [](auto& canvas)
-		{
-			ImGui::InputFloat("Pixels per unit", &canvas.pixelPerUnit, 0.1f);
-		});
-
-	DrawComponent<ButtonComponent>("Button", entity, [&](auto& button)
-		{
-			Dirty(ImGui::Texture2DEdit("Normal", button.normalTexture, button.normalFilterMethod, button.normalWrapMethod));
-			Dirty(ImGui::Texture2DEdit("Hovered", button.hoveredTexture, button.hoveredFilterMethod, button.hoveredWrapMethod));
-			Dirty(ImGui::Texture2DEdit("Clicked", button.clickedTexture, button.clickedFilterMethod, button.clickedWrapMethod));
-			Dirty(ImGui::Texture2DEdit("Disabled", button.disabledTexture, button.disabledFilterMethod, button.disabledWrapMethod));
-
-			float* colourNormal[4] = { &button.normalTint.r, &button.normalTint.g, &button.normalTint.b, &button.normalTint.a };
-			Dirty(ImGui::ColorEdit4("Colour Normal", colourNormal[0]));
-
-			if (button.normalTexture)
-			{
-				if (ImGui::Button("Pixel Perfect"))
-				{
-					if (WidgetComponent* widgetComp = entity.TryGetComponent<WidgetComponent>())
-					{
-						Scope<EditComponentCommand<WidgetComponent>> pixelPerfectCommand = CreateScope<EditComponentCommand<WidgetComponent>>(entity);
-						// Fixed width/height is what makes the size setting below actually take effect -
-						// otherwise the widget is in stretch mode and size is derived from anchors instead.
-						widgetComp->fixedWidth = true;
-						widgetComp->fixedHeight = true;
-						widgetComp->SetSizeX((float)button.normalTexture->GetWidth());
-						widgetComp->SetSizeY((float)button.normalTexture->GetHeight());
-						m_History->Push(*SceneManager::CurrentScene(), std::move(pixelPerfectCommand));
-						SceneManager::CurrentScene()->MakeDirty();
-					}
-				}
-				ImGui::Tooltip("Set the Widget's size to the Normal texture's pixel dimensions");
-			}
-		});
-
-	DrawComponent<StackLayoutComponent>(ICON_FA_BARS" Stack Layout", entity, [](auto& stack)
-		{
-			int direction = stack.horizontal ? 1 : 0;
-			if (ImGui::Combo("Direction", &direction, "Vertical\0Horizontal\0"))
-			{
-				stack.horizontal = direction == 1;
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-			Dirty(ImGui::DragFloat("Spacing", &stack.spacing, 0.1f, 0.0f));
-			Dirty(ImGui::Checkbox("Stretch Cross Axis", &stack.stretchCrossAxis));
-			ImGui::TextUnformatted("Padding");
-			Dirty(ImGui::DragFloat("Left##StackPadding", &stack.paddingLeft, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Top##StackPadding", &stack.paddingTop, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Right##StackPadding", &stack.paddingRight, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Bottom##StackPadding", &stack.paddingBottom, 0.1f, 0.0f));
-		});
-
-	DrawComponent<GridLayoutComponent>(ICON_FA_TABLE_CELLS" Grid Layout", entity, [](auto& grid)
-		{
-			Dirty(ImGui::DragInt("Columns", &grid.columns, 1, 1, 64));
-			Dirty(ImGui::Vector("Cell Spacing", grid.cellSpacing));
-			Dirty(ImGui::Checkbox("Uniform Cell Size", &grid.uniformCellSize));
-			ImGui::Tooltip("When enabled, every cell is stretched to the computed column width and row height");
-			Dirty(ImGui::DragFloat("Fixed Row Height", &grid.fixedRowHeight, 0.1f, 0.0f));
-			ImGui::Tooltip("0 = auto row height from the tallest child in the row");
-			ImGui::TextUnformatted("Padding");
-			Dirty(ImGui::DragFloat("Left##GridPadding", &grid.paddingLeft, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Top##GridPadding", &grid.paddingTop, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Right##GridPadding", &grid.paddingRight, 0.1f, 0.0f));
-			Dirty(ImGui::DragFloat("Bottom##GridPadding", &grid.paddingBottom, 0.1f, 0.0f));
-		});
-
-	DrawComponent<ScrollBoxComponent>(ICON_FA_SCROLL" Scroll Box", entity, [](auto& scrollBox)
-		{
-			Dirty(ImGui::Checkbox("Horizontal Scroll", &scrollBox.horizontalScroll));
-			Dirty(ImGui::Checkbox("Vertical Scroll", &scrollBox.verticalScroll));
-			Dirty(ImGui::Vector("Scroll Offset", scrollBox.scrollOffset));
-			ImGui::BeginDisabled();
-			ImGui::Checkbox("Clip Content", &scrollBox.clipContent);
-			ImGui::EndDisabled();
-			ImGui::Tooltip("Not implemented yet - content can visually overflow the box until scissor-rect clipping is added");
-		});
-
-	DrawComponent<AudioSourceComponent>(ICON_FA_VOLUME_HIGH" Audio Source", entity, [](auto& audioSource)
-		{
-			Dirty(ImGui::AssetEdit<AudioClip>("Audio Clip", audioSource.audioClip, nullptr, FileType::AUDIO));
-			Dirty(ImGui::DragFloat("Volume", &audioSource.volume, 0.01f, 0.0f, 1.0f));
-			Dirty(ImGui::DragFloat("Pitch", &audioSource.pitch, 0.01f, 0.0f, 3.0f));
-			Dirty(ImGui::Checkbox("Loop", &audioSource.loop));
-			Dirty(ImGui::DragFloat("Min Distance", &audioSource.minDistance, 0.5f, 0.0f, 100.0f));
-			Dirty(ImGui::DragFloat("Max Distance", &audioSource.maxDistance, 0.5f, 0.0f, 100.0f));
-			Dirty(ImGui::DragFloat("Rolloff", &audioSource.rolloff, 0.5f, 0.0f, 100.0f));
-			Dirty(ImGui::Checkbox("Stream", &audioSource.stream));
-			Dirty(ImGui::Checkbox("Play On Awake", &audioSource.playOnStart));
-		});
-
-	DrawComponent<AudioListenerComponent>(ICON_FA_MICROPHONE" Audio Listener", entity, [](auto& audioListener)
-		{
-			Dirty(ImGui::Checkbox("Primary", &audioListener.primary));
-		});
-
-	// Lua Script ---------------------------------------------------------------------------------------------------------------------
-	DrawComponent<LuaScriptComponent>(ICON_FA_FILE_CODE" Lua Script", entity, [this, &entity](auto& luaScript)
-		{
-			std::string scriptName = luaScript.script ? luaScript.script->GetFilepath().filename().string() : "";
-
-			if (ImGui::BeginAssetCombo("##luaScript", scriptName, luaScript.script.get()))
-			{
-				for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCRIPT)))
-				{
-					const bool is_selected = false;
-					if (ImGui::Selectable(file.filename().string().c_str(), is_selected))
-					{
-						Scope<EditComponentCommand<LuaScriptComponent>> editLuaCommand = CreateScope<EditComponentCommand<LuaScriptComponent>>(entity);
-						luaScript.script = AssetManager::GetAsset<LuaScript>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
-						SceneManager::CurrentScene()->MakeDirty();
-						m_History->Push(*SceneManager::CurrentScene(), std::move(editLuaCommand));
-						break;
-					}
-					ImGui::Tooltip(file.string().c_str());
-				}
-				ImGui::EndCombo();
-			}
-			ImGui::SameLine();
-			if (ImGui::Button(ICON_FA_PEN_TO_SQUARE"##LuaScript"))
-			{
-				ViewerManager::OpenViewer(luaScript.script->GetFilepath());
-			}
-			ImGui::Tooltip("Edit script");
-		});
-}
-
-void PropertiesPanel::DrawAddComponent(Entity entity)
-{
-	ImGui::Dummy({ 0,0 });
-	float width = ImGui::GetContentRegionAvail().x;
-	ImGui::SameLine((width / 2.0f) - (ImGui::CalcTextSize("Add Component").x / 2.0f));
-	if (ImGui::Button("Add Component"))
-	{
-		ImGui::OpenPopup("Components");
-	}
-
-	if (ImGui::BeginPopup("Components"))
-	{
-		AddComponentMenuItem<TransformComponent>(ICON_MDI_AXIS_ARROW" Transform", entity);
-		AddComponentMenuItem<WidgetComponent>(ICON_MDI_WIDGETS" Widget", entity);
-		AddComponentMenuItem<SpriteComponent>(ICON_FA_IMAGE" Sprite", entity);
-		AddComponentMenuItem<AnimatedSpriteComponent>(ICON_FA_IMAGE" Animated Sprite", entity);
-		AddComponentMenuItem<CircleRendererComponent>(ICON_FA_CIRCLE" Circle Renderer", entity);
-		AddComponentMenuItem<TilemapComponent>(ICON_FA_BORDER_ALL" Tilemap", entity);
-		AddComponentMenuItem<StaticMeshComponent>(ICON_FA_SHAPES" Static Mesh", entity);
-		AddComponentMenuItem<CameraComponent>(ICON_FA_VIDEO" Camera", entity);
-		AddComponentMenuItem<PrimitiveComponent>(ICON_FA_SHAPES" Primitive", entity);
-		AddComponentMenuItem<TextComponent>(ICON_FA_FONT" Text", entity);
-		AddComponentMenuItem<RigidBody2DComponent>(ICON_FA_BASEBALL" Rigid Body 2D", entity);
-		AddComponentMenuItem<BoxCollider2DComponent>(ICON_FA_VECTOR_SQUARE" Box Collider 2D", entity);
-		AddComponentMenuItem<CircleCollider2DComponent>(ICON_MDI_CIRCLE_OUTLINE" Circle Collider 2D", entity);
-		AddComponentMenuItem<PolygonCollider2DComponent>(ICON_FA_DRAW_POLYGON" Polygon Collider 2D", entity);
-		AddComponentMenuItem<CapsuleCollider2DComponent>(ICON_FA_CAPSULES" Capsule Collider 2D", entity);
-		AddComponentMenuItem<BehaviourTreeComponent>(ICON_FA_DIAGRAM_PROJECT" Behaviour Tree", entity);
-		AddComponentMenuItem<StateMachineComponent>(ICON_FA_DIAGRAM_PROJECT" State Machine", entity);
-		AddComponentMenuItem<BillboardComponent>(ICON_FA_SIGN_HANGING" Billboard", entity);
-		AddComponentMenuItem<PointLightComponent>(ICON_FA_LIGHTBULB" Point Light", entity);
-		AddComponentMenuItem<AudioSourceComponent>(ICON_FA_VOLUME_HIGH" Audio Source", entity);
-		AddComponentMenuItem<AudioListenerComponent>(ICON_FA_MICROPHONE" Audio Listener", entity);
-
-		if (ImGui::BeginMenu("Joints"))
-		{
-			//AddComponentMenuItem<DistanceJoint2DComponent>(ICON_FA_LINK" Distance Joint 2D", entity);
-			AddComponentMenuItem<WeldJoint2DComponent>(ICON_FA_LINK" Weld Joint 2D", entity);
-			//AddComponentMenuItem<PrismaticJoint2DComponent>(ICON_FA_LINK" Prismatic Joint 2D", entity);
-			//AddComponentMenuItem<RevoluteJoint2DComponent>(ICON_FA_LINK" Revolute Joint 2D", entity);
-			//AddComponentMenuItem<WheelJoint2DComponent>(ICON_FA_LINK" Wheel Joint 2D", entity);
-			//AddComponentMenuItem<TargetJoint2DComponent>(ICON_FA_LINK" Target Joint 2D", entity);
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("UI Widgets")) {
-			AddComponentMenuItem<CanvasComponent>(ICON_FA_OBJECT_GROUP" Canvas", entity);
-			AddComponentMenuItem<ButtonComponent>(ICON_FA_CIRCLE_DOT" Button", entity);
-			AddComponentMenuItem<StackLayoutComponent>(ICON_FA_BARS" Stack Layout", entity);
-			AddComponentMenuItem<GridLayoutComponent>(ICON_FA_TABLE_CELLS" Grid Layout", entity);
-			AddComponentMenuItem<ScrollBoxComponent>(ICON_FA_SCROLL" Scroll Box", entity);
-			ImGui::EndMenu();
-		}
-
-		std::vector<std::filesystem::path> scripts = Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCRIPT));
-
-		if (ImGui::BeginMenu(ICON_FA_FILE_CODE" Lua Script", !entity.HasComponent<LuaScriptComponent>() && scripts.size() > 0))
-		{
-			for (std::filesystem::path& file : scripts)
-			{
-				if (ImGui::MenuItem(file.filename().string().c_str()))
-				{
-					entity.AddComponent<LuaScriptComponent>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
-					break;
-				}
-			}
-			ImGui::EndMenu();
-		}
-		ImGui::EndPopup();
-	}
 }
