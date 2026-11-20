@@ -14,7 +14,7 @@ namespace TransformComponentReflection
 		if (RigidBody2DComponent* rigidBody = entity.TryGetComponent<RigidBody2DComponent>())
 		{
 			const Vector3f& position = transform.GetPosition();
-			rigidBody->SetTransform(Vector2f(position.x, position.y), transform.GetRotation().z);
+			rigidBody->SetTransform(Vector2f(position.x, position.y), transform.GetAngle2D());
 		}
 	}
 }
@@ -41,7 +41,7 @@ void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 	c.Property<&TransformComponent::GetPosition, &TransformComponent::SetPosition>("Position",
 		"Position relative to the parent entity, or to the world if it has no parent");
 	// Stored as Euler angles
-	c.Property<&TransformComponent::GetRotation, &TransformComponent::SetRotation>("Rotation",
+	c.Property<&TransformComponent::GetEulerAngles, &TransformComponent::SetEulerAngles>("Rotation",
 		"Rotation as Euler angles, relative to the parent").Degrees();
 	c.Property<&TransformComponent::GetScale, &TransformComponent::SetScale>("Scale", "Scale relative to the parent").LockParts();
 

@@ -30,12 +30,18 @@ struct TransformComponent
 	}
 
 	const Vector3f& GetPosition() const { return m_Position; }
-	const Vector3f& GetRotation() const { return m_Rotation; }
+	// Radians: around the parent's X, then Y, then Z. Values outside ±pi are kept as given
+	const Vector3f& GetEulerAngles() const { return m_Rotation; }
 	const Vector3f& GetScale() const { return m_Scale; }
 
 	void SetPosition(const Vector3f& position) { if (!(position == m_Position)) { m_Position = position; m_Dirty = true; } }
-	void SetRotation(const Vector3f& rotation) { if (!(rotation == m_Rotation)) { m_Rotation = rotation; m_Dirty = true; } }
+	void SetEulerAngles(const Vector3f& angles) { if (!(angles == m_Rotation)) { m_Rotation = angles; m_Dirty = true; } }
 	void SetScale(const Vector3f& scale) { if (!(scale == m_Scale)) { m_Scale = scale; m_Dirty = true; } }
+
+	// 2D: the angle around Z in radians, the same as GetEulerAngles().z
+	float GetAngle2D() const { return m_Rotation.z; }
+	// Keeps X and Y
+	void SetAngle2D(float angle) { if (angle != m_Rotation.z) { m_Rotation.z = angle; m_Dirty = true; } }
 
 	// Whether the world matrix is waiting for SceneGraph to recompute it
 	bool IsDirty() const { return m_Dirty; }
@@ -52,7 +58,7 @@ struct TransformComponent
 	}
 
 	// Euler angles of the world matrix with scale removed; a mirrored matrix is treated as a negative x scale
-	const Vector3f GetWorldRotation() const
+	const Vector3f GetWorldEulerAngles() const
 	{
 		Vector3f basis[3];
 		for (int column = 0; column < 3; column++)
