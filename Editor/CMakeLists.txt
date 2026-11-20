@@ -1,7 +1,9 @@
-# The undo history, a library so the unit tests can link it without the Editor
+# The undo history and inspector edits, a library so the unit tests can link them without the Editor
 file(GLOB EDITOR_CORE_SOURCES CONFIGURE_DEPENDS
     src/History/*.cpp
     src/History/*.h
+    src/Inspector/*.cpp
+    src/Inspector/*.h
 )
 add_library(EditorCore STATIC ${EDITOR_CORE_SOURCES})
 target_link_libraries(EditorCore PUBLIC Engine)

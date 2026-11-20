@@ -30,7 +30,9 @@ static void TexturePathTooltip(const std::filesystem::path& file, const std::fil
 	ImGui::EndTooltip();
 }
 
-bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::FilterMethod& filterMethod, Texture::WrapMethod& wrapMethod, const ImVec2& size)
+// The filter and wrap drop-downs are left out when they're nullptr
+static bool TextureEdit(const char* label, Ref<Texture2D>& texture, Texture::FilterMethod* filterMethod, Texture::WrapMethod* wrapMethod,
+	const ImVec2& size)
 {
 	bool edited = false;
 	ImGui::PushID(label);
@@ -135,30 +137,30 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 		ImGui::Tooltip("Reset texture");
 	}
 
-	if (texture)
+	if (texture && filterMethod && wrapMethod)
 	{
 		ImGui::SetNextItemWidth(150);
-		Texture::FilterMethod filter = filterMethod;
+		Texture::FilterMethod filter = *filterMethod;
 		std::string filterlabel = "Filter Method##" + std::string(label);
 		if (ImGui::Combo(filterlabel.c_str(), (int*)&filter,
 			"Linear\0"
 			"Nearest\0"))
 		{
-			filterMethod = filter;
+			*filterMethod = filter;
 			edited = true;
 		}
 
 		ImGui::Tooltip("Filter Method");
 
 		ImGui::SetNextItemWidth(150);
-		Texture::WrapMethod wrap = wrapMethod;
+		Texture::WrapMethod wrap = *wrapMethod;
 		std::string wraplabel = "Wrap Method##" + std::string(label);
 		if (ImGui::Combo(wraplabel.c_str(), (int*)&wrap,
 			"Clamp\0"
 			"Mirror\0"
 			"Repeat\0"))
 		{
-			wrapMethod = wrap;
+			*wrapMethod = wrap;
 			edited = true;
 		}
 
@@ -180,6 +182,7 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 					{
 						auto relativePath = FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory());
 						texture = AssetManager::GetTexture(relativePath);
+						edited = true;
 					}
 				}
 			}
@@ -190,4 +193,15 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 	ImGui::PopID();
 
 	return edited;
+}
+
+bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::FilterMethod& filterMethod, Texture::WrapMethod& wrapMethod,
+	const ImVec2& size)
+{
+	return TextureEdit(label, texture, &filterMethod, &wrapMethod, size);
+}
+
+bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, const ImVec2& size)
+{
+	return TextureEdit(label, texture, nullptr, nullptr, size);
 }

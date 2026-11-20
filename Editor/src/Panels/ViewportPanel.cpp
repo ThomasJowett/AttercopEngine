@@ -998,7 +998,7 @@ void ViewportPanel::OnImGuiRender()
 					{
 						const EditKey key = ComponentEditKey<TransformComponent>(selectedEntity);
 						if (m_History->IsEnabled() && !m_History->IsOpen(key))
-							m_History->Begin(*SceneManager::CurrentScene(), key, CreateScope<EditComponentCommand<TransformComponent>>(selectedEntity));
+							m_History->Begin(*SceneManager::CurrentScene(), key, CreateScope<EditComponentCommand>(selectedEntity, Reflection::TypeOf<TransformComponent>()));
 						transformMat.Transpose();
 						Matrix4x4 parentMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix());
 						transformMat = parentMatrix * transformMat;
@@ -1101,7 +1101,7 @@ void ViewportPanel::OnImGuiRender()
 					auto beginWidgetEdit = [&]()
 					{
 						m_History->Begin(*SceneManager::CurrentScene(), ComponentEditKey<WidgetComponent>(selectedEntity),
-							CreateScope<EditComponentCommand<WidgetComponent>>(selectedEntity));
+							CreateScope<EditComponentCommand>(selectedEntity, Reflection::TypeOf<WidgetComponent>()));
 					};
 
 					auto trackHandle = [&]()
