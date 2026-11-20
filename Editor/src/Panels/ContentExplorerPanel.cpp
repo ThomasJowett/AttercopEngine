@@ -31,6 +31,7 @@
 
 #include "Fonts/Fonts.h"
 #include "ImGui/ImGuiUtilities.h"
+#include "ImGui/ImGuiShortcut.h"
 
 static std::filesystem::path s_IconDirectory;
 ThumbnailCache* ContentExplorerPanel::s_ThumbnailCache = nullptr;
@@ -599,13 +600,13 @@ void ContentExplorerPanel::RightClickMenu()
 		}
 	}
 	ImGui::Separator();
-	if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl + X", nullptr, m_NumberSelected > 0))
+	if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, m_NumberSelected > 0))
 		Cut();
-	if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl + C", nullptr, m_NumberSelected > 0))
+	if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, m_NumberSelected > 0))
 		Copy();
-	if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl + V", nullptr, !m_CopiedPaths.empty()))
+	if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, !m_CopiedPaths.empty()))
 		Paste();
-	if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl + D", nullptr, m_NumberSelected > 0))
+	if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, m_NumberSelected > 0))
 		Duplicate();
 	if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, m_NumberSelected > 0))
 		Delete();
@@ -788,13 +789,13 @@ void ContentExplorerPanel::ItemContextMenu(size_t index, bool isDirectory, const
 
 		ImGui::Separator();
 
-		if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl + X", nullptr, m_NumberSelected > 0))
+		if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, m_NumberSelected > 0))
 			Cut();
-		if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl + C", nullptr, m_NumberSelected > 0))
+		if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, m_NumberSelected > 0))
 			Copy();
-		if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl + V", nullptr, !m_CopiedPaths.empty()))
+		if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, !m_CopiedPaths.empty()))
 			Paste();
-		if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl + D", nullptr, m_NumberSelected > 0))
+		if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, m_NumberSelected > 0))
 			Duplicate();
 		if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, m_NumberSelected > 0))
 			Delete();

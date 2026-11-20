@@ -12,6 +12,7 @@
 #include "FileSystem/FileDialog.h"
 #include "FileSystem/WebProject.h"
 #include "ViewportCameraController.h"
+#include "ImGui/ImGuiShortcut.h"
 
 StaticMeshView::StaticMeshView(bool* show, std::filesystem::path filepath)
 	:View("StaticMeshView"), m_Show(show), m_FilePath(filepath)
@@ -114,9 +115,9 @@ void StaticMeshView::OnImGuiRender()
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", "Ctrl + S", nullptr, m_Dirty))
+				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", ShortcutLabel("S").c_str(), nullptr, m_Dirty))
 					Save();
-				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", "Ctrl + Shift + S"))
+				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", ShortcutLabel("Shift + S").c_str()))
 					SaveAs();
 				ImGui::EndMenu();
 			}

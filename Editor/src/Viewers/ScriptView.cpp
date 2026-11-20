@@ -20,6 +20,7 @@
 #include <regex>
 #include "FileSystem/WebProject.h"
 #include "ImGui/ImGuiUtilities.h"
+#include "ImGui/ImGuiShortcut.h"
 
 // Functions get their signature above the description, e.g. "FindEntity(string) -> Entity"
 static std::string LuaDescription(const LuaApiEntry& entry)
@@ -193,9 +194,9 @@ void ScriptView::OnImGuiRender()
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", "Ctrl + S", nullptr, !readOnly))
+				if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK" Save", ShortcutLabel("S").c_str(), nullptr, !readOnly))
 					Save();
-				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", "Ctrl + Shift + S"))
+				if (ImGui::MenuItem(ICON_FA_FILE_SIGNATURE" Save As", ShortcutLabel("Shift + S").c_str()))
 					SaveAs();
 				ImGui::Separator();//---------------------------------------------------------------
 				ExternalEditor::MenuItem(std::filesystem::absolute(Application::GetOpenDocumentDirectory() / m_FilePath));
@@ -204,30 +205,30 @@ void ScriptView::OnImGuiRender()
 
 			if (ImGui::BeginMenu("Edit"))
 			{
-				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT" Undo", "Ctrl-Z", nullptr, !readOnly && m_TextEditor.CanUndo()))
+				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT" Undo", ShortcutLabel("Z").c_str(), nullptr, !readOnly && m_TextEditor.CanUndo()))
 					m_TextEditor.Undo();
-				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_RIGHT" Redo", "Ctrl-Y", nullptr, !readOnly && m_TextEditor.CanRedo()))
+				if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_RIGHT" Redo", ShortcutLabel("Y", "Shift + Z").c_str(), nullptr, !readOnly && m_TextEditor.CanRedo()))
 					m_TextEditor.Redo();
 				ImGui::Separator();//---------------------------------------------------------------
 
-				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", "Ctrl-X", nullptr, m_TextEditor.HasSelection() && !readOnly))
+				if (ImGui::MenuItem(ICON_FA_SCISSORS" Cut", ShortcutLabel("X").c_str(), nullptr, m_TextEditor.HasSelection() && !readOnly))
 					m_TextEditor.Cut();
-				if (ImGui::MenuItem(ICON_FA_COPY" Copy", "Ctrl-C", nullptr, m_TextEditor.HasSelection()))
+				if (ImGui::MenuItem(ICON_FA_COPY" Copy", ShortcutLabel("C").c_str(), nullptr, m_TextEditor.HasSelection()))
 					m_TextEditor.Copy();
-				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", "Ctrl-V", nullptr, ImGui::GetClipboardText() != nullptr && !readOnly))
+				if (ImGui::MenuItem(ICON_FA_PASTE" Paste", ShortcutLabel("V").c_str(), nullptr, ImGui::GetClipboardText() != nullptr && !readOnly))
 					m_TextEditor.Paste();
-				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", "Ctrl-D", nullptr, !readOnly))
+				if (ImGui::MenuItem(ICON_FA_CLONE" Duplicate", ShortcutLabel("D").c_str(), nullptr, !readOnly))
 					m_TextEditor.Duplicate();
 				if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, m_TextEditor.HasSelection() && !readOnly))
 					m_TextEditor.Delete();
 				ImGui::Separator();//---------------------------------------------------------------
-				if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS " Find", "Ctrl-F"))
+				if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS " Find", ShortcutLabel("F").c_str()))
 				{
 					m_ShowSearch = true;
 					m_FocusSearch = true;
 				}
 				ImGui::Separator();//---------------------------------------------------------------
-				if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select all", "Ctrl-A", nullptr))
+				if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select all", ShortcutLabel("A").c_str(), nullptr))
 					m_TextEditor.SetSelection(TextEditor::Coordinates(), TextEditor::Coordinates(m_TextEditor.GetTotalLines(), 0));
 				ImGui::EndMenu();
 			}

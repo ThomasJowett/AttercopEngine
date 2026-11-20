@@ -18,6 +18,14 @@
 
 #include "GLFW/glfw3.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+EM_JS(int, ImGuiManager_IsApple, (), {
+	return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? 1 : 0;
+});
+#endif
+
 ImGuiManager::ImGuiManager() : m_UsingImGui(false) {}
 
 void ImGuiManager::Init()
@@ -60,6 +68,8 @@ void ImGuiManager::Init()
 #ifdef __EMSCRIPTEN__
 			// Browser wheel events for ImGui, plus resizing the window to the canvas on page resize and fullscreen
 			ImGui_ImplGlfw_InstallEmscriptenCallbacks(window, "#canvas");
+			// Cmd for shortcuts in a browser on macOS, as in the desktop build
+			ImGui::GetIO().ConfigMacOSXBehaviors = ImGuiManager_IsApple();
 #endif
 			Ref<GraphicsContext> context = Application::GetWindow()->GetContext();
 
