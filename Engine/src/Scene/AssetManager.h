@@ -120,6 +120,12 @@ public:
 			AssetManager::Get().m_Textures.Remove(filepath);
 	}
 
+	// Keeps every loaded asset loaded while the result is held, e.g. while a scene is rebuilt
+	static std::vector<Ref<Asset>> HoldLoadedAssets()
+	{
+		return AssetManager::Get().m_Assets.GetLoaded();
+	}
+
 	static void CleanUp()
 	{
 		PROFILE_FUNCTION();

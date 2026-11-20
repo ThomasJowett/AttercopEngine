@@ -7,6 +7,7 @@
 #include "Logging/Instrumentor.h"
 
 #include <filesystem>
+#include <vector>
 
 class Asset
 {
@@ -162,6 +163,17 @@ public:
 			else
 				++iter;
 		}
+	}
+
+	// A strong reference to every asset still loaded
+	std::vector<Ref<Asset>> GetLoaded() const
+	{
+		std::vector<Ref<Asset>> loaded;
+		loaded.reserve(m_Assets.size());
+		for (const auto& [path, asset] : m_Assets)
+			if (Ref<Asset> strong = asset.lock())
+				loaded.push_back(strong);
+		return loaded;
 	}
 
 private:

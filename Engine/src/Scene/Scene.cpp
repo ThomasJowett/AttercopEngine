@@ -397,6 +397,8 @@ void Scene::OnRuntimeStop()
 	if (m_Snapshot)
 	{
 		ENGINE_DEBUG("Runtime End");
+		// So the restored components find their assets loaded, instead of reading them from disk again
+		std::vector<Ref<Asset>> loadedAssets = AssetManager::HoldLoadedAssets();
 		m_Registry.clear();
 		m_FirstRoot = entt::null;
 		m_LastRoot = entt::null;
