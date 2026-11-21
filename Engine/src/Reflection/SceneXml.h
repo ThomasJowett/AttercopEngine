@@ -22,6 +22,10 @@ namespace Reflection
 		// The shortest text that reads back to the same float: "-9.81", not "-9.8100004"
 		std::string FloatToText(float value);
 
+		// Radians as the shortest degrees that DegreesToRadians reads back to the same float: "90", not "90.0000025"
+		std::string RadiansToDegreesText(float radians);
+		float DegreesToRadians(double degrees);
+
 		// Writes each component the entity has, in registration order, into its <Entity> element; internal
 		// components are left to the caller
 		void WriteComponents(tinyxml2::XMLElement* entityElement, Entity entity);

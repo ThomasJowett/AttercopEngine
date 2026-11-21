@@ -3,7 +3,7 @@
     <Entity Name="Camera" ID="1799781465588121033-7213658559327038905">
         <Transform>
             <Position X="4" Y="-6" Z="9"/>
-            <Rotation X="0.6" Y="0.3" Z="0.2"/>
+            <Rotation X="34.37747" Y="17.188735" Z="11.459156"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
         <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" Fov="0.78539819"/>
