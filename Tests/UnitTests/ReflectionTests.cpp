@@ -84,13 +84,6 @@ namespace ReflectionTests
 		Value value;
 	};
 
-	// Built at run time, as the transform builds it: from constants, the compiler can round sinf and cosf differently
-	Quaternion RuntimeQuaternion(float x, float y, float z)
-	{
-		volatile float angles[3] = { x, y, z };
-		return Quaternion(Vector3f(angles[0], angles[1], angles[2]));
-	}
-
 	// Every described field of the fixture's root entity
 	std::vector<Expected> RootValues()
 	{
@@ -100,7 +93,7 @@ namespace ReflectionTests
 			{ "Name.Name", "Root" },
 			{ "Transform.Position", Vector3f(1.0f, 2.0f, 3.0f) },
 			{ "Transform.Rotation", Vector3f(0.25f, 0.5f, 0.75f) },
-			{ "Transform.Orientation", RuntimeQuaternion(0.25f, 0.5f, 0.75f) },
+			{ "Transform.Orientation", Quaternion(AtRunTime(Vector3f(0.25f, 0.5f, 0.75f))) },
 			{ "Transform.Scale", Vector3f(2.0f, 3.0f, 4.0f) },
 			{ "Camera.Primary", false },
 			{ "Camera.FixedAspectRatio", true },

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Logging/Logger.h"
+#include "math/Vector3f.h"
 
 #include <spdlog/sinks/ostream_sink.h>
 
@@ -13,6 +14,19 @@
 inline std::filesystem::path RepositoryPath(const std::filesystem::path& relativePath)
 {
 	return std::filesystem::path(ATTERCOP_SOURCE_DIR) / relativePath;
+}
+
+// The value read through volatile, so the compiler can't work out at compile time what's built from it. sinf and cosf of
+// constants can round differently from the run-time library (macOS x64), which breaks exact comparisons
+inline float AtRunTime(float value)
+{
+	volatile float copy = value;
+	return copy;
+}
+
+inline Vector3f AtRunTime(const Vector3f& value)
+{
+	return Vector3f(AtRunTime(value.x), AtRunTime(value.y), AtRunTime(value.z));
 }
 
 // Collects the engine's warnings while it exists

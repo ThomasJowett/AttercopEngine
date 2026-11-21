@@ -1,4 +1,5 @@
 #include "vendor/doctest.h"
+#include "TestHelpers.h"
 
 #include "math/Matrix.h"
 #include "math/Quaternion.h"
@@ -223,11 +224,11 @@ TEST_CASE("At gimbal lock EulerAnglesNear keeps the reference's X")
 
 TEST_CASE("Euler angles about Z alone give the same quaternion as the general formula")
 {
-	for (float z : { 0.0f, 0.4f, -2.0f, 7.5f, 100.0f })
+	for (float angle : { 0.0f, 0.4f, -2.0f, 7.5f, 100.0f })
 	{
-		CAPTURE(z);
-		Quaternion fast(Vector3f(0.0f, 0.0f, z));
-		Quaternion general = GeneralEulerAboutZ(z);
+		CAPTURE(angle);
+		Quaternion fast(Vector3f(0.0f, 0.0f, AtRunTime(angle)));
+		Quaternion general = GeneralEulerAboutZ(AtRunTime(angle));
 		CHECK(fast.r == general.r);
 		CHECK(fast.i == 0.0f);
 		CHECK(fast.j == 0.0f);
