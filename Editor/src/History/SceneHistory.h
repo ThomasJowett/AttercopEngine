@@ -27,8 +27,9 @@ public:
 	// A change made in one go
 	void Push(Scene& scene, Scope<SceneCommand> command);
 
-	void Undo(Scene& scene);
-	void Redo(Scene& scene);
+	// Both return the entities to select, or nothing to leave the selection as it is
+	std::vector<Uuid> Undo(Scene& scene);
+	std::vector<Uuid> Redo(Scene& scene);
 	bool CanUndo() const;
 	bool CanRedo() const;
 

@@ -7,6 +7,8 @@
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/SceneHistory.h"
 
+class HierarchyPanel;
+
 class ContentExplorerPanel;
 
 class MainDockSpace :
@@ -33,6 +35,8 @@ private:
 	void HandleKeyBoardInputs();
 	void UndoScene();
 	void RedoScene();
+	// Selects the first of these entities that exists, or clears a selection that no longer exists
+	void SelectAfterUndo(Scene& scene, const std::vector<Uuid>& selection);
 	// Closes the open history step once nothing is being dragged, typed or painted
 	void CloseFinishedEdit();
 
@@ -76,6 +80,7 @@ private:
 
 	Ref<ContentExplorerPanel> m_ContentExplorer;
 	Ref<TilemapEditor> m_TilemapEditor;
+	Ref<HierarchyPanel> m_HierarchyPanel;
 
 	Ref<SceneHistory> m_History;
 	// The scene the history belongs to

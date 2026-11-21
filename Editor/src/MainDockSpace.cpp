@@ -151,6 +151,7 @@ void MainDockSpace::OnAttach()
 	Application::GetLayerStack().AddOverlay(CreateRef<ErrorListPanel>(&m_ShowErrorList));
 	Application::GetLayerStack().AddOverlay(CreateRef<FindInFilesPanel>(&m_ShowFindInFiles));
 	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy, m_History);
+	m_HierarchyPanel = hierarchyPanel;
 	Application::GetLayerStack().AddOverlay(hierarchyPanel);
 	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, m_TilemapEditor, m_History));
 	Application::GetLayerStack().AddOverlay(CreateRef<PropertiesPanel>(&m_ShowProperties, hierarchyPanel, m_TilemapEditor, m_History));
@@ -653,14 +654,32 @@ bool MainDockSpace::OnOpenProject(AppOpenDocumentChangedEvent& event)
 
 void MainDockSpace::UndoScene()
 {
-	if (SceneManager::IsSceneLoaded() && m_History->CanUndo())
-		m_History->Undo(*SceneManager::CurrentScene());
+	if (!SceneManager::IsSceneLoaded() || !m_History->CanUndo())
+		return;
+	Scene& scene = *SceneManager::CurrentScene();
+	SelectAfterUndo(scene, m_History->Undo(scene));
 }
 
 void MainDockSpace::RedoScene()
 {
-	if (SceneManager::IsSceneLoaded() && m_History->CanRedo())
-		m_History->Redo(*SceneManager::CurrentScene());
+	if (!SceneManager::IsSceneLoaded() || !m_History->CanRedo())
+		return;
+	Scene& scene = *SceneManager::CurrentScene();
+	SelectAfterUndo(scene, m_History->Redo(scene));
+}
+
+void MainDockSpace::SelectAfterUndo(Scene& scene, const std::vector<Uuid>& selection)
+{
+	for (const Uuid& id : selection)
+	{
+		if (Entity entity = scene.GetEntityByID(id))
+		{
+			m_HierarchyPanel->SetSelectedEntity(entity);
+			return;
+		}
+	}
+	if (!m_HierarchyPanel->GetSelectedEntity().BelongsToScene(&scene))
+		m_HierarchyPanel->SetSelectedEntity(Entity());
 }
 
 void MainDockSpace::CloseFinishedEdit()

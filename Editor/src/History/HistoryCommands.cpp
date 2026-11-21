@@ -163,6 +163,14 @@ namespace HistoryCommands
 		return action + " " + std::to_string(subtrees.size()) + " Entities";
 	}
 
+	static std::vector<Uuid> RootsOf(const std::vector<EntitySubtree>& subtrees)
+	{
+		std::vector<Uuid> roots;
+		for (const EntitySubtree& subtree : subtrees)
+			roots.push_back(subtree.position.entity);
+		return roots;
+	}
+
 	static std::vector<EntityPosition> PositionsInOrder(Scene& scene, const std::vector<Uuid>& ids)
 	{
 		std::vector<Entity> entities;
@@ -227,6 +235,8 @@ size_t CreateEntitiesCommand::GetSize() const
 	return sizeof(*this) + m_Roots.capacity() * sizeof(Uuid) + HistoryCommands::SizeOf(m_Subtrees);
 }
 
+std::vector<Uuid> CreateEntitiesCommand::GetSelectionAfterRedo() const { return RootsOf(m_Subtrees); }
+
 DeleteEntitiesCommand::DeleteEntitiesCommand(const std::vector<Entity>& roots)
 {
 	for (Entity root : TopLevelInOrder(roots))
@@ -245,6 +255,7 @@ void DeleteEntitiesCommand::Redo(Scene& scene)
 
 std::string DeleteEntitiesCommand::GetName() const { return NameOf("Delete", m_Subtrees); }
 size_t DeleteEntitiesCommand::GetSize() const { return sizeof(*this) + HistoryCommands::SizeOf(m_Subtrees); }
+std::vector<Uuid> DeleteEntitiesCommand::GetSelectionAfterUndo() const { return RootsOf(m_Subtrees); }
 
 ReparentEntitiesCommand::ReparentEntitiesCommand(const std::vector<Entity>& entities)
 {
@@ -323,6 +334,31 @@ size_t CompoundCommand::GetSize() const
 	for (const Scope<SceneCommand>& command : m_Commands)
 		size += command->GetSize();
 	return size;
+}
+
+static void AddUnique(std::vector<Uuid>& ids, const std::vector<Uuid>& more)
+{
+	for (const Uuid& id : more)
+	{
+		if (std::find(ids.begin(), ids.end(), id) == ids.end())
+			ids.push_back(id);
+	}
+}
+
+std::vector<Uuid> CompoundCommand::GetSelectionAfterUndo() const
+{
+	std::vector<Uuid> selection;
+	for (auto command = m_Commands.rbegin(); command != m_Commands.rend(); ++command)
+		AddUnique(selection, (*command)->GetSelectionAfterUndo());
+	return selection;
+}
+
+std::vector<Uuid> CompoundCommand::GetSelectionAfterRedo() const
+{
+	std::vector<Uuid> selection;
+	for (const Scope<SceneCommand>& command : m_Commands)
+		AddUnique(selection, command->GetSelectionAfterRedo());
+	return selection;
 }
 
 EditKey ComponentEditKey(Entity entity, const Reflection::ComponentType& type)

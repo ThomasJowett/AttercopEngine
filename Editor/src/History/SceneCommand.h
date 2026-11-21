@@ -49,4 +49,7 @@ public:
 	virtual std::string GetName() const = 0;
 	// Bytes held, for the memory budget
 	virtual size_t GetSize() const = 0;
+	// Entities to select after undo or redo; empty leaves the selection as it is
+	virtual std::vector<Uuid> GetSelectionAfterUndo() const { return {}; }
+	virtual std::vector<Uuid> GetSelectionAfterRedo() const { return {}; }
 };
