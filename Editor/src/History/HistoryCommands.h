@@ -72,6 +72,7 @@ public:
 	bool End(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
+	std::vector<Uuid> GetSelectionAfterRedo() const override;
 private:
 	std::vector<Uuid> m_Roots;
 	std::vector<EntitySubtree> m_Subtrees;
@@ -86,6 +87,7 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
+	std::vector<Uuid> GetSelectionAfterUndo() const override;
 private:
 	std::vector<EntitySubtree> m_Subtrees;
 };
@@ -101,6 +103,8 @@ public:
 	bool End(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
+	std::vector<Uuid> GetSelectionAfterUndo() const override { return m_Entities; }
+	std::vector<Uuid> GetSelectionAfterRedo() const override { return m_Entities; }
 private:
 	std::vector<Uuid> m_Entities;
 	std::string m_Name;
@@ -121,6 +125,8 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
+	std::vector<Uuid> GetSelectionAfterUndo() const override;
+	std::vector<Uuid> GetSelectionAfterRedo() const override;
 private:
 	std::string m_Name;
 	std::vector<Scope<SceneCommand>> m_Commands;

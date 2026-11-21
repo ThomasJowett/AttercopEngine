@@ -48,30 +48,34 @@ void SceneHistory::Push(Scene& scene, Scope<SceneCommand> command)
 		Record(scene, std::move(command));
 }
 
-void SceneHistory::Undo(Scene& scene)
+std::vector<Uuid> SceneHistory::Undo(Scene& scene)
 {
 	if (!m_Enabled || IsGrouping())
-		return;
+		return {};
 
 	End(scene);
 	if (m_Position == 0)
-		return;
+		return {};
 
-	m_Steps[--m_Position].command->Undo(scene);
+	SceneCommand& command = *m_Steps[--m_Position].command;
+	command.Undo(scene);
 	UpdateDirty(scene);
+	return command.GetSelectionAfterUndo();
 }
 
-void SceneHistory::Redo(Scene& scene)
+std::vector<Uuid> SceneHistory::Redo(Scene& scene)
 {
 	if (!m_Enabled || IsGrouping())
-		return;
+		return {};
 
 	End(scene);
 	if (m_Position == m_Steps.size())
-		return;
+		return {};
 
-	m_Steps[m_Position++].command->Redo(scene);
+	SceneCommand& command = *m_Steps[m_Position++].command;
+	command.Redo(scene);
 	UpdateDirty(scene);
+	return command.GetSelectionAfterRedo();
 }
 
 bool SceneHistory::CanUndo() const
