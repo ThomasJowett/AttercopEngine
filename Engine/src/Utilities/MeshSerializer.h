@@ -2,6 +2,7 @@
 
 #include "Asset/StaticMesh.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

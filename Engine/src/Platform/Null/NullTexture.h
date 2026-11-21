@@ -2,6 +2,8 @@
 
 #include "Asset/Texture.h"
 
+#include <cstdint>
+
 // Texture for headless runs: reads the image size and channels but creates no GPU resource
 class NullTexture2D : public Texture2D
 {

@@ -1,6 +1,8 @@
 #pragma once
 #include "Asset/Asset.h"
 
+#include <cstdint>
+
 class AudioClip : public Asset
 {
 public:

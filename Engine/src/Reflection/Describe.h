@@ -8,6 +8,7 @@
 #include "Scene/Entity.h"
 #include "Utilities/StringUtils.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>

@@ -2,6 +2,7 @@
 
 #include "Renderer/SubTexture2D.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
