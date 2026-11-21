@@ -1,11 +1,14 @@
 #include "SceneHistory.h"
 
+#include "History/HistoryCommands.h"
 #include "Scene/Scene.h"
 
 SceneHistory::SceneHistory(size_t budget)
 	: m_Budget(budget)
 {
 }
+
+SceneHistory::~SceneHistory() = default;
 
 void SceneHistory::Begin(Scene& scene, const EditKey& key, Scope<SceneCommand> command)
 {
@@ -30,7 +33,7 @@ void SceneHistory::End(Scene& scene)
 	Scope<SceneCommand> command = std::move(m_OpenCommand);
 	m_OpenKey = EditKey();
 	if (command->End(scene))
-		Add(scene, std::move(command));
+		Record(scene, std::move(command));
 	else
 		UpdateDirty(scene);
 }
@@ -42,7 +45,7 @@ void SceneHistory::Push(Scene& scene, Scope<SceneCommand> command)
 
 	End(scene);
 	if (command->End(scene))
-		Add(scene, std::move(command));
+		Record(scene, std::move(command));
 }
 
 void SceneHistory::Undo(Scene& scene)
@@ -104,6 +107,8 @@ void SceneHistory::SetEnabled(bool enabled)
 	{
 		m_OpenCommand.reset();
 		m_OpenKey = EditKey();
+		m_Group.reset();
+		m_GroupDepth = 0;
 	}
 }
 
@@ -117,6 +122,41 @@ void SceneHistory::Clear()
 	m_UnrecordedChange = false;
 	m_OpenCommand.reset();
 	m_OpenKey = EditKey();
+	m_Group.reset();
+	m_GroupDepth = 0;
+}
+
+void SceneHistory::BeginGroup(Scene& scene, const std::string& name)
+{
+	if (!m_Enabled)
+		return;
+	if (m_GroupDepth++ > 0)
+		return;
+
+	// A step opened before the group isn't part of it
+	End(scene);
+	m_Group = CreateScope<CompoundCommand>(name);
+}
+
+void SceneHistory::EndGroup(Scene& scene)
+{
+	if (m_GroupDepth == 0 || --m_GroupDepth > 0)
+		return;
+
+	End(scene);
+	Scope<CompoundCommand> group = std::move(m_Group);
+	if (group && !group->IsEmpty())
+		Add(scene, std::move(group));
+	else
+		UpdateDirty(scene);
+}
+
+void SceneHistory::Record(Scene& scene, Scope<SceneCommand> command)
+{
+	if (m_Group)
+		m_Group->Append(std::move(command));
+	else
+		Add(scene, std::move(command));
 }
 
 void SceneHistory::Add(Scene& scene, Scope<SceneCommand> command)
@@ -162,4 +202,15 @@ void SceneHistory::UpdateDirty(Scene& scene) const
 		scene.MakeClean();
 	else
 		scene.MakeDirty();
+}
+
+HistoryGroup::HistoryGroup(SceneHistory& history, Scene& scene, const std::string& name)
+	: m_History(history), m_Scene(scene)
+{
+	m_History.BeginGroup(m_Scene, name);
+}
+
+HistoryGroup::~HistoryGroup()
+{
+	m_History.EndGroup(m_Scene);
 }

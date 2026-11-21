@@ -4,7 +4,10 @@
 #include "History/SceneCommand.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
+
+class CompoundCommand;
 
 // The open scene's undo and redo steps
 class SceneHistory
@@ -13,6 +16,7 @@ public:
 	static constexpr size_t DefaultBudget = 64 * 1024 * 1024;
 
 	explicit SceneHistory(size_t budget = DefaultBudget);
+	~SceneHistory();
 
 	// Opens a step whose command has captured the "before" state; closes any open step with another key
 	void Begin(Scene& scene, const EditKey& key, Scope<SceneCommand> command);
@@ -40,6 +44,11 @@ public:
 
 	void Clear();
 
+	// Everything pushed or ended until the matching EndGroup is one step; nested groups join the outer one
+	void BeginGroup(Scene& scene, const std::string& name);
+	void EndGroup(Scene& scene);
+	bool IsGrouping() const { return m_GroupDepth > 0; }
+
 	size_t GetStepCount() const { return m_Steps.size(); }
 	// Steps that are done, the rest can be redone
 	size_t GetPosition() const { return m_Position; }
@@ -55,6 +64,8 @@ private:
 		size_t size = 0;
 	};
 
+	// Adds a finished command to the open group, or as a new step
+	void Record(Scene& scene, Scope<SceneCommand> command);
 	void Add(Scene& scene, Scope<SceneCommand> command);
 	uint64_t CurrentId() const;
 	void UpdateDirty(Scene& scene) const;
@@ -73,5 +84,21 @@ private:
 	EditKey m_OpenKey;
 	Scope<SceneCommand> m_OpenCommand;
 
+	Scope<CompoundCommand> m_Group;
+	int m_GroupDepth = 0;
+
 	bool m_Enabled = true;
+};
+
+// One undo step for everything recorded while it exists
+class HistoryGroup
+{
+public:
+	HistoryGroup(SceneHistory& history, Scene& scene, const std::string& name);
+	~HistoryGroup();
+	HistoryGroup(const HistoryGroup&) = delete;
+	HistoryGroup& operator=(const HistoryGroup&) = delete;
+private:
+	SceneHistory& m_History;
+	Scene& m_Scene;
 };

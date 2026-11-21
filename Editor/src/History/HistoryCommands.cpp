@@ -130,43 +130,43 @@ ReparentEntityCommand::ReparentEntityCommand(Entity entity, Entity newParent)
 		m_NewParent = newParent.GetID();
 }
 
-void ReparentEntityCommand::Undo(Scene& scene)
-{
-	Entity entity = Find(scene, m_Entity);
-	if (!entity)
-		return;
-
-	if (Entity nextSibling = FindOptional(scene, m_OldNextSibling))
-		SceneGraph::MoveBefore(entity, nextSibling);
-	else if (Entity oldParent = FindOptional(scene, m_OldParent))
-		SceneGraph::Reparent(entity, oldParent);
-	else
-		SceneGraph::Unparent(entity);
-}
-
-void ReparentEntityCommand::Redo(Scene& scene)
-{
-	Entity entity = Find(scene, m_Entity);
-	if (!entity)
-		return;
-
-	if (Entity newParent = FindOptional(scene, m_NewParent))
-		SceneGraph::Reparent(entity, newParent);
-	else
-		SceneGraph::Unparent(entity);
-}
-
-MoveSiblingCommand::MoveSiblingCommand(Entity entity, Entity newAnchor, bool newIsBefore)
-	: m_Entity(entity.GetID()), m_OldParent(ParentID(entity)), m_OldPreviousSibling(PreviousSiblingID(entity)),
-	m_OldNextSibling(NextSiblingID(entity)), m_NewAnchor(newAnchor.GetID()), m_NewIsBefore(newIsBefore), m_Name(entity.GetName())
+CompoundCommand::CompoundCommand(std::string name)
+	: m_Name(std::move(name))
 {
 }
 
-void MoveSiblingCommand::Undo(Scene& scene)
+void CompoundCommand::Append(Scope<SceneCommand> command)
 {
-	Entity entity = Find(scene, m_Entity);
-	if (!entity)
-		return;
+	if (command)
+		m_Commands.push_back(std::move(command));
+}
+
+void CompoundCommand::Undo(Scene& scene)
+{
+	for (auto command = m_Commands.rbegin(); command != m_Commands.rend(); ++command)
+		(*command)->Undo(scene);
+}
+
+void CompoundCommand::Redo(Scene& scene)
+{
+	for (Scope<SceneCommand>& command : m_Commands)
+		command->Redo(scene);
+}
+
+std::string CompoundCommand::GetName() const
+{
+	if (m_Name.empty() && m_Commands.size() == 1)
+		return m_Commands.front()->GetName();
+	return m_Name;
+}
+
+size_t CompoundCommand::GetSize() const
+{
+	size_t size = sizeof(*this) + m_Name.capacity() + m_Commands.capacity() * sizeof(Scope<SceneCommand>);
+	for (const Scope<SceneCommand>& command : m_Commands)
+		size += command->GetSize();
+	return size;
+}
 
 	if (Entity previousSibling = FindOptional(scene, m_OldPreviousSibling))
 		SceneGraph::MoveAfter(entity, previousSibling);

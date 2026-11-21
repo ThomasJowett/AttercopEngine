@@ -122,7 +122,7 @@ void PropertiesPanel::RegisterOverrides()
 			}
 		});
 
-	m_Inspector.AppendToComponent("Sprite", [](ComponentInspector& inspector, Entity entity)
+	m_Inspector.AppendToComponent("Sprite", [this](ComponentInspector& inspector, Entity entity)
 		{
 			SpriteComponent& sprite = entity.GetComponent<SpriteComponent>();
 			if (!sprite.texture && sprite.texturePath.empty())
@@ -130,12 +130,15 @@ void PropertiesPanel::RegisterOverrides()
 			if (const Ref<Texture2D>& texture = sprite.GetTexture())
 			{
 				if (ImGui::Button(ICON_FA_EXPAND " Pixel Perfect"))
+				{
+					HistoryGroup group(*m_History, *entity.GetScene(), "Pixel Perfect");
 					PixelPerfect(inspector, entity, texture->GetWidth(), texture->GetHeight());
+				}
 				ImGui::Tooltip("Set Scale to pixel perfect scaling");
 			}
 		});
 
-	m_Inspector.AppendToComponent("AnimatedSprite", [](ComponentInspector& inspector, Entity entity)
+	m_Inspector.AppendToComponent("AnimatedSprite", [this](ComponentInspector& inspector, Entity entity)
 		{
 			AnimatedSpriteComponent& sprite = entity.GetComponent<AnimatedSpriteComponent>();
 			if (!sprite.spriteSheet)
@@ -146,13 +149,14 @@ void PropertiesPanel::RegisterOverrides()
 
 			if (ImGui::Button(ICON_FA_EXPAND " Pixel Perfect"))
 			{
+				HistoryGroup group(*m_History, *entity.GetScene(), "Pixel Perfect");
 				const Ref<SubTexture2D> frame = sprite.spriteSheet->GetSubTexture();
 				PixelPerfect(inspector, entity, frame->GetSpriteWidth(), frame->GetSpriteHeight());
 			}
 			ImGui::Tooltip("Set Scale to pixel perfect scaling");
 		});
 
-	m_Inspector.AppendToComponent("Button", [](ComponentInspector& inspector, Entity entity)
+	m_Inspector.AppendToComponent("Button", [this](ComponentInspector& inspector, Entity entity)
 		{
 			ButtonComponent& button = entity.GetComponent<ButtonComponent>();
 			if (!button.normalTexture)
@@ -161,6 +165,7 @@ void PropertiesPanel::RegisterOverrides()
 			{
 				if (WidgetComponent* widget = entity.TryGetComponent<WidgetComponent>())
 				{
+					HistoryGroup group(*m_History, *entity.GetScene(), "Pixel Perfect");
 					inspector.GetEdits().RecordComponentEdit(entity, Reflection::TypeOf<WidgetComponent>());
 					// A fixed size is what makes the size below take effect
 					widget->fixedWidth = true;
