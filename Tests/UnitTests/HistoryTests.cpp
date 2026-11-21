@@ -8,7 +8,9 @@
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
 #include "Scene/SceneGraph.h"
+#include "Scene/SceneSerializer.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -65,6 +67,33 @@ namespace HistoryTests
 		size_t m_Size;
 		std::vector<std::string>& m_Log;
 	};
+
+	// The hierarchy as names, children in brackets: "A(B C(D)) E"
+	std::string Structure(Entity entity)
+	{
+		std::string text = entity.GetName();
+		std::vector<Entity> children = SceneGraph::GetChildren(entity);
+		for (size_t i = 0; i < children.size(); ++i)
+			text += (i == 0 ? "(" : " ") + Structure(children[i]) + (i + 1 == children.size() ? ")" : "");
+		return text;
+	}
+
+	std::string Structure(Scene& scene)
+	{
+		std::string text;
+		for (Entity root : SceneGraph::GetRoots(scene))
+			text += (text.empty() ? "" : " ") + Structure(root);
+		return text;
+	}
+
+	// Moves the entities as the Hierarchy's drag and drop does, as one pushed step
+	template<typename Move>
+	void PushReparent(SceneHistory& history, Scene& scene, const std::vector<Entity>& entities, Move move)
+	{
+		Scope<ReparentEntitiesCommand> command = CreateScope<ReparentEntitiesCommand>(entities);
+		move();
+		history.Push(scene, std::move(command));
+	}
 
 	// Saving as the editor does: the file matches the scene at this position
 	void Save(SceneHistory& history, Scene& scene)
@@ -542,4 +571,363 @@ TEST_CASE("Ending an edit that changed nothing pushes no step")
 		history.End(scene);
 		CHECK(history.GetStepCount() == 0);
 	}
+}
+
+TEST_CASE("A deleted child comes back in the middle with its UUIDs and data, and older edits still apply")
+{
+	Scene scene("");
+	Entity parent = scene.CreateEntity("Parent");
+	Entity first = CreateMovable(scene, "First");
+	Entity middle = ComponentFixture::Create(scene);
+	Entity last = CreateMovable(scene, "Last");
+	parent.AddChild(first);
+	parent.AddChild(middle);
+	parent.AddChild(last);
+	const Uuid id = middle.GetID();
+	const Uuid childId = middle.GetChild().GetID();
+	SceneHistory history;
+
+	PushMove(history, scene, middle, 8.0f);
+	const std::string saved = SceneSerializer::SerializeEntity(middle);
+
+	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ middle });
+	middle.Destroy();
+	history.Push(scene, std::move(deleteCommand));
+	CHECK(Structure(scene) == "Parent(First Last)");
+	CHECK_FALSE(scene.GetEntityByID(id));
+	CHECK_FALSE(scene.GetEntityByID(childId));
+
+	const std::vector<Uuid> selection = history.Undo(scene);
+	CHECK(Structure(scene) == "Parent(First Root(Child) Last)");
+	Entity restored = scene.GetEntityByID(id);
+	REQUIRE(restored);
+	CHECK(restored.GetChild().GetID() == childId);
+	CHECK(SceneSerializer::SerializeEntity(restored) == saved);
+	CHECK(selection == std::vector<Uuid>{ id });
+
+	// The move before the delete undoes on the restored entity
+	history.Undo(scene);
+	ComponentFixture::Check(scene.GetEntityByID(id));
+
+	history.Redo(scene);
+	CHECK(X(scene.GetEntityByID(id)) == 8.0f);
+	history.Redo(scene);
+	CHECK(Structure(scene) == "Parent(First Last)");
+}
+
+TEST_CASE("A root deleted from the middle of the roots comes back in place")
+{
+	Scene scene("");
+	scene.CreateEntity("A");
+	Entity b = scene.CreateEntity("B");
+	scene.CreateEntity("C");
+	b.AddChild(scene.CreateEntity("D"));
+	CHECK(Structure(scene) == "A B(D) C");
+	SceneHistory history;
+
+	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ b });
+	b.Destroy();
+	history.Push(scene, std::move(deleteCommand));
+	CHECK(Structure(scene) == "A C");
+
+	history.Undo(scene);
+	CHECK(Structure(scene) == "A B(D) C");
+	history.Redo(scene);
+	CHECK(Structure(scene) == "A C");
+}
+
+TEST_CASE("Deleting several entities is one step that puts them all back in place")
+{
+	Scene scene("");
+	Entity parent = scene.CreateEntity("P");
+	std::vector<Entity> children;
+	for (const char* name : { "A", "B", "C", "D" })
+	{
+		children.push_back(scene.CreateEntity(name));
+		parent.AddChild(children.back());
+	}
+	Entity root = scene.CreateEntity("R");
+	SceneHistory history;
+
+	// Given out of order, as a selection can be
+	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ children[2], children[1], root });
+	for (Entity entity : { children[2], children[1], root })
+		entity.Destroy();
+	history.Push(scene, std::move(deleteCommand));
+	CHECK(Structure(scene) == "P(A D)");
+	CHECK(history.GetStepCount() == 1);
+
+	history.Undo(scene);
+	CHECK(Structure(scene) == "P(A B C D) R");
+
+	SUBCASE("an entity under another in the list is part of its subtree")
+	{
+		Scope<DeleteEntitiesCommand> nested = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ scene.GetEntityByName("B"), scene.GetEntityByName("P") });
+		scene.GetEntityByName("P").Destroy();
+		history.Push(scene, std::move(nested));
+		CHECK(Structure(scene) == "R");
+		history.Undo(scene);
+		CHECK(Structure(scene) == "P(A B C D) R");
+	}
+}
+
+TEST_CASE("Redoing a duplicate gives the copies the same UUIDs as the first time")
+{
+	Scene scene("");
+	Entity parent = scene.CreateEntity("Parent");
+	Entity original = scene.CreateEntity("Original");
+	original.AddChild(scene.CreateEntity("Inner"));
+	parent.AddChild(original);
+	parent.AddChild(scene.CreateEntity("After"));
+	SceneHistory history;
+
+	// As the Hierarchy does: new UUIDs when the user acts
+	Entity copy = scene.DuplicateEntity(original, Entity());
+	copy.GetName() += "_copy";
+	const Uuid copyId = copy.GetID();
+	const Uuid innerId = copy.GetChild().GetID();
+	CHECK(copyId != original.GetID());
+	history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ copy }));
+	CHECK(Structure(scene) == "Parent(Original(Inner) After Original_copy(Inner))");
+
+	CHECK(history.Undo(scene).empty());
+	CHECK_FALSE(scene.GetEntityByID(copyId));
+	CHECK(Structure(scene) == "Parent(Original(Inner) After)");
+
+	CHECK(history.Redo(scene) == std::vector<Uuid>{ copyId });
+	Entity redone = scene.GetEntityByID(copyId);
+	REQUIRE(redone);
+	CHECK(redone.GetChild().GetID() == innerId);
+	CHECK(Structure(scene) == "Parent(Original(Inner) After Original_copy(Inner))");
+}
+
+TEST_CASE("Pasting keeps the UUIDs it was given through undo and redo")
+{
+	Scene scene("");
+	Entity source = scene.CreateEntity("Source");
+	const std::string clipboard = SceneSerializer::SerializeEntity(source);
+	SceneHistory history;
+
+	Entity pasted = SceneSerializer::DeserializeEntity(&scene, clipboard, true);
+	const Uuid id = pasted.GetID();
+	CHECK(id != source.GetID());
+	history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ pasted }));
+
+	history.Undo(scene);
+	CHECK(Structure(scene) == "Source");
+	history.Redo(scene);
+	CHECK(scene.GetEntityByID(id));
+	CHECK(Structure(scene) == "Source Source");
+}
+
+TEST_CASE("Reparenting and reordering round trip to the same structure")
+{
+	Scene scene("");
+	Entity a = scene.CreateEntity("A");
+	Entity b = scene.CreateEntity("B");
+	Entity c = scene.CreateEntity("C");
+	Entity d = scene.CreateEntity("D");
+	a.AddChild(b);
+	a.AddChild(c);
+	a.AddChild(d);
+	Entity e = scene.CreateEntity("E");
+	Entity f = scene.CreateEntity("F");
+	const std::string start = "A(B C D) E F";
+	REQUIRE(Structure(scene) == start);
+	SceneHistory history;
+
+	struct Move
+	{
+		const char* name;
+		std::vector<Entity> entities;
+		std::function<void()> move;
+		const char* after;
+	};
+	const std::vector<Move> moves = {
+		{ "reorder a child to the front", { d }, [&] { SceneGraph::MoveBefore(d, b); }, "A(D B C) E F" },
+		{ "reorder a child to the end", { b }, [&] { SceneGraph::MoveAfter(b, d); }, "A(C D B) E F" },
+		{ "reparent a child", { c }, [&] { SceneGraph::Reparent(c, e); }, "A(B D) E(C) F" },
+		{ "make a child a root", { c }, [&] { SceneGraph::Unparent(c); }, "A(B D) E F C" },
+		{ "reorder a root to the front", { f }, [&] { SceneGraph::MoveBefore(f, a); }, "F A(B C D) E" },
+		{ "reorder a root to the end", { a }, [&] { SceneGraph::MoveAfter(a, f); }, "E F A(B C D)" },
+		{ "reparent a root", { e }, [&] { SceneGraph::Reparent(e, a); }, "A(B C D E) F" },
+		{ "move a root under a child", { f }, [&] { SceneGraph::MoveBefore(f, c); }, "A(B F C D) E" },
+		{ "move two siblings together", { c, b }, [&] { SceneGraph::Reparent(b, f); SceneGraph::Reparent(c, f); }, "A(D) E F(B C)" },
+	};
+	for (const Move& move : moves)
+	{
+		SUBCASE(move.name)
+		{
+			PushReparent(history, scene, move.entities, move.move);
+			REQUIRE(history.GetStepCount() == 1);
+			CHECK(Structure(scene) == move.after);
+			history.Undo(scene);
+			CHECK(Structure(scene) == start);
+			history.Redo(scene);
+			CHECK(Structure(scene) == move.after);
+			history.Undo(scene);
+			CHECK(Structure(scene) == start);
+		}
+	}
+
+	SUBCASE("a drop that changes nothing pushes no step")
+	{
+		PushReparent(history, scene, { c }, [&] { SceneGraph::MoveAfter(c, b); });
+		CHECK(history.GetStepCount() == 0);
+	}
+
+	SUBCASE("several moves undo back in order")
+	{
+		PushReparent(history, scene, { d }, [&] { SceneGraph::MoveBefore(d, b); });
+		PushReparent(history, scene, { b }, [&] { SceneGraph::Reparent(b, f); });
+		PushReparent(history, scene, { f }, [&] { SceneGraph::MoveBefore(f, a); });
+		CHECK(Structure(scene) == "F(B) A(D C) E");
+		while (history.CanUndo())
+			history.Undo(scene);
+		CHECK(Structure(scene) == start);
+		while (history.CanRedo())
+			history.Redo(scene);
+		CHECK(Structure(scene) == "F(B) A(D C) E");
+	}
+}
+
+TEST_CASE("A group is one step, undone in reverse")
+{
+	Scene scene("");
+	Entity entity = CreateMovable(scene, "Entity");
+	std::vector<std::string> log;
+	SceneHistory history;
+
+	SUBCASE("pushed commands")
+	{
+		{
+			HistoryGroup group(history, scene, "Both");
+			history.Push(scene, CreateScope<SizedCommand>("1", 10, log));
+			history.Push(scene, CreateScope<SizedCommand>("2", 10, log));
+		}
+		CHECK(history.GetStepCount() == 1);
+		history.Undo(scene);
+		history.Redo(scene);
+		CHECK(log == std::vector<std::string>{ "undo 2", "undo 1", "redo 1", "redo 2" });
+	}
+
+	SUBCASE("an open step inside the group is part of it")
+	{
+		PushMove(history, scene, entity, 1.0f);
+		{
+			HistoryGroup group(history, scene, "Move and add");
+			DragTo(history, scene, entity, 2.0f);
+			Entity created = scene.CreateEntity("Created");
+			history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ created }));
+			DragTo(history, scene, entity, 3.0f);
+		}
+		CHECK(history.GetStepCount() == 2);
+		CHECK(Structure(scene) == "Entity Created");
+		history.Undo(scene);
+		CHECK(X(entity) == 1.0f);
+		CHECK(Structure(scene) == "Entity");
+		history.Redo(scene);
+		CHECK(X(entity) == 3.0f);
+		CHECK(Structure(scene) == "Entity Created");
+	}
+
+	SUBCASE("a step open before the group isn't part of it")
+	{
+		DragTo(history, scene, entity, 1.0f);
+		{
+			HistoryGroup group(history, scene, "Add");
+			history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ scene.CreateEntity("Created") }));
+		}
+		CHECK(history.GetStepCount() == 2);
+	}
+
+	SUBCASE("nested groups join the outer one")
+	{
+		{
+			HistoryGroup outer(history, scene, "Outer");
+			history.Push(scene, CreateScope<SizedCommand>("1", 10, log));
+			{
+				HistoryGroup inner(history, scene, "Inner");
+				history.Push(scene, CreateScope<SizedCommand>("2", 10, log));
+			}
+			history.Push(scene, CreateScope<SizedCommand>("3", 10, log));
+		}
+		CHECK(history.GetStepCount() == 1);
+		history.Undo(scene);
+		CHECK(log == std::vector<std::string>{ "undo 3", "undo 2", "undo 1" });
+	}
+
+	SUBCASE("a group with no change pushes nothing")
+	{
+		{
+			HistoryGroup group(history, scene, "Nothing");
+			history.Push(scene, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
+			DragTo(history, scene, entity, 0.0f);
+		}
+		CHECK(history.GetStepCount() == 0);
+		CHECK_FALSE(history.CanUndo());
+	}
+
+	SUBCASE("nothing is grouped in Play")
+	{
+		history.SetEnabled(false);
+		{
+			HistoryGroup group(history, scene, "Play");
+			history.Push(scene, CreateScope<SizedCommand>("1", 10, log));
+		}
+		history.SetEnabled(true);
+		CHECK(history.GetStepCount() == 0);
+		CHECK_FALSE(history.IsGrouping());
+	}
+}
+
+TEST_CASE("An entity created under the selection comes back under it, after its siblings, with its components")
+{
+	Scene scene("");
+	Entity parent = scene.CreateEntity("Parent");
+	parent.AddChild(scene.CreateEntity("Older"));
+	scene.CreateEntity("After");
+	SceneHistory history;
+
+	// As the Create menu does: components and parent first, then recorded
+	Entity created = scene.CreateEntity("Circle");
+	created.AddComponent<TransformComponent>();
+	created.AddComponent<CircleRendererComponent>();
+	parent.AddChild(created);
+	const Uuid id = created.GetID();
+	history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ created }));
+	CHECK(Structure(scene) == "Parent(Older Circle) After");
+
+	history.Undo(scene);
+	CHECK(Structure(scene) == "Parent(Older) After");
+	history.Redo(scene);
+	CHECK(Structure(scene) == "Parent(Older Circle) After");
+	Entity redone = scene.GetEntityByID(id);
+	REQUIRE(redone);
+	CHECK(redone.HasComponent<CircleRendererComponent>());
+}
+
+TEST_CASE("Instantiating a scene returns its roots, which undo and redo as one step")
+{
+	Ref<Scene> prefab = CreateRef<Scene>("");
+	Entity first = prefab->CreateEntity("First");
+	first.AddChild(prefab->CreateEntity("Inner"));
+	prefab->CreateEntity("Second");
+
+	Scene scene("");
+	scene.CreateEntity("Existing");
+	SceneHistory history;
+
+	std::vector<Entity> roots = scene.InstantiateScene(prefab, Vector3f());
+	REQUIRE(roots.size() == 2);
+	CHECK(roots[0].GetName() == "First");
+	CHECK(roots[1].GetName() == "Second");
+	history.Push(scene, CreateScope<CreateEntitiesCommand>(roots));
+	CHECK(history.GetStepCount() == 1);
+	CHECK(Structure(scene) == "Existing First(Inner) Second");
+
+	history.Undo(scene);
+	CHECK(Structure(scene) == "Existing");
+	CHECK(history.Redo(scene).size() == 2);
+	CHECK(Structure(scene) == "Existing First(Inner) Second");
 }
