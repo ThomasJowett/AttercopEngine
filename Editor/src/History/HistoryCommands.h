@@ -80,24 +80,23 @@ private:
 	std::string m_Name;
 };
 
-class MoveSiblingCommand : public SceneCommand
+// Several commands as one step, undone in reverse
+class CompoundCommand : public SceneCommand
 {
 public:
-	// Construct before SceneGraph::MoveBefore or MoveAfter; newAnchor and newIsBefore describe that move
-	MoveSiblingCommand(Entity entity, Entity newAnchor, bool newIsBefore);
+	explicit CompoundCommand(std::string name);
+	// Adds a command that has already ended
+	void Append(Scope<SceneCommand> command);
+	bool IsEmpty() const { return m_Commands.empty(); }
 	void Undo(Scene& scene) override;
 	void Redo(Scene& scene) override;
-	std::string GetName() const override { return "Move " + m_Name; }
-	size_t GetSize() const override { return sizeof(*this) + m_Name.capacity(); }
-
+	std::string GetName() const override;
+	size_t GetSize() const override;
+	std::vector<Uuid> GetSelectionAfterUndo() const override;
+	std::vector<Uuid> GetSelectionAfterRedo() const override;
 private:
-	Uuid m_Entity;
-	std::optional<Uuid> m_OldParent;
-	std::optional<Uuid> m_OldPreviousSibling;
-	std::optional<Uuid> m_OldNextSibling;
-	Uuid m_NewAnchor;
-	bool m_NewIsBefore;
 	std::string m_Name;
+	std::vector<Scope<SceneCommand>> m_Commands;
 };
 
 // Adds the component and records it, as the Add Component menu does
