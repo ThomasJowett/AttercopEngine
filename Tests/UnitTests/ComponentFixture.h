@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vendor/doctest.h"
+#include "TestHelpers.h"
 
 #include "Scene/AssetManager.h"
 #include "Scene/Components.h"
@@ -33,7 +34,7 @@ namespace ComponentFixture
 	inline Entity Create(Scene& scene)
 	{
 		Entity root = scene.CreateEntity(*Uuid::Parse(k_RootId), "Root");
-		root.AddComponent<TransformComponent>(Vector3f(1.0f, 2.0f, 3.0f), Vector3f(0.25f, 0.5f, 0.75f), Vector3f(2.0f, 3.0f, 4.0f));
+		root.AddComponent<TransformComponent>(Vector3f(1.0f, 2.0f, 3.0f), AtRunTime(Vector3f(0.25f, 0.5f, 0.75f)), Vector3f(2.0f, 3.0f, 4.0f));
 
 		CameraComponent& camera = root.AddComponent<CameraComponent>();
 		camera.primary = false;
@@ -239,8 +240,7 @@ namespace ComponentFixture
 		const TransformComponent& transform = root.GetComponent<TransformComponent>();
 		CHECK(transform.GetPosition() == Vector3f(1.0f, 2.0f, 3.0f));
 		CHECK(transform.GetEulerAngles() == Vector3f(0.25f, 0.5f, 0.75f));
-		// Built at run time from the loaded angles: from constants, the compiler can round sinf and cosf differently
-		const Quaternion rotation = Quaternion(transform.GetEulerAngles());
+		const Quaternion rotation = Quaternion(AtRunTime(transform.GetEulerAngles()));
 		CHECK(transform.GetRotation() == rotation);
 		CHECK(transform.GetScale() == Vector3f(2.0f, 3.0f, 4.0f));
 

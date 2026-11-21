@@ -1,4 +1,5 @@
 #include "vendor/doctest.h"
+#include "TestHelpers.h"
 
 #include "History/HistoryCommands.h"
 #include "History/SceneHistory.h"
@@ -212,9 +213,8 @@ using namespace TransformTestHelpers;
 TEST_CASE("The local matrix is built from the stored quaternion")
 {
 	TransformComponent transform;
-	transform.SetEulerAngles(Vector3f(0.3f, -0.7f, 1.2f));
-	// From the stored angles, at run time: from constants, the compiler can round sinf and cosf differently
-	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
+	transform.SetEulerAngles(AtRunTime(Vector3f(0.3f, -0.7f, 1.2f)));
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(AtRunTime(transform.GetEulerAngles()))));
 	CheckSameRotation(RotationPart(transform.GetLocalMatrix()), FromEuler(Vector3f(0.3f, -0.7f, 1.2f)));
 }
 
@@ -259,20 +259,21 @@ TEST_CASE("At a pitch of 90 degrees a small SetRotation keeps X as it was")
 TEST_CASE("The 2D fast path gives the same quaternion as the general path")
 {
 	TransformComponent transform;
-	for (float z : { 0.4f, -2.0f, 7.5f })
+	for (float angle : { 0.4f, -2.0f, 7.5f })
 	{
-		CAPTURE(z);
+		CAPTURE(angle);
+		const float z = AtRunTime(angle);
 		transform.SetEulerAngles(Vector3f(0.0f, 0.0f, z));
-		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, z))));
+		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, AtRunTime(z)))));
 		transform.SetAngle2D(z + 1.0f);
-		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, z + 1.0f))));
+		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, AtRunTime(z + 1.0f)))));
 	}
 
 	// With X or Y set, SetAngle2D keeps them in the quaternion
-	transform.SetEulerAngles(Vector3f(0.2f, 0.3f, 0.0f));
-	transform.SetAngle2D(0.4f);
+	transform.SetEulerAngles(AtRunTime(Vector3f(0.2f, 0.3f, 0.0f)));
+	transform.SetAngle2D(AtRunTime(0.4f));
 	CHECK(transform.GetEulerAngles() == Vector3f(0.2f, 0.3f, 0.4f));
-	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(AtRunTime(transform.GetEulerAngles()))));
 }
 
 TEST_CASE("Rotation setters mark the transform dirty only when the rotation changes")
@@ -333,7 +334,7 @@ TEST_CASE("Undo brings back the Euler angles exactly and a matching quaternion")
 	const TransformComponent& undone = entity.GetComponent<TransformComponent>();
 	CHECK(undone.GetEulerAngles() == angles);
 	CheckSameQuaternionRotation(undone.GetRotation(), rotation);
-	CHECK(SameQuaternion(undone.GetRotation(), Quaternion(angles)));
+	CHECK(SameQuaternion(undone.GetRotation(), Quaternion(AtRunTime(angles))));
 }
 
 TEST_CASE("Stop brings back the Euler angles exactly and a matching quaternion")
