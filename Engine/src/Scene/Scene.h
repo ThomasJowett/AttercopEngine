@@ -36,7 +36,8 @@ public:
 	// hint gives the entity that handle when it's free, as the play-mode snapshot does
 	Entity CreateEntity(Uuid id, const std::string& name = "", entt::entity hint = entt::null);
 
-	void InstantiateScene(const Ref<Scene> prefab, const Vector3f& position);
+	// Returns the roots it creates
+	std::vector<Entity> InstantiateScene(const Ref<Scene> prefab, const Vector3f& position);
 	Entity InstantiateEntity(const Entity prefab, const Vector3f& position);
 
 	bool RemoveEntity(Entity& entity);

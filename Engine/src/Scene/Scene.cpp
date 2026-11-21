@@ -127,11 +127,13 @@ Entity Scene::CreateEntity(Uuid id, const std::string& name, entt::entity hint)
 	return entity;
 }
 
-void Scene::InstantiateScene(const Ref<Scene> prefab, const Vector3f& position)
+std::vector<Entity> Scene::InstantiateScene(const Ref<Scene> prefab, const Vector3f& position)
 {
 	PROFILE_FUNCTION();
+	std::vector<Entity> roots;
 	for (Entity root : SceneGraph::GetRoots(*prefab))
-		InstantiateEntity(root, position);
+		roots.push_back(InstantiateEntity(root, position));
+	return roots;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

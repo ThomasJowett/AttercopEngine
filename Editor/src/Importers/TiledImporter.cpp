@@ -326,8 +326,15 @@ std::string TiledImporter::ImportTileset(const std::filesystem::path& filepath, 
 	return LoadTileset(filepath, destination);
 }
 
-std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, const std::filesystem::path& destination)
+std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, const std::filesystem::path& destination,
+	std::vector<Entity>* createdRoots)
 {
+	auto addRoot = [createdRoots](Entity root)
+		{
+			if (createdRoots && root)
+				createdRoots->push_back(root);
+		};
+
 	tinyxml2::XMLDocument doc;
 
 	s_Filepath = filepath;
@@ -390,7 +397,7 @@ std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, 
 
 		while (pLayer)
 		{
-			LoadLayer(pLayer);
+			addRoot(LoadLayer(pLayer));
 
 			pLayer = pLayer->NextSiblingElement("layer");
 		}
@@ -400,7 +407,7 @@ std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, 
 
 		while (pObjectGroup)
 		{
-			LoadObjectGroup(pObjectGroup);
+			addRoot(LoadObjectGroup(pObjectGroup));
 
 			pObjectGroup = pObjectGroup->NextSiblingElement("objectgroup");
 		}
@@ -409,7 +416,7 @@ std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, 
 
 		while (pImageLayer)
 		{
-			LoadImageLayer(pImageLayer);
+			addRoot(LoadImageLayer(pImageLayer));
 
 			pImageLayer = pImageLayer->NextSiblingElement("imagelayer");
 		}
@@ -419,7 +426,7 @@ std::string TiledImporter::ImportTilemap(const std::filesystem::path& filepath, 
 
 		while (pGroup)
 		{
-			LoadGroup(pGroup);
+			addRoot(LoadGroup(pGroup));
 
 			pGroup = pGroup->NextSiblingElement("group");
 		}
