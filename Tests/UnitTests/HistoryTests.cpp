@@ -415,7 +415,7 @@ TEST_CASE("Commands find their entity by UUID after it is deleted and undone")
 
 	PushMove(history, scene, middle, 3.0f);
 
-	Scope<RemoveEntityCommand> remove = CreateScope<RemoveEntityCommand>(middle);
+	Scope<DeleteEntitiesCommand> remove = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ middle });
 	SceneGraph::Remove(middle);
 	history.Push(scene, std::move(remove));
 	CHECK_FALSE(scene.GetEntityByID(id));
@@ -445,7 +445,7 @@ TEST_CASE("An entity created under a parent comes back under it on redo")
 	Entity child = scene.CreateEntity("Child");
 	parent.AddChild(child);
 	const Uuid id = child.GetID();
-	history.Push(scene, CreateScope<AddEntityCommand>(child));
+	history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ child }));
 
 	history.Undo(scene);
 	CHECK_FALSE(scene.GetEntityByID(id));

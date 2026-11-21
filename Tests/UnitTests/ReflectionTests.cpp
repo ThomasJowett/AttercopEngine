@@ -956,14 +956,14 @@ TEST_CASE("Roots keep their order through reordering, delete and undo, and save 
 
 	SUBCASE("deleting a root and undoing puts it back in place")
 	{
-		RemoveEntityCommand remove(c);
+		DeleteEntitiesCommand remove({ c });
 		SceneGraph::Remove(c);
 		CHECK(RootNames(scene) == "D A B");
 		remove.Undo(scene);
 		CHECK(RootNames(scene) == "D C A B");
 
 		Entity last = scene.GetEntityByName("B");
-		RemoveEntityCommand removeLast(last);
+		DeleteEntitiesCommand removeLast({ last });
 		SceneGraph::Remove(last);
 		CHECK(scene.GetLastRoot() == scene.GetEntityByName("A").GetHandle());
 		removeLast.Undo(scene);
@@ -972,7 +972,7 @@ TEST_CASE("Roots keep their order through reordering, delete and undo, and save 
 
 	SUBCASE("undoing a reparent puts a root back in place")
 	{
-		ReparentEntityCommand reparent(c, a);
+		ReparentEntitiesCommand reparent({ c });
 		SceneGraph::Reparent(c, a);
 		CHECK(RootNames(scene) == "D A(C) B");
 		reparent.Undo(scene);

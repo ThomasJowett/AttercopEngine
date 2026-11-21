@@ -5,6 +5,8 @@
 #include "Core/UUID.h"
 
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace HistoryCommands
 {
@@ -25,59 +27,86 @@ EditKey ComponentEditKey(Entity entity)
 	return ComponentEditKey(entity, Reflection::TypeOf<T>());
 }
 
-class AddEntityCommand : public SceneCommand
+// Where an entity sits: its parent, and the sibling after it or none for the last; roots have no parent
+struct EntityPosition
+{
+	Uuid entity;
+	std::optional<Uuid> parent;
+	std::optional<Uuid> nextSibling;
+
+	bool operator==(const EntityPosition& other) const
+	{
+		return entity == other.entity && parent == other.parent && nextSibling == other.nextSibling;
+	}
+	bool operator!=(const EntityPosition& other) const { return !(*this == other); }
+};
+
+// An entity and its children in the per-entity serialised form copy and paste use, and where it sits
+struct EntitySubtree
+{
+	EntityPosition position;
+	std::string serialised;
+	std::string name;
+};
+
+namespace HistoryCommands
+{
+	// The entities in hierarchy order, leaving out any under another one in the list
+	std::vector<Entity> TopLevelInOrder(const std::vector<Entity>& entities);
+	EntityPosition PositionOf(Entity entity);
+	// Puts the entity under its parent, then before its next sibling
+	void MoveTo(Scene& scene, Entity entity, const EntityPosition& position);
+	EntitySubtree SaveSubtree(Entity entity);
+	// Re-creates the subtrees with their UUIDs and puts them back in place; subtrees are in hierarchy order
+	void RestoreSubtrees(Scene& scene, const std::vector<EntitySubtree>& subtrees);
+	void RemoveSubtrees(Scene& scene, const std::vector<EntitySubtree>& subtrees);
+}
+
+class CreateEntitiesCommand : public SceneCommand
 {
 public:
-	// Construct once the entity is complete, including its parent
-	explicit AddEntityCommand(Entity entity);
+	// Construct once the roots are complete, with their components, children and parents
+	explicit CreateEntitiesCommand(const std::vector<Entity>& roots);
 	void Undo(Scene& scene) override;
 	void Redo(Scene& scene) override;
 	bool End(Scene& scene) override;
-	std::string GetName() const override { return "Create " + m_Name; }
-	size_t GetSize() const override { return sizeof(*this) + m_EntityPrefab.capacity() + m_Name.capacity(); }
+	std::string GetName() const override;
+	size_t GetSize() const override;
 private:
-	Uuid m_Entity;
-	std::optional<Uuid> m_Parent;
-	std::string m_EntityPrefab;
-	std::string m_Name;
+	std::vector<Uuid> m_Roots;
+	std::vector<EntitySubtree> m_Subtrees;
 };
 
-class RemoveEntityCommand : public SceneCommand
+class DeleteEntitiesCommand : public SceneCommand
 {
 public:
-	// Construct before the entity is removed
-	explicit RemoveEntityCommand(Entity entity);
+	// Construct before the roots are deleted
+	explicit DeleteEntitiesCommand(const std::vector<Entity>& roots);
 	void Undo(Scene& scene) override;
 	void Redo(Scene& scene) override;
-	std::string GetName() const override { return "Delete " + m_Name; }
-	size_t GetSize() const override { return sizeof(*this) + m_EntityPrefab.capacity() + m_Name.capacity(); }
-
+	std::string GetName() const override;
+	size_t GetSize() const override;
 private:
-	Uuid m_Entity;
-	std::optional<Uuid> m_Parent;
-	// The sibling or root after it, so undo puts it back in place
-	std::optional<Uuid> m_NextSibling;
-	std::string m_EntityPrefab;
-	std::string m_Name;
+	std::vector<EntitySubtree> m_Subtrees;
 };
 
-class ReparentEntityCommand : public SceneCommand
+// Moves entities to another parent or place among their siblings
+class ReparentEntitiesCommand : public SceneCommand
 {
 public:
-	// Construct before reparenting; a null newParent makes it a root
-	ReparentEntityCommand(Entity entity, Entity newParent);
+	// Construct before the move
+	explicit ReparentEntitiesCommand(const std::vector<Entity>& entities);
 	void Undo(Scene& scene) override;
 	void Redo(Scene& scene) override;
-	std::string GetName() const override { return "Reparent " + m_Name; }
-	size_t GetSize() const override { return sizeof(*this) + m_Name.capacity(); }
-
+	bool End(Scene& scene) override;
+	std::string GetName() const override;
+	size_t GetSize() const override;
 private:
-	Uuid m_Entity;
-	std::optional<Uuid> m_NewParent;
-	std::optional<Uuid> m_OldParent;
-	// The sibling or root it was before, so undo puts it back in place
-	std::optional<Uuid> m_OldNextSibling;
+	std::vector<Uuid> m_Entities;
 	std::string m_Name;
+	// Each in hierarchy order at its time
+	std::vector<EntityPosition> m_Before;
+	std::vector<EntityPosition> m_After;
 };
 
 // Several commands as one step, undone in reverse
@@ -92,8 +121,6 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
-	std::vector<Uuid> GetSelectionAfterUndo() const override;
-	std::vector<Uuid> GetSelectionAfterRedo() const override;
 private:
 	std::string m_Name;
 	std::vector<Scope<SceneCommand>> m_Commands;

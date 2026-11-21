@@ -50,7 +50,7 @@ void SceneHistory::Push(Scene& scene, Scope<SceneCommand> command)
 
 void SceneHistory::Undo(Scene& scene)
 {
-	if (!m_Enabled)
+	if (!m_Enabled || IsGrouping())
 		return;
 
 	End(scene);
@@ -63,7 +63,7 @@ void SceneHistory::Undo(Scene& scene)
 
 void SceneHistory::Redo(Scene& scene)
 {
-	if (!m_Enabled)
+	if (!m_Enabled || IsGrouping())
 		return;
 
 	End(scene);

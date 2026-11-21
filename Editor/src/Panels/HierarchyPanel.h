@@ -65,6 +65,8 @@ private:
     void CreateMenu();
     // Puts a new entity under the selection, records it and selects it
     void AddCreated(Entity entity);
+    // The selected entities that delete, duplicate and similar act on
+    std::vector<Entity> GetSelectedRoots() const;
 private:
     bool* m_Show;
     Ref<SceneHistory> m_History;
