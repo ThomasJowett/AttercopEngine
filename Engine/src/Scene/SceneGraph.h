@@ -3,6 +3,8 @@
 #include "Components.h"
 #include "Scene/Entity.h"
 
+#include <cstdint>
+
 class SceneGraph
 {
 public:

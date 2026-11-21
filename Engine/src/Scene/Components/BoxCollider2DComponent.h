@@ -12,6 +12,8 @@
 #include "Physics/CollisionLayers.h"
 #include "Reflection/ReflectionFwd.h"
 
+#include <cstdint>
+
 class b2Body;
 
 struct BoxCollider2DComponent

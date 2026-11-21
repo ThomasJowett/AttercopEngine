@@ -5,6 +5,8 @@
 #include "Scene/AssetManager.h"
 #include "Reflection/ReflectionFwd.h"
 
+#include <cstdint>
+
 struct TextComponent
 {
 	TextComponent() = default;

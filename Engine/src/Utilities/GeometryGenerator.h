@@ -2,6 +2,8 @@
 
 #include "Renderer/Mesh.h"
 
+#include <cstdint>
+
 namespace GeometryGenerator
 {
 // Create a Cube mesh

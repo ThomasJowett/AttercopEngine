@@ -8,6 +8,8 @@
 #include "Utilities/SerializationUtils.h"
 #include "Reflection/ReflectionFwd.h"
 
+#include <cstdint>
+
 struct FiredAnimationEvent
 {
 	enum class Type { Event, Finished };

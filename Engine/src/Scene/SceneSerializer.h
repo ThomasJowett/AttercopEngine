@@ -2,6 +2,7 @@
 
 #include "Scene.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 

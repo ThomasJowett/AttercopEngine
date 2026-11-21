@@ -8,6 +8,8 @@
 
 #include "Utilities/FileUtils.h"
 
+#include <cstdint>
+
 namespace tinyxml2
 {
 class XMLDocument;

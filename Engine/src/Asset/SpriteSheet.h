@@ -4,6 +4,7 @@
 #include "Renderer/SubTexture2D.h"
 #include "Animation/Animation.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <unordered_map>
 

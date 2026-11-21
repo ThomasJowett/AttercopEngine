@@ -5,6 +5,7 @@
 #include "Math/BoundingBox.h"
 #include "math/Vector2f.h"
 
+#include <cstdint>
 #include <vector>
 
 struct MSDFData;

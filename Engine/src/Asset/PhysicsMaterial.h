@@ -2,6 +2,8 @@
 
 #include "Asset/Asset.h"
 
+#include <cstdint>
+
 namespace tinyxml2
 {
 class XMLDocument;

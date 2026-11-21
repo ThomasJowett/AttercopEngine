@@ -8,6 +8,8 @@
 #include "Components/IDComponent.h"
 #include "Utilities/StringUtils.h"
 
+#include <cstdint>
+
 class Entity
 {
 public:

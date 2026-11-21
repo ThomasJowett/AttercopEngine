@@ -4,6 +4,7 @@
 #include "Animation/Animation.h"
 #include "Asset/Asset.h"
 
+#include <cstdint>
 #include <set>
 #include <filesystem>
 

@@ -3,6 +3,7 @@
 #include "Reflection/Reflection.h"
 #include "Scene/Entity.h"
 
+#include <cstdint>
 #include <optional>
 
 class SceneHistory;
