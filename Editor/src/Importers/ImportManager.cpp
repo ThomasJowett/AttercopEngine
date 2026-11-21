@@ -7,7 +7,8 @@
 
 #include <algorithm>
 
-std::string ImportManager::ImportAsset(const std::filesystem::path& asset, const std::filesystem::path& destination)
+std::string ImportManager::ImportAsset(const std::filesystem::path& asset, const std::filesystem::path& destination,
+	std::vector<Entity>* createdRoots)
 {
 	std::string extString = asset.extension().string();
 
@@ -16,7 +17,7 @@ std::string ImportManager::ImportAsset(const std::filesystem::path& asset, const
 	std::string error;
 	if (extString == ".tmx")
 	{
-		error = TiledImporter::ImportTilemap(asset, destination);
+		error = TiledImporter::ImportTilemap(asset, destination, createdRoots);
 	}
 	else if (extString == ".tsx")
 	{
