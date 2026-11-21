@@ -213,7 +213,8 @@ TEST_CASE("The local matrix is built from the stored quaternion")
 {
 	TransformComponent transform;
 	transform.SetEulerAngles(Vector3f(0.3f, -0.7f, 1.2f));
-	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.3f, -0.7f, 1.2f))));
+	// From the stored angles, at run time: from constants, the compiler can round sinf and cosf differently
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
 	CheckSameRotation(RotationPart(transform.GetLocalMatrix()), FromEuler(Vector3f(0.3f, -0.7f, 1.2f)));
 }
 
@@ -270,7 +271,8 @@ TEST_CASE("The 2D fast path gives the same quaternion as the general path")
 	// With X or Y set, SetAngle2D keeps them in the quaternion
 	transform.SetEulerAngles(Vector3f(0.2f, 0.3f, 0.0f));
 	transform.SetAngle2D(0.4f);
-	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.2f, 0.3f, 0.4f))));
+	CHECK(transform.GetEulerAngles() == Vector3f(0.2f, 0.3f, 0.4f));
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
 }
 
 TEST_CASE("Rotation setters mark the transform dirty only when the rotation changes")
