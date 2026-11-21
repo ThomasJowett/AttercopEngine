@@ -3,7 +3,7 @@
     <Entity Name="Camera" ID="17835588207939346872-6055322847075048399">
         <Transform>
             <Position X="0" Y="1.5" Z="6"/>
-            <Rotation X="-0.25" Y="0" Z="0"/>
+            <Rotation X="-14.323945" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
         <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" Fov="0.78539819"/>
@@ -11,7 +11,7 @@
     <Entity Name="Cube" ID="13681125585053631226-2926487001836714625">
         <Transform>
             <Position X="-2" Y="0" Z="0"/>
-            <Rotation X="0.4" Y="0.6" Z="0"/>
+            <Rotation X="22.918312" Y="34.37747" Z="0"/>
             <Scale X="1.5" Y="1.5" Z="1.5"/>
         </Transform>
         <Primitive Type="Cube">
@@ -32,7 +32,7 @@
     <Entity Name="Torus" ID="10679853703789940812-5205404844268769558">
         <Transform>
             <Position X="2.6" Y="0" Z="0"/>
-            <Rotation X="1.0" Y="0" Z="0"/>
+            <Rotation X="57.29578" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
         <Primitive Type="Torus">

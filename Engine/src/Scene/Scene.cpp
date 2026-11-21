@@ -240,10 +240,12 @@ Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 		{
 			Vector3f position, scale;
 			Quaternion rotation;
-			transformComp->GetWorldMatrix().Decompose(position, rotation, scale);
+			// Keeping the scale's signs leaves a mirrored copy's values as they were
+			const bool hasRotation = transformComp->GetWorldMatrix().Decompose(position, rotation, scale, transformComp->GetScale());
 			SceneGraph::Unparent(newEntity);
 			transformComp->SetPosition(position);
-			transformComp->SetRotation(rotation);
+			if (hasRotation)
+				transformComp->SetRotation(rotation);
 			transformComp->SetScale(scale);
 		}
 	}

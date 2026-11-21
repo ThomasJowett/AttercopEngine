@@ -546,6 +546,14 @@ namespace MigrationTests
 			CheckStep(R"(<CapsuleCollider2D Direction="1"/>)", R"(<CapsuleCollider2D Direction="Horizontal"/>)");
 		}
 
+		SUBCASE("Transform: rotation from radians to degrees that read back to the same floats")
+		{
+			CheckStep(R"(<Transform><Position X="1" Y="2" Z="3"/><Rotation X="0.25" Y="-1.5707964" Z="7"/><Scale X="1" Y="1" Z="1"/></Transform>)",
+				R"(<Transform><Position X="1" Y="2" Z="3"/><Rotation X="14.323945" Y="-90" Z="401.07046"/><Scale X="1" Y="1" Z="1"/></Transform>)");
+			CheckStep(R"(<Transform><Rotation Z="0"/></Transform>)", R"(<Transform><Rotation Z="0"/></Transform>)");
+			CheckStep(R"(<Transform><Rotation X="up"/></Transform>)", R"(<Transform><Rotation X="up"/></Transform>)", 1);
+		}
+
 		SUBCASE("Billboard: Orientation by name")
 		{
 			CheckStep(R"(<Billboard Orientation="0"/>)", R"(<Billboard Orientation="WorldUp"/>)");

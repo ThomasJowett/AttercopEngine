@@ -16,7 +16,7 @@ Saved as a `<Transform>` element inside the entity's `<Entity>` element. Attribu
 ```xml
 <Transform>
     <Position X="0" Y="2" Z="0"/>
-    <Rotation X="0" Y="0" Z="0.785"/>
+    <Rotation X="0" Y="0" Z="45"/>
     <Scale X="1" Y="1" Z="1"/>
 </Transform>
 ```
@@ -24,12 +24,16 @@ Saved as a `<Transform>` element inside the entity's `<Entity>` element. Attribu
 | Name | Where | Type | Default |
 | --- | --- | --- | --- |
 | `Position` | child `X` `Y` `Z` | float | 0, 0, 0 |
-| `Rotation` | child `X` `Y` `Z` | float, Euler angles in radians | 0, 0, 0 |
+| `Rotation` | child `X` `Y` `Z` | float, Euler angles in degrees | 0, 0, 0 |
 | `Scale` | child `X` `Y` `Z` | float | 1, 1, 1 |
 
 Physics bodies take their starting position and Z rotation from the transform. While the
 game runs, an entity with a [Rigid Body 2D](../physics-2d/RigidBody2DComponent.md) or a collider is
 moved by the physics engine. Use the rigid body's functions to move it rather than setting
 `Position` directly.
+
+In Lua, `Rotation` is the Euler angles in radians, unlike the file and the inspector, which use
+degrees. `Orientation` is the same rotation as a [Quaternion](../../LuaAPI/Quaternion.md). Setting either one updates the other. Use
+`Orientation` to turn in 3D without gimbal lock, for example with `Quaternion.Slerp`.
 
 --8<-- "LuaAPI/_fragments/TransformComponent.md"
