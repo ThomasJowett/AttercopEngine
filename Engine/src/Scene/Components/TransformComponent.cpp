@@ -28,6 +28,12 @@ namespace TransformComponentReflection
 				return handle.As<Self>().GetWorldPosition();
 			});
 		RegisterLuaApiEntry({ "GetWorldPosition", "Position in world space, after applying every parent's transform", LuaApiEntry::Kind::Function, s_ReflectComponentName, "", true });
+		type.set_function("GetWorldRotation", [](const Lua::ComponentRef& handle)
+			{
+				Lua::UpdateWorldTransform(handle.scene, handle.entity);
+				return handle.As<Self>().GetWorldRotation();
+			});
+		RegisterLuaApiEntry({ "GetWorldRotation", "Rotation in world space as a Quaternion, after applying every parent's transform", LuaApiEntry::Kind::Function, s_ReflectComponentName, "Quaternion", true });
 	REFLECT_LUA_END()
 }
 
@@ -40,9 +46,12 @@ void TransformComponent::Describe(Reflection::Builder<TransformComponent>& c)
 
 	c.Property<&TransformComponent::GetPosition, &TransformComponent::SetPosition>("Position",
 		"Position relative to the parent entity, or to the world if it has no parent");
-	// Stored as Euler angles
+	// Stored as Euler angles in radians, saved in degrees
 	c.Property<&TransformComponent::GetEulerAngles, &TransformComponent::SetEulerAngles>("Rotation",
-		"Rotation as Euler angles, relative to the parent").Degrees();
+		"Rotation as Euler angles, relative to the parent").Degrees().SavedInDegrees();
+	// The same rotation as Rotation, so it isn't saved or shown twice
+	c.Property<&TransformComponent::GetRotation, &TransformComponent::SetRotation>("Orientation",
+		"The same rotation as Rotation, as a unit Quaternion").NotSaved().HideInInspector();
 	c.Property<&TransformComponent::GetScale, &TransformComponent::SetScale>("Scale", "Scale relative to the parent").LockParts();
 
 	c.OnChanged(&TransformComponentReflection::TeleportBody);

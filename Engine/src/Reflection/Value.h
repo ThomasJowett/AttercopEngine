@@ -2,6 +2,7 @@
 
 #include "Core/core.h"
 #include "Core/Colour.h"
+#include "math/Quaternion.h"
 #include "math/Vector2f.h"
 #include "math/Vector3f.h"
 
@@ -27,6 +28,7 @@ namespace Reflection
 		String,
 		Vec2,
 		Vec3,
+		Quaternion,
 		Colour,
 		Enum,
 		Asset,
@@ -109,7 +111,7 @@ namespace Reflection
 	class Value
 	{
 	public:
-		using Data = std::variant<bool, int32_t, uint32_t, float, std::string, Vector2f, Vector3f, Colour,
+		using Data = std::variant<bool, int32_t, uint32_t, float, std::string, Vector2f, Vector3f, Quaternion, Colour,
 			EnumValue, AssetValue, LayerValue, MaskValue, ValueList>;
 
 		Value() = default;
@@ -121,6 +123,7 @@ namespace Reflection
 		Value(std::string value) : m_Data(std::move(value)) {}
 		Value(const Vector2f& value) : m_Data(value) {}
 		Value(const Vector3f& value) : m_Data(value) {}
+		Value(const Quaternion& value) : m_Data(value) {}
 		Value(const Colour& value) : m_Data(value) {}
 		Value(const EnumValue& value) : m_Data(value) {}
 		Value(AssetValue value) : m_Data(std::move(value)) {}
