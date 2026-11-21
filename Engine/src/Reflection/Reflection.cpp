@@ -26,6 +26,7 @@ namespace Reflection
 		case ValueType::String: return "String";
 		case ValueType::Vec2: return "Vec2";
 		case ValueType::Vec3: return "Vec3";
+		case ValueType::Quaternion: return "Quaternion";
 		case ValueType::Colour: return "Colour";
 		case ValueType::Enum: return "Enum";
 		case ValueType::Asset: return "Asset";
@@ -125,6 +126,12 @@ namespace Reflection
 			for (int part = 0; part < PartCount(Type()); ++part)
 				text << (part > 0 ? ", " : "") << *GetPart(part);
 			text << ')';
+			break;
+		}
+		case ValueType::Quaternion:
+		{
+			const Quaternion& q = As<Quaternion>();
+			text << "(w " << q.w << ", x " << q.x << ", y " << q.y << ", z " << q.z << ')';
 			break;
 		}
 		case ValueType::Enum:

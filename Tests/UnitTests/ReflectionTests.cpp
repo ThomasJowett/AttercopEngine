@@ -93,6 +93,7 @@ namespace ReflectionTests
 			{ "Name.Name", "Root" },
 			{ "Transform.Position", Vector3f(1.0f, 2.0f, 3.0f) },
 			{ "Transform.Rotation", Vector3f(0.25f, 0.5f, 0.75f) },
+			{ "Transform.Orientation", Quaternion(Vector3f(0.25f, 0.5f, 0.75f)) },
 			{ "Transform.Scale", Vector3f(2.0f, 3.0f, 4.0f) },
 			{ "Camera.Primary", false },
 			{ "Camera.FixedAspectRatio", true },
@@ -267,6 +268,7 @@ namespace ReflectionTests
 			{ "Name.Name", "Child" },
 			{ "Transform.Position", Vector3f(5.0f, 6.0f, 7.0f) },
 			{ "Transform.Rotation", Vector3f(0.0f, 0.0f, 0.0f) },
+			{ "Transform.Orientation", Quaternion() },
 			{ "Transform.Scale", Vector3f(1.0f, 1.0f, 1.0f) },
 			{ "WeldJoint2D.CollideConnected", true },
 			{ "WeldJoint2D.Damping", 0.5f },
@@ -885,6 +887,32 @@ TEST_CASE("Floats are written in the shortest form that reads back to the same b
 		const float read = std::strtof(text.c_str(), nullptr);
 		CHECK(std::memcmp(&read, &value, sizeof(float)) == 0);
 		CHECK(text.size() <= 15);
+	}
+}
+
+TEST_CASE("Angles saved in degrees read back to the same radians")
+{
+	using SceneXml::RadiansToDegreesText;
+	using SceneXml::DegreesToRadians;
+	CHECK(RadiansToDegreesText(0.0f) == "0");
+	CHECK(RadiansToDegreesText(1.5707964f) == "90");
+	CHECK(RadiansToDegreesText(-3.1415927f) == "-180");
+	CHECK(RadiansToDegreesText((float)DegToRad(370.0)) == "370");
+	CHECK(RadiansToDegreesText(0.25f) == "14.323945");
+
+	std::vector<float> samples = { -0.0f, 1e-30f, -1e-7f, 1000.0f, 0.78539819f, std::numeric_limits<float>::denorm_min() };
+	uint32_t seed = 12345;
+	for (int i = 0; i < 2000; ++i)
+	{
+		seed = seed * 1664525u + 1013904223u;
+		samples.push_back(((float)(seed >> 8) / (float)(1u << 24) - 0.5f) * 40.0f);
+	}
+	for (float radians : samples)
+	{
+		const std::string text = RadiansToDegreesText(radians);
+		INFO(text);
+		const float read = DegreesToRadians(std::strtod(text.c_str(), nullptr));
+		CHECK(std::memcmp(&read, &radians, sizeof(float)) == 0);
 	}
 }
 

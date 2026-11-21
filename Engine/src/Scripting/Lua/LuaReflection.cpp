@@ -109,6 +109,7 @@ namespace Lua
 			case ValueType::String: return "string";
 			case ValueType::Vec2: return "Vec2";
 			case ValueType::Vec3: return "Vec3";
+			case ValueType::Quaternion: return "Quaternion";
 			case ValueType::Colour: return "Colour";
 			case ValueType::Enum: return field.enumType ? field.enumType->name : "integer";
 			case ValueType::Asset: return FindAssetKind(field.assetType) ? field.assetType : "string";
@@ -135,6 +136,7 @@ namespace Lua
 			case ValueType::String: return sol::make_object(state, value.As<std::string>());
 			case ValueType::Vec2: return sol::make_object(state, value.As<Vector2f>());
 			case ValueType::Vec3: return sol::make_object(state, value.As<Vector3f>());
+			case ValueType::Quaternion: return sol::make_object(state, value.As<Quaternion>());
 			case ValueType::Colour: return sol::make_object(state, value.As<Colour>());
 			case ValueType::Enum: return sol::make_object(state, value.As<Reflection::EnumValue>().value);
 			case ValueType::Asset:
@@ -206,6 +208,10 @@ namespace Lua
 			case ValueType::Vec3:
 				if (object.is<Vector3f>())
 					return Value(object.as<Vector3f>());
+				break;
+			case ValueType::Quaternion:
+				if (object.is<Quaternion>())
+					return Value(object.as<Quaternion>());
 				break;
 			case ValueType::Colour:
 				if (object.is<Colour>())

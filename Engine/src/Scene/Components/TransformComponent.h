@@ -43,8 +43,11 @@ struct TransformComponent
 	// Normalises; the Euler angles become the ones for it nearest the old ones
 	void SetRotation(const Quaternion& rotation)
 	{
+		// Checked before normalising too, so setting the stored value changes nothing
+		if (rotation == m_Rotation)
+			return;
 		Quaternion unit = rotation.GetNormalized();
-		if (unit.r == m_Rotation.r && unit.i == m_Rotation.i && unit.j == m_Rotation.j && unit.k == m_Rotation.k)
+		if (unit == m_Rotation)
 			return;
 		m_Rotation = unit;
 		m_EulerAngles = unit.EulerAnglesNear(m_EulerAngles);

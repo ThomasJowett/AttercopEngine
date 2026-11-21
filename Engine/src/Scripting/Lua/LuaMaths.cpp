@@ -68,7 +68,11 @@ void BindMath(sol::state& state)
 		"y", sol::property([](Quaternion& q) { return q.y; }, [](Quaternion& q, float value) { q.y = value; }),
 		"z", sol::property([](Quaternion& q) { return q.z; }, [](Quaternion& q, float value) { q.z = value; }),
 		sol::meta_function::addition, [](const Quaternion& a, const Quaternion& b) { return a + b; },
-		sol::meta_function::subtraction, [](const Quaternion& a, const Quaternion& b) { return a - b; }
+		sol::meta_function::subtraction, [](const Quaternion& a, const Quaternion& b) { return a - b; },
+		// q * r applies r, then q; q * v rotates the vector
+		sol::meta_function::multiplication, sol::overload(
+			[](const Quaternion& a, const Quaternion& b) { return a * b; },
+			[](const Quaternion& q, const Vector3f& v) { return q * v; })
 	);
 
 	SetFunction(quaternion_type, "Quaternion", "EulerAngles", "Get the rotation as Euler angles in radians, as a Vec3", &Quaternion::EulerAngles);
@@ -78,6 +82,13 @@ void BindMath(sol::state& state)
 	SetFunction(quaternion_type, "Quaternion", "GetNormalized", "Get a copy scaled to length 1", &Quaternion::GetNormalized);
 	SetFunction(quaternion_type, "Quaternion", "Conjugate", "Get the conjugate", &Quaternion::Conjugate);
 	SetFunction(quaternion_type, "Quaternion", "Inverse", "Get the inverse rotation", &Quaternion::Inverse);
+	// Plain function pointers, so a first Quaternion argument isn't taken for the object it's called on
+	SetFunction(quaternion_type, "Quaternion", "FromAxisAngle", Params{ "axis, angle" }, "Rotation by an angle in radians around an axis",
+		+[](const Vector3f& axis, float angle) { return Quaternion(axis, angle); });
+	SetFunction(quaternion_type, "Quaternion", "FromEuler", Params{ "angles" }, "Rotation from Euler angles in radians, the same convention as a transform's Rotation",
+		+[](const Vector3f& angles) { return Quaternion(angles); });
+	SetFunction(quaternion_type, "Quaternion", "Slerp", Params{ "a, b, alpha" }, "Blend from rotation a to b at a steady rate, the shorter way round",
+		+[](const Quaternion& a, const Quaternion& b, float alpha) { return Quaternion::Slerp(a, b, alpha); });
 	// Constructors, operators and fields are set up in new_usertype above; listed here for the docs
 	RegisterLuaApiEntry({ "new", "Vec2.new(x, y), or Vec2.new() for 0, 0. Supports +, - and * by a number", LuaApiEntry::Kind::Function, "Vec2", "" });
 	RegisterLuaApiEntry({ "x", "X component", LuaApiEntry::Kind::Property, "Vec2", "number" });
@@ -86,7 +97,7 @@ void BindMath(sol::state& state)
 	RegisterLuaApiEntry({ "x", "X component", LuaApiEntry::Kind::Property, "Vec3", "number" });
 	RegisterLuaApiEntry({ "y", "Y component", LuaApiEntry::Kind::Property, "Vec3", "number" });
 	RegisterLuaApiEntry({ "z", "Z component", LuaApiEntry::Kind::Property, "Vec3", "number" });
-	RegisterLuaApiEntry({ "new", "Quaternion.new(roll, pitch, yaw) from Euler angles in radians, or Quaternion.new() for no rotation. Supports + and -", LuaApiEntry::Kind::Function, "Quaternion", "" });
+	RegisterLuaApiEntry({ "new", "Quaternion.new(roll, pitch, yaw) from Euler angles in radians, or Quaternion.new() for no rotation. Supports + and -, q * r to apply r then q, and q * v to rotate a Vec3", LuaApiEntry::Kind::Function, "Quaternion", "" });
 	RegisterLuaApiEntry({ "w", "W component", LuaApiEntry::Kind::Property, "Quaternion", "number" });
 	RegisterLuaApiEntry({ "x", "X component", LuaApiEntry::Kind::Property, "Quaternion", "number" });
 	RegisterLuaApiEntry({ "y", "Y component", LuaApiEntry::Kind::Property, "Quaternion", "number" });

@@ -41,6 +41,7 @@ namespace Inspector
 			return field.Has(Reflection::FieldFlags::AsText) ? Widget::MultilineText : Widget::Text;
 		case ValueType::Vec2:
 		case ValueType::Vec3: return Widget::Vector;
+		case ValueType::Quaternion: return Widget::None;
 		case ValueType::Colour: return Widget::Colour;
 		case ValueType::Enum: return field.enumType ? Widget::Combo : Widget::None;
 		case ValueType::Asset: return FindAssetKind(field.assetType) ? Widget::Asset : Widget::None;
