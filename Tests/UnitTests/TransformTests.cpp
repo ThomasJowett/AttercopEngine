@@ -1,6 +1,13 @@
 #include "vendor/doctest.h"
 
+#include "History/HistoryCommands.h"
+#include "History/SceneHistory.h"
+#include "Reflection/Reflection.h"
+#include "Scene/Components.h"
+#include "Scene/Entity.h"
+#include "Scene/Scene.h"
 #include "Scene/SceneGraph.h"
+#include "Scripting/Lua/LuaManager.h"
 
 #include <cmath>
 #include <vector>
@@ -85,6 +92,7 @@ TEST_CASE("World rotation combines a 3D parent rotation with the child's")
 
 	const TransformComponent& childTransform = registry.get<TransformComponent>(child);
 	CheckSameRotation(FromEuler(childTransform.GetWorldEulerAngles()), RotationPart(childTransform.GetWorldMatrix()));
+	CheckSameRotation(Matrix4x4::Rotate(childTransform.GetWorldRotation()), RotationPart(childTransform.GetWorldMatrix()));
 }
 
 TEST_CASE("World rotation of a mirrored 2D parent")
@@ -104,6 +112,8 @@ TEST_CASE("World rotation of a mirrored 2D parent")
 	// Rotation then the mirrored scale must rebuild the world matrix
 	const TransformComponent& childTransform = registry.get<TransformComponent>(child);
 	Matrix4x4 rebuilt = FromEuler(childTransform.GetWorldEulerAngles()) * Matrix4x4::Scale(Vector3f(-1.0f, 1.0f, 1.0f));
+	CheckSameRotation(rebuilt, childTransform.GetWorldMatrix());
+	rebuilt = Matrix4x4::Rotate(childTransform.GetWorldRotation()) * Matrix4x4::Scale(Vector3f(-1.0f, 1.0f, 1.0f));
 	CheckSameRotation(rebuilt, childTransform.GetWorldMatrix());
 }
 
@@ -161,4 +171,222 @@ TEST_CASE("SetAngle2D marks the transform dirty only when the angle changes")
 
 	SceneGraph::Traverse(registry);
 	CheckSameRotation(transform.GetWorldMatrix(), FromEuler(Vector3f(0.0f, 0.0f, 1.0f)));
+}
+
+namespace TransformTestHelpers
+{
+	bool SameQuaternion(const Quaternion& a, const Quaternion& b)
+	{
+		return a.r == b.r && a.i == b.i && a.j == b.j && a.k == b.k;
+	}
+
+	// q and -q are the same rotation
+	void CheckSameQuaternionRotation(const Quaternion& a, const Quaternion& b)
+	{
+		CHECK(std::abs(Quaternion::Dot(a, b)) == doctest::Approx(1.0f).epsilon(1e-6));
+	}
+
+	// Clean after a traversal, so the next change can be seen
+	TransformComponent& CleanTransform(entt::registry& registry, const Vector3f& eulerAngles)
+	{
+		entt::entity entity = registry.create();
+		registry.emplace<TransformComponent>(entity, Vector3f(0.0f, 0.0f, 0.0f), eulerAngles, Vector3f(1.0f, 1.0f, 1.0f));
+		registry.emplace<HierarchyComponent>(entity);
+		SceneGraph::Traverse(registry);
+		return registry.get<TransformComponent>(entity);
+	}
+
+	// What the gizmo does each frame: decompose its local matrix, keeping the scale's signs, and set the rotation
+	void GizmoDrag(TransformComponent& transform, const Quaternion& rotation)
+	{
+		Matrix4x4 local = Matrix4x4::Translate(transform.GetPosition()) * Matrix4x4::Rotate(rotation) * Matrix4x4::Scale(transform.GetScale());
+		Vector3f translation, scale;
+		Quaternion decomposed;
+		REQUIRE(local.Decompose(translation, decomposed, scale, transform.GetScale()));
+		transform.SetRotation(decomposed);
+	}
+}
+
+using namespace TransformTestHelpers;
+
+TEST_CASE("The local matrix is built from the stored quaternion")
+{
+	TransformComponent transform;
+	transform.SetEulerAngles(Vector3f(0.3f, -0.7f, 1.2f));
+	// From the stored angles, at run time: from constants, the compiler can round sinf and cosf differently
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
+	CheckSameRotation(RotationPart(transform.GetLocalMatrix()), FromEuler(Vector3f(0.3f, -0.7f, 1.2f)));
+}
+
+TEST_CASE("Setting a rotation keeps the quaternion unit length and the Euler angles the same rotation")
+{
+	TransformComponent transform;
+	Quaternion rotation(Vector3f(1.0f, 2.0f, -0.5f), 0.8f);
+	transform.SetRotation(rotation.Scale(3.0f));
+	CHECK(transform.GetRotation().GetMagnitude() == doctest::Approx(1.0f));
+	CheckSameQuaternionRotation(transform.GetRotation(), rotation);
+	CheckSameRotation(FromEuler(transform.GetEulerAngles()), Matrix4x4::Rotate(rotation));
+}
+
+TEST_CASE("SetRotation around Z, a degree at a time, turns the Z angle steadily past 180 degrees")
+{
+	TransformComponent transform;
+	const float degree = 0.017453292f;
+	float previous = 0.0f;
+	for (int step = 1; step <= 720; step++)
+	{
+		CAPTURE(step);
+		transform.SetRotation(Quaternion(Vector3f(0.0f, 0.0f, 1.0f), step * degree));
+		const Vector3f& angles = transform.GetEulerAngles();
+		CHECK(angles.x == doctest::Approx(0.0f).scale(1.0f));
+		CHECK(angles.y == doctest::Approx(0.0f).scale(1.0f));
+		CHECK(angles.z - previous == doctest::Approx(degree).epsilon(1e-3));
+		previous = angles.z;
+	}
+	CHECK(previous == doctest::Approx(720 * degree).epsilon(1e-4));
+}
+
+TEST_CASE("At a pitch of 90 degrees a small SetRotation keeps X as it was")
+{
+	TransformComponent transform;
+	transform.SetEulerAngles(Vector3f(0.3f, 1.5707963f, 0.2f));
+	transform.SetRotation(Quaternion(Vector3f(0.0f, 0.0f, 1.0f), 0.05f) * transform.GetRotation());
+	CHECK(transform.GetEulerAngles().x == 0.3f);
+	CHECK(transform.GetEulerAngles().z == doctest::Approx(0.25f).epsilon(1e-4));
+	CheckSameRotation(FromEuler(transform.GetEulerAngles()), Matrix4x4::Rotate(transform.GetRotation()));
+}
+
+TEST_CASE("The 2D fast path gives the same quaternion as the general path")
+{
+	TransformComponent transform;
+	for (float z : { 0.4f, -2.0f, 7.5f })
+	{
+		CAPTURE(z);
+		transform.SetEulerAngles(Vector3f(0.0f, 0.0f, z));
+		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, z))));
+		transform.SetAngle2D(z + 1.0f);
+		CHECK(SameQuaternion(transform.GetRotation(), Quaternion(Vector3f(0.0f, 0.0f, z + 1.0f))));
+	}
+
+	// With X or Y set, SetAngle2D keeps them in the quaternion
+	transform.SetEulerAngles(Vector3f(0.2f, 0.3f, 0.0f));
+	transform.SetAngle2D(0.4f);
+	CHECK(transform.GetEulerAngles() == Vector3f(0.2f, 0.3f, 0.4f));
+	CHECK(SameQuaternion(transform.GetRotation(), Quaternion(transform.GetEulerAngles())));
+}
+
+TEST_CASE("Rotation setters mark the transform dirty only when the rotation changes")
+{
+	entt::registry registry;
+	TransformComponent& transform = CleanTransform(registry, Vector3f(0.1f, 0.2f, 0.3f));
+	REQUIRE_FALSE(transform.IsDirty());
+
+	transform.SetEulerAngles(Vector3f(0.1f, 0.2f, 0.3f));
+	CHECK_FALSE(transform.IsDirty());
+	transform.SetRotation(transform.GetRotation());
+	CHECK_FALSE(transform.IsDirty());
+
+	transform.SetRotation(Quaternion(Vector3f(0.0f, 1.0f, 0.0f), 0.5f));
+	CHECK(transform.IsDirty());
+	SceneGraph::Traverse(registry);
+	CheckSameRotation(RotationPart(transform.GetWorldMatrix()), Matrix4x4::Rotate(Quaternion(Vector3f(0.0f, 1.0f, 0.0f), 0.5f)));
+
+	transform.SetEulerAngles(Vector3f(0.0f, 0.0f, 1.0f));
+	CHECK(transform.IsDirty());
+}
+
+TEST_CASE("Copying a transform keeps both forms of its rotation")
+{
+	TransformComponent source;
+	source.SetEulerAngles(Vector3f(0.0f, 0.0f, 7.0f));
+	source.SetRotation(Quaternion(Vector3f(0.0f, 0.0f, 1.0f), 0.1f) * source.GetRotation());
+
+	TransformComponent copy(source);
+	CHECK(copy.GetEulerAngles() == source.GetEulerAngles());
+	CHECK(SameQuaternion(copy.GetRotation(), source.GetRotation()));
+
+	TransformComponent assigned;
+	assigned = source;
+	CHECK(assigned.GetEulerAngles() == source.GetEulerAngles());
+	CHECK(SameQuaternion(assigned.GetRotation(), source.GetRotation()));
+	CHECK(source.GetEulerAngles().z == doctest::Approx(7.1f));
+}
+
+TEST_CASE("Undo brings back the Euler angles exactly and a matching quaternion")
+{
+	Scene scene("");
+	Entity entity = scene.CreateEntity("Turned");
+	TransformComponent& transform = entity.AddComponent<TransformComponent>();
+
+	// Set by quaternion, so the angles were worked out, and past a whole turn
+	transform.SetEulerAngles(Vector3f(0.4f, -0.3f, 7.0f));
+	transform.SetRotation(Quaternion(Vector3f(1.0f, 1.0f, 0.0f), 0.2f) * transform.GetRotation());
+	const Vector3f angles = transform.GetEulerAngles();
+	const Quaternion rotation = transform.GetRotation();
+
+	SceneHistory history;
+	Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>());
+	transform.SetEulerAngles(Vector3f(0.0f, 0.0f, 0.0f));
+	history.Push(scene, std::move(command));
+	history.Undo(scene);
+
+	const TransformComponent& undone = entity.GetComponent<TransformComponent>();
+	CHECK(undone.GetEulerAngles() == angles);
+	CheckSameQuaternionRotation(undone.GetRotation(), rotation);
+	CHECK(SameQuaternion(undone.GetRotation(), Quaternion(angles)));
+}
+
+TEST_CASE("Stop brings back the Euler angles exactly and a matching quaternion")
+{
+	LuaManager::Init();
+	Scene scene("");
+	Entity entity = scene.CreateEntity("Turned");
+	TransformComponent& transform = entity.AddComponent<TransformComponent>();
+	transform.SetEulerAngles(Vector3f(0.0f, 0.0f, -7.0f));
+	transform.SetRotation(Quaternion(Vector3f(0.0f, 1.0f, 0.0f), 0.3f) * transform.GetRotation());
+	const Vector3f angles = transform.GetEulerAngles();
+	const Quaternion rotation = transform.GetRotation();
+
+	scene.MakeClean();
+	scene.OnRuntimeStart();
+	entity.GetComponent<TransformComponent>().SetAngle2D(1.0f);
+	scene.OnRuntimeStop();
+
+	REQUIRE(entity.HasComponent<TransformComponent>());
+	const TransformComponent& restored = entity.GetComponent<TransformComponent>();
+	CHECK(restored.GetEulerAngles() == angles);
+	CheckSameQuaternionRotation(restored.GetRotation(), rotation);
+}
+
+TEST_CASE("Rotating with the gizmo around Z keeps counting past 180 degrees")
+{
+	TransformComponent transform;
+	for (int degrees = 0; degrees <= 720; degrees++)
+	{
+		CAPTURE(degrees);
+		const float angle = (float)DegToRad((double)degrees);
+		GizmoDrag(transform, Quaternion(Vector3f(0.0f, 0.0f, 1.0f), angle));
+		CHECK(transform.GetAngle2D() == doctest::Approx(angle).epsilon(1e-4));
+		CHECK(transform.GetEulerAngles().x == 0.0f);
+		CHECK(transform.GetEulerAngles().y == doctest::Approx(0.0f).scale(1.0f).epsilon(1e-5));
+	}
+}
+
+TEST_CASE("Rotating with the gizmo near pitch 90 leaves X where it was")
+{
+	const float halfPi = 1.5707963f;
+	for (float pitch : { halfPi, halfPi - 0.01f, -halfPi })
+	{
+		CAPTURE(pitch);
+		TransformComponent transform(Vector3f(), Vector3f(0.3f, pitch, 0.2f), Vector3f(1.0f, 1.0f, 1.0f));
+
+		// The parent's Z ring, in small steps
+		for (int step = 1; step <= 10; step++)
+		{
+			GizmoDrag(transform, Quaternion(Vector3f(0.0f, 0.0f, 1.0f), 0.05f) * transform.GetRotation());
+			CHECK(transform.GetEulerAngles().x == doctest::Approx(0.3f).epsilon(1e-4));
+			CHECK(transform.GetEulerAngles().y == doctest::Approx(pitch).epsilon(1e-4));
+		}
+		CHECK(transform.GetEulerAngles().z == doctest::Approx(0.7f).epsilon(1e-3));
+	}
 }

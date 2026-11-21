@@ -3,10 +3,10 @@
     <Entity Name="Camera" ID="4721026348222396924-11745559073110214615">
         <Transform>
             <Position X="0" Y="0" Z="0"/>
-            <Rotation X="0" Y="0" Z="0.4"/>
+            <Rotation X="0" Y="0" Z="22.918312"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="14" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Orthographic" OrthoSize="14" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="45"/>
     </Entity>
     <Entity Name="Floor" ID="5095067643755619262-7965104115055029150">
         <Transform>

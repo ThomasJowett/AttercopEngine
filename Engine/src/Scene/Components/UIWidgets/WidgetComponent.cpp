@@ -184,5 +184,5 @@ void WidgetComponent::Describe(Reflection::Builder<WidgetComponent>& c)
 		.Speed(1.0f).SetWith<&WidgetComponent::SetMarginTop>();
 	c.Field<&WidgetComponent::marginBottom>("MarginBottom", "Distance from the bottom anchor to the bottom edge, in pixels")
 		.Speed(1.0f).SetWith<&WidgetComponent::SetMarginBottom>();
-	c.Field<&WidgetComponent::rotation>("Rotation", "Rotation of the widget").Degrees();
+	c.Field<&WidgetComponent::rotation>("Rotation", "Rotation of the widget").Degrees().SavedInDegrees();
 }

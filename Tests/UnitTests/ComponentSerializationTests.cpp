@@ -169,6 +169,39 @@ TEST_CASE("Scene XML saved by this version still loads")
 	ComponentFixture::Check(SceneSerializer::DeserializeEntity(&scene, k_SavedEntity));
 }
 
+TEST_CASE("The transform's rotation is saved in degrees and loads back to the same radians")
+{
+	Scene source("");
+	Entity entity = source.CreateEntity("Turned");
+	const Vector3f angles(1.5707964f, -3.1415927f, (float)DegToRad(370.0));
+	entity.AddComponent<TransformComponent>().SetEulerAngles(angles);
+	const std::string xml = SceneSerializer::SerializeEntity(entity);
+	CHECK(xml.find(R"(<Rotation X="90" Y="-180" Z="370"/>)") != std::string::npos);
+
+	Scene loaded("");
+	Entity fromXml = SceneSerializer::DeserializeEntity(&loaded, xml);
+	REQUIRE(fromXml.HasComponent<TransformComponent>());
+	CHECK(fromXml.GetComponent<TransformComponent>().GetEulerAngles() == angles);
+}
+
+TEST_CASE("A camera's field of view and a widget's rotation are saved in degrees")
+{
+	Scene source("");
+	Entity camera = source.CreateEntity("Camera");
+	camera.AddComponent<CameraComponent>().camera.SetVerticalFov(1.5707964f);
+	Entity widget = source.CreateEntity("Widget");
+	widget.AddComponent<WidgetComponent>().rotation = (float)DegToRad(30.0);
+
+	const std::string cameraXml = SceneSerializer::SerializeEntity(camera);
+	const std::string widgetXml = SceneSerializer::SerializeEntity(widget);
+	CHECK(cameraXml.find(R"(Fov="90")") != std::string::npos);
+	CHECK(widgetXml.find(R"(Rotation="30")") != std::string::npos);
+
+	Scene loaded("");
+	CHECK(SceneSerializer::DeserializeEntity(&loaded, cameraXml).GetComponent<CameraComponent>().camera.GetVerticalFov() == 1.5707964f);
+	CHECK(SceneSerializer::DeserializeEntity(&loaded, widgetXml).GetComponent<WidgetComponent>().rotation == (float)DegToRad(30.0));
+}
+
 TEST_CASE("Saving a loaded entity writes the same XML")
 {
 	Scene source("");

@@ -3,6 +3,7 @@
 #include "Core/Application.h"
 #include "Logging/Logger.h"
 #include "Physics/CollisionLayers.h"
+#include "Reflection/SceneXml.h"
 #include "Utilities/FileUtils.h"
 
 #include "TinyXml2/tinyxml2.h"
@@ -99,6 +100,16 @@ namespace Migration
 		/* ---------------------------------------------------------------------------------------------------------- */
 
 		// <SceneCamera ProjectionType="1" ... FOV="..."/> folded into <Camera Projection="Orthographic" ... Fov="...">
+		// Radians to degrees that load back to exactly the float 0.0.3 read; false if the text isn't a number
+		bool ToDegreesText(const char* radiansText, std::string& degreesText)
+		{
+			float radians = 0.0f;
+			if (!tinyxml2::XMLUtil::ToFloat(radiansText, &radians))
+				return false;
+			degreesText = Reflection::SceneXml::RadiansToDegreesText(radians);
+			return true;
+		}
+
 		void UpgradeCamera(tinyxml2::XMLElement* camera, Report& report)
 		{
 			tinyxml2::XMLElement* sceneCamera = camera->FirstChildElement("SceneCamera");
@@ -107,8 +118,22 @@ namespace Migration
 			MoveAsName(sceneCamera, "ProjectionType", camera, "Projection", k_ProjectionTypes, report);
 			for (const char* name : { "OrthoSize", "OrthoNear", "OrthoFar", "PerspectiveNear", "PerspectiveFar", "FOV", "AspectRatio" })
 			{
-				if (const char* value = sceneCamera->Attribute(name))
-					camera->SetAttribute(std::strcmp(name, "FOV") == 0 ? "Fov" : name, value);
+				const char* value = sceneCamera->Attribute(name);
+				if (!value)
+					continue;
+				if (std::strcmp(name, "FOV") != 0)
+				{
+					camera->SetAttribute(name, value);
+					continue;
+				}
+				std::string degrees;
+				if (ToDegreesText(value, degrees))
+					camera->SetAttribute("Fov", degrees.c_str());
+				else
+				{
+					Warn(report, sceneCamera, std::string("<SceneCamera> FOV=\"") + value + "\" isn't a number");
+					camera->SetAttribute("Fov", value);
+				}
 			}
 			camera->DeleteChild(sceneCamera);
 		}
@@ -213,6 +238,28 @@ namespace Migration
 				Warn(report, staticMesh, "<StaticMesh> material overrides from 0.0.1 are kept by submesh number, which may not be the material slot; check them in the inspector");
 		}
 
+		// An attribute in radians to degrees, keeping its place
+		void AttributeToDegrees(tinyxml2::XMLElement* element, const char* name, Report& report)
+		{
+			const char* text = element->Attribute(name);
+			if (!text)
+				return;
+			std::string degrees;
+			if (ToDegreesText(text, degrees))
+				ReplaceAttribute(element, name, name, degrees);
+			else
+				Warn(report, element, std::string("<") + element->Name() + "> " + name + "=\"" + text + "\" isn't a number");
+		}
+
+		void UpgradeTransform(tinyxml2::XMLElement* transform, Report& report)
+		{
+			if (tinyxml2::XMLElement* rotation = transform->FirstChildElement("Rotation"))
+			{
+				for (const char* part : { "X", "Y", "Z" })
+					AttributeToDegrees(rotation, part, report);
+			}
+		}
+
 		void UpgradeEntity(tinyxml2::XMLElement* entity, Report& report)
 		{
 			for (tinyxml2::XMLElement* component = entity->FirstChildElement(); component; component = component->NextSiblingElement())
@@ -220,8 +267,12 @@ namespace Migration
 				const char* name = component->Name();
 				if (std::strcmp(name, "Entity") == 0)
 					UpgradeEntity(component, report);
+				else if (std::strcmp(name, "Transform") == 0)
+					UpgradeTransform(component, report);
 				else if (std::strcmp(name, "Camera") == 0)
 					UpgradeCamera(component, report);
+				else if (std::strcmp(name, "Widget") == 0)
+					AttributeToDegrees(component, "Rotation", report);
 				else if (std::strcmp(name, "Sprite") == 0)
 					UpgradeSprite(component, report);
 				else if (std::strcmp(name, "Button") == 0)
@@ -265,7 +316,7 @@ namespace Migration
 	std::vector<Step> SceneSteps()
 	{
 		return {
-			{ FileType::Scene, 1, "Components saved from their descriptions: enums and collision layers by name, the camera and sprite settings moved", &UpgradeToReflectionFormat },
+			{ FileType::Scene, 1, "Components saved from their descriptions: enums and collision layers by name, the camera and sprite settings moved, angles (the transform's rotation, the camera's field of view, a widget's rotation) in degrees", &UpgradeToReflectionFormat },
 		};
 	}
 }

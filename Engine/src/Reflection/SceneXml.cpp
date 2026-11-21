@@ -138,20 +138,25 @@ namespace Reflection
 
 			/* ------------------------------------------------------------------------------------------------------ */
 
-			void WriteParts(tinyxml2::XMLElement* element, const Value& value)
+			std::string NumberToText(float value, bool degrees)
 			{
-				for (int part = 0; part < PartCount(value.Type()); ++part)
-					element->SetAttribute(PartName(value.Type(), part), FloatToText(*value.GetPart(part)).c_str());
+				return degrees ? RadiansToDegreesText(value) : FloatToText(value);
 			}
 
-			std::string ScalarToText(const Value& value)
+			void WriteParts(tinyxml2::XMLElement* element, const Value& value, bool degrees)
+			{
+				for (int part = 0; part < PartCount(value.Type()); ++part)
+					element->SetAttribute(PartName(value.Type(), part), NumberToText(*value.GetPart(part), degrees).c_str());
+			}
+
+			std::string ScalarToText(const Value& value, bool degrees = false)
 			{
 				switch (value.Type())
 				{
 				case ValueType::Bool: return value.As<bool>() ? "true" : "false";
 				case ValueType::Int: return std::to_string(value.As<int32_t>());
 				case ValueType::UInt: return std::to_string(value.As<uint32_t>());
-				case ValueType::Float: return FloatToText(value.As<float>());
+				case ValueType::Float: return NumberToText(value.As<float>(), degrees);
 				case ValueType::String: return value.As<std::string>();
 				case ValueType::Enum:
 				{
@@ -166,10 +171,10 @@ namespace Reflection
 			}
 
 			// A list item, or a vector, colour or asset field, as an element of its own
-			void WriteValueElement(tinyxml2::XMLElement* element, const Value& value)
+			void WriteValueElement(tinyxml2::XMLElement* element, const Value& value, bool degrees = false)
 			{
 				if (PartCount(value.Type()) > 0)
-					WriteParts(element, value);
+					WriteParts(element, value, degrees);
 				else if (const AssetValue* asset = value.TryAs<AssetValue>())
 					SerializationUtils::Encode(element, asset->path);
 				else
@@ -185,7 +190,7 @@ namespace Reflection
 					field.save(component, element);
 					return;
 				case Placement::Attribute:
-					element->SetAttribute(field.xmlName.c_str(), ScalarToText(field.get(component)).c_str());
+					element->SetAttribute(field.xmlName.c_str(), ScalarToText(field.get(component), field.Has(FieldFlags::SavedInDegrees)).c_str());
 					return;
 				case Placement::Text:
 					element->SetText(field.get(component).As<std::string>().c_str());
@@ -206,14 +211,14 @@ namespace Reflection
 							return;
 						}
 					}
-					WriteValueElement(element->InsertNewChildElement(field.xmlName.c_str()), value);
+					WriteValueElement(element->InsertNewChildElement(field.xmlName.c_str()), value, field.Has(FieldFlags::SavedInDegrees));
 					return;
 				}
 				case Placement::Items:
 				{
 					Value value = field.get(component);
 					for (const Value& item : value.As<ValueList>())
-						WriteValueElement(element->InsertNewChildElement(field.itemName.c_str()), item);
+						WriteValueElement(element->InsertNewChildElement(field.itemName.c_str()), item, field.Has(FieldFlags::SavedInDegrees));
 					return;
 				}
 				}
@@ -245,7 +250,7 @@ namespace Reflection
 				}
 
 				// The parts present in the element replace those of current
-				bool ReadParts(const tinyxml2::XMLElement* element, Value& value) const
+				bool ReadParts(const tinyxml2::XMLElement* element, Value& value, bool degrees) const
 				{
 					const int count = PartCount(value.Type());
 					for (int part = 0; part < count; ++part)
@@ -255,12 +260,15 @@ namespace Reflection
 						if (!attribute)
 							continue;
 						float number = 0.0f;
-						if (attribute->QueryFloatValue(&number) != tinyxml2::XML_SUCCESS)
+						double degreesNumber = 0.0;
+						const bool read = degrees ? attribute->QueryDoubleValue(&degreesNumber) == tinyxml2::XML_SUCCESS
+							: attribute->QueryFloatValue(&number) == tinyxml2::XML_SUCCESS;
+						if (!read)
 						{
 							Warn(element, std::string("Can't read ") + name + "=\"" + attribute->Value() + "\" as a number");
 							continue;
 						}
-						value.SetPart(part, number);
+						value.SetPart(part, degrees ? DegreesToRadians(degreesNumber) : number);
 					}
 					for (const tinyxml2::XMLAttribute* attribute = element->FirstAttribute(); attribute; attribute = attribute->Next())
 					{
@@ -308,6 +316,13 @@ namespace Reflection
 					}
 					case ValueType::Float:
 					{
+						if (field.Has(FieldFlags::SavedInDegrees))
+						{
+							double degrees = 0.0;
+							if (tinyxml2::XMLUtil::ToDouble(text, &degrees))
+								return Value(DegreesToRadians(degrees));
+							return cantRead();
+						}
 						float value = 0.0f;
 						if (tinyxml2::XMLUtil::ToFloat(text, &value))
 							return Value(value);
@@ -339,7 +354,7 @@ namespace Reflection
 				{
 					if (PartCount(type) > 0)
 					{
-						ReadParts(element, current);
+						ReadParts(element, current, field.Has(FieldFlags::SavedInDegrees));
 						return current;
 					}
 					if (type == ValueType::Asset)
@@ -450,6 +465,31 @@ namespace Reflection
 					return text;
 			}
 			return text;
+		}
+
+		namespace
+		{
+			const double s_Pi = 3.14159265358979323846;
+		}
+
+		std::string RadiansToDegreesText(float radians)
+		{
+			const double degrees = (double)radians * (180.0 / s_Pi);
+			char text[40];
+			// Whole degrees and short decimals first, then as many digits as it takes
+			for (int decimals = 0; decimals <= 9; ++decimals)
+			{
+				std::snprintf(text, sizeof(text), "%.*f", decimals, degrees);
+				if (DegreesToRadians(std::strtod(text, nullptr)) == radians)
+					return text;
+			}
+			std::snprintf(text, sizeof(text), "%.17g", degrees);
+			return text;
+		}
+
+		float DegreesToRadians(double degrees)
+		{
+			return (float)(degrees * (s_Pi / 180.0));
 		}
 
 		std::string Where(const std::filesystem::path& file, int line)

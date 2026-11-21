@@ -213,7 +213,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 			TransformComponent& transformComp = selectedEntity.GetComponent<TransformComponent>();
 
 			CameraComponent& cameraComp = selectedEntity.GetComponent<CameraComponent>();
-			Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
+			Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(transformComp.GetWorldRotation());
 			Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();
 			m_CameraPreview->Bind();
 			RenderCommand::Clear();
@@ -495,7 +495,7 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		SceneManager::CurrentScene()->GetRegistry().view<TransformComponent, CameraComponent>().each(
 			[](const auto entity, auto& transformComp, auto& cameraComp)
 			{
-				Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
+				Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(transformComp.GetWorldRotation());
 				Matrix4x4 projection = Matrix4x4::Inverse(cameraComp.camera.GetProjectionMatrix());
 
 				Vector4f frontTopLeft_4 = Vector4f(-1.0f, 1.0f, 0.0f, 1.0f) * projection * view;
@@ -950,10 +950,6 @@ void ViewportPanel::OnImGuiRender()
 
 					transformMat.Transpose();
 
-					float translation[3], rotation[3], scale[3];
-
-					ImGuizmo::DecomposeMatrixToComponents(transformMat.m16, translation, rotation, scale);
-
 					const bool snap = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
 					// Universal snaps in degrees on its rings, which are only used when no arrow or scale handle is under the mouse
 					if (!ImGuizmo::IsUsing())
@@ -1017,25 +1013,26 @@ void ViewportPanel::OnImGuiRender()
 						if (m_History->IsEnabled() && !m_History->IsOpen(key))
 							m_History->Begin(*SceneManager::CurrentScene(), key, CreateScope<EditComponentCommand>(selectedEntity, Reflection::TypeOf<TransformComponent>()));
 						transformMat.Transpose();
-						Matrix4x4 parentMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix());
-						transformMat = parentMatrix * transformMat;
-						transformMat.Transpose();
+						Matrix4x4 localMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix()) * transformMat;
 
-						ImGuizmo::DecomposeMatrixToComponents(transformMat.m16, translation, rotation, scale);
+						// Keeps the stored scale's signs, so a mirrored entity's rotation doesn't flip
+						Vector3f translation, scale;
+						Quaternion rotation;
+						const bool hasRotation = localMatrix.Decompose(translation, rotation, scale, transformComp->GetScale());
+						// Less than this, in radians, is float noise from the matrix round trip and would make the Euler angles drift
+						const bool rotated = hasRotation && Quaternion::AngleBetween(transformComp->GetRotation(), rotation) >= 1e-5f;
 
-						Vector3f rotationRad((float)DegToRad(rotation[0]), (float)DegToRad(rotation[1]), (float)DegToRad(rotation[2]));
-
-						CORE_ASSERT(!std::isnan(translation[0]), "Translation is not a number!");
+						CORE_ASSERT(!std::isnan(translation.x), "Translation is not a number!");
 
 						RigidBody2DComponent* rigidBody2DComp = selectedEntity.TryGetComponent<RigidBody2DComponent>();
 
 						if (SceneManager::GetSceneState() != SceneState::Edit && rigidBody2DComp)
 						{
-							rigidBody2DComp->SetTransform(Vector2f(translation[0], translation[1]), rotationRad.z);
-							const Vector3f& currentPosition = transformComp->GetPosition();
-							const Vector3f& currentRotation = transformComp->GetEulerAngles();
-							transformComp->SetPosition(Vector3f(currentPosition.x, currentPosition.y, translation[2]));
-							transformComp->SetEulerAngles(Vector3f(rotationRad.x, rotationRad.y, currentRotation.z));
+							if (rotated)
+								transformComp->SetRotation(rotation);
+							rigidBody2DComp->SetTransform(Vector2f(translation.x, translation.y), transformComp->GetAngle2D());
+							const Vector3f currentPosition = transformComp->GetPosition();
+							transformComp->SetPosition(Vector3f(currentPosition.x, currentPosition.y, translation.z));
 
 							if (SceneManager::GetSceneState() == SceneState::SimulatePause)
 							{
@@ -1043,32 +1040,28 @@ void ViewportPanel::OnImGuiRender()
 								float angle;
 
 								rigidBody2DComp->GetTransform(bodyPosition, angle);
-								transformComp->SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, translation[2]));
-								transformComp->SetEulerAngles(Vector3f(rotationRad.x, rotationRad.y, angle));
+								transformComp->SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, translation.z));
+								transformComp->SetAngle2D(angle);
 							}
 						}
 						else
 						{
-							Vector3f deltaRotation = rotationRad - transformComp->GetEulerAngles();
 							if (gizmoOperation == ImGuizmo::OPERATION::TRANSLATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
-								Vector3f translationVec = Vector3f(translation[0], translation[1], translation[2]);
-								if ((translationVec - transformComp->GetPosition()).SqrMagnitude() >= 0.000001f)
+								if ((translation - transformComp->GetPosition()).SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetPosition(translationVec);
+								transformComp->SetPosition(translation);
 							}
-							if (gizmoOperation == ImGuizmo::OPERATION::ROTATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL)
+							if ((gizmoOperation == ImGuizmo::OPERATION::ROTATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL) && rotated)
 							{
-								if (deltaRotation.SqrMagnitude() >= 0.000001f)
-									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetEulerAngles(transformComp->GetEulerAngles() + deltaRotation);
+								SceneManager::CurrentScene()->MakeDirty();
+								transformComp->SetRotation(rotation);
 							}
 							if (gizmoOperation == ImGuizmo::OPERATION::SCALE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
 							{
-								Vector3f scaleVec = Vector3f(scale[0], scale[1], scale[2]);
-								if ((scaleVec - transformComp->GetScale()).SqrMagnitude() >= 0.000001f)
+								if ((scale - transformComp->GetScale()).SqrMagnitude() >= 0.000001f)
 									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetScale(scaleVec);
+								transformComp->SetScale(scale);
 							}
 						}
 					}

@@ -54,6 +54,7 @@ namespace Reflection
 		template<> struct Convert<std::string> : ConvertSame<std::string, ValueType::String> {};
 		template<> struct Convert<Vector2f> : ConvertSame<Vector2f, ValueType::Vec2> {};
 		template<> struct Convert<Vector3f> : ConvertSame<Vector3f, ValueType::Vec3> {};
+		template<> struct Convert<Quaternion> : ConvertSame<Quaternion, ValueType::Quaternion> {};
 		template<> struct Convert<Colour> : ConvertSame<Colour, ValueType::Colour> {};
 
 		template<typename E>
@@ -375,6 +376,8 @@ namespace Reflection
 		FieldBuilder& ReadOnly() { Field().flags |= FieldFlags::ReadOnly; return *this; }
 		// Shown and scriptable, but not written to files or the snapshot
 		FieldBuilder& NotSaved() { Field().flags |= FieldFlags::NotSaved; return *this; }
+		// A float or vector in radians, written to the file in degrees
+		FieldBuilder& SavedInDegrees() { Field().flags |= FieldFlags::SavedInDegrees; return *this; }
 		FieldBuilder& NoLua() { Field().flags |= FieldFlags::NoLua; return *this; }
 		FieldBuilder& HideInInspector() { Field().flags |= FieldFlags::HideInInspector; return *this; }
 		// Runs after the field changes through Reflection::Set or Restore

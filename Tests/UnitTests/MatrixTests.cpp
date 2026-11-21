@@ -154,3 +154,53 @@ TEST_CASE("A screen point unprojects onto the plane at the chosen depth")
 	CHECK(centre.x == doctest::Approx(0.0f).scale(1.0f).epsilon(1e-3));
 	CHECK(centre.y == doctest::Approx(0.0f).scale(1.0f).epsilon(1e-3));
 }
+
+TEST_CASE("Decompose keeping the scale's signs gives back the rotation, translation and scale")
+{
+	const Quaternion rotations[] = {
+		Quaternion(Vector3f(0.3f, -0.7f, 1.2f)),
+		Quaternion(Vector3f(0.0f, 0.0f, 2.9f)),
+		Quaternion(Vector3f(1.0f, 2.0f, -0.5f), 2.5f),
+		Quaternion(Vector3f(0.2f, 1.5707963f, -0.4f)),
+	};
+	const Vector3f scales[] = { Vector3f(1.0f, 1.0f, 1.0f), Vector3f(2.0f, 0.5f, 3.0f), Vector3f(1.0f, -1.0f, 1.0f), Vector3f(-2.0f, 1.0f, -0.5f) };
+
+	for (const Quaternion& rotation : rotations)
+	{
+		for (const Vector3f& scale : scales)
+		{
+			CAPTURE(scale.x); CAPTURE(scale.y); CAPTURE(scale.z);
+			Matrix4x4 matrix = Matrix4x4::Translate(Vector3f(1.0f, -2.0f, 3.0f)) * Matrix4x4::Rotate(rotation) * Matrix4x4::Scale(scale);
+			Vector3f translation, decomposedScale;
+			Quaternion decomposed;
+			REQUIRE(matrix.Decompose(translation, decomposed, decomposedScale, scale));
+			CheckSameMatrix(Matrix4x4::Rotate(decomposed), Matrix4x4::Rotate(rotation), 1e-5f);
+			CHECK(decomposedScale.x == doctest::Approx(scale.x));
+			CHECK(decomposedScale.y == doctest::Approx(scale.y));
+			CHECK(decomposedScale.z == doctest::Approx(scale.z));
+			CHECK(translation == Vector3f(1.0f, -2.0f, 3.0f));
+		}
+	}
+}
+
+TEST_CASE("Decompose with no signs puts a mirror into X")
+{
+	Matrix4x4 matrix = Matrix4x4::Rotate(Quaternion(Vector3f(0.0f, 0.0f, 0.6f))) * Matrix4x4::Scale(Vector3f(1.0f, -1.0f, 1.0f));
+	Vector3f translation, scale;
+	Quaternion rotation;
+	REQUIRE(matrix.Decompose(translation, rotation, scale));
+	CHECK(scale.x == doctest::Approx(-1.0f));
+	CHECK(scale.y == doctest::Approx(1.0f));
+	CheckSameMatrix(Matrix4x4::Rotate(rotation) * Matrix4x4::Scale(scale), matrix, 1e-5f);
+}
+
+TEST_CASE("Decompose reports a scale of zero and leaves the rotation as it was")
+{
+	Matrix4x4 matrix = Matrix4x4::Scale(Vector3f(1.0f, 0.0f, 1.0f));
+	Vector3f translation, scale;
+	Quaternion rotation(Vector3f(0.0f, 0.0f, 1.0f), 0.3f);
+	const Quaternion before = rotation;
+	CHECK_FALSE(matrix.Decompose(translation, rotation, scale));
+	CHECK(scale == Vector3f(1.0f, 0.0f, 1.0f));
+	CHECK(rotation == before);
+}

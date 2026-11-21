@@ -544,6 +544,9 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 		}
 		return Value(vector / scale);
 	}
+	case ValueType::Quaternion:
+		// No widget: a quaternion field is edited through its Euler form
+		return std::nullopt;
 	case ValueType::Colour:
 	{
 		Colour colour = value.As<Colour>();

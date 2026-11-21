@@ -33,6 +33,8 @@ namespace Reflection
 		Degrees = 1 << 7,
 		LockParts = 1 << 8,
 		EditFromStart = 1 << 9,
+		// Radians written to the scene file in degrees
+		SavedInDegrees = 1 << 10,
 	};
 
 	inline FieldFlags operator|(FieldFlags a, FieldFlags b) { return (FieldFlags)((uint16_t)a | (uint16_t)b); }

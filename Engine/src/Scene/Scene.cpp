@@ -238,11 +238,14 @@ Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 		// While running, physics bodies are unparented, as at runtime start: keep the copy where it is in the world
 		if (m_PhysicsEngine2D && transformComp && m_PhysicsEngine2D->HasPhysicsComponents(newEntity))
 		{
-			Vector3f position, rotation, scale;
-			transformComp->GetWorldMatrix().Decompose(position, rotation, scale);
+			Vector3f position, scale;
+			Quaternion rotation;
+			// Keeping the scale's signs leaves a mirrored copy's values as they were
+			const bool hasRotation = transformComp->GetWorldMatrix().Decompose(position, rotation, scale, transformComp->GetScale());
 			SceneGraph::Unparent(newEntity);
 			transformComp->SetPosition(position);
-			transformComp->SetEulerAngles(rotation);
+			if (hasRotation)
+				transformComp->SetRotation(rotation);
 			transformComp->SetScale(scale);
 		}
 	}
@@ -467,7 +470,7 @@ void Scene::Render(const Matrix4x4& cameraTransform, const Matrix4x4& projection
 		// The entity's own rotation applies on top, e.g. 180 degrees around Y to show its back
 		bool upright = billboardComp.orientation == BillboardComponent::Orientation::WorldUp;
 		Matrix4x4 facing = pointAtCamera(position, cameraTransform, upright);
-		Matrix4x4 localRotation = Matrix4x4::Rotate(Quaternion(transformComp.GetEulerAngles()));
+		Matrix4x4 localRotation = Matrix4x4::Rotate(transformComp.GetRotation());
 		transformComp.OverrideWorldMatrix(Matrix4x4::Translate(position) * facing * localRotation * Matrix4x4::Scale(transformComp.GetWorldMatrix().ExtractScale()));
 	}
 
@@ -570,7 +573,7 @@ void Scene::Render()
 	if (cameraEntity)
 	{
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
+		view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(transformComp.GetWorldRotation());
 		projection = cameraComp.camera.GetProjectionMatrix();
 	}
 
@@ -1178,7 +1181,7 @@ std::tuple<Matrix4x4, Matrix4x4> Scene::GetPrimaryCameraViewProjection()
 	{
 		SceneGraph::UpdateWorldTransform(m_Registry, cameraEntity);
 		auto [cameraComp, transformComp] = cameraEntity.GetComponents<CameraComponent, TransformComponent>();
-		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(Quaternion(transformComp.GetWorldEulerAngles()));
+		Matrix4x4 view = Matrix4x4::Translate(transformComp.GetWorldPosition()) * Matrix4x4::Rotate(transformComp.GetWorldRotation());
 		Matrix4x4 projection = cameraComp.camera.GetProjectionMatrix();
 		return std::make_tuple(view, projection);
 	}
