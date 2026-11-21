@@ -508,12 +508,12 @@ namespace MigrationTests
 
 	TEST_CASE("The scene step from format 1 rewrites each difference in the table")
 	{
-		SUBCASE("Camera: <SceneCamera> folded in, ProjectionType as Projection by name, FOV as Fov")
+		SUBCASE("Camera: <SceneCamera> folded in, ProjectionType as Projection by name, FOV as Fov in degrees")
 		{
 			CheckStep(R"(<Camera Primary="true" FixedAspectRatio="true"><SceneCamera ProjectionType="1" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" FOV="0.78539819" AspectRatio="2"/></Camera>)",
-				R"(<Camera Primary="true" FixedAspectRatio="true" Projection="Orthographic" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819" AspectRatio="2"/>)");
+				R"(<Camera Primary="true" FixedAspectRatio="true" Projection="Orthographic" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="45" AspectRatio="2"/>)");
 			CheckStep(R"(<Camera Primary="false" FixedAspectRatio="false"><SceneCamera ProjectionType="0" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.5" PerspectiveFar="100" FOV="1"/></Camera>)",
-				R"(<Camera Primary="false" FixedAspectRatio="false" Projection="Perspective" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.5" PerspectiveFar="100" Fov="1"/>)");
+				R"(<Camera Primary="false" FixedAspectRatio="false" Projection="Perspective" OrthoSize="10" OrthoNear="-1" OrthoFar="1" PerspectiveNear="0.5" PerspectiveFar="100" Fov="57.29578"/>)");
 		}
 
 		SUBCASE("Sprite: filter and wrap moved onto <Sprite> as names")
@@ -552,6 +552,12 @@ namespace MigrationTests
 				R"(<Transform><Position X="1" Y="2" Z="3"/><Rotation X="14.323945" Y="-90" Z="401.07046"/><Scale X="1" Y="1" Z="1"/></Transform>)");
 			CheckStep(R"(<Transform><Rotation Z="0"/></Transform>)", R"(<Transform><Rotation Z="0"/></Transform>)");
 			CheckStep(R"(<Transform><Rotation X="up"/></Transform>)", R"(<Transform><Rotation X="up"/></Transform>)", 1);
+		}
+
+		SUBCASE("Widget: Rotation in degrees")
+		{
+			CheckStep(R"(<Widget Disabled="false" Rotation="0.5"/>)", R"(<Widget Disabled="false" Rotation="28.64789"/>)");
+			CheckStep(R"(<Widget Rotation="0"/>)", R"(<Widget Rotation="0"/>)");
 		}
 
 		SUBCASE("Billboard: Orientation by name")

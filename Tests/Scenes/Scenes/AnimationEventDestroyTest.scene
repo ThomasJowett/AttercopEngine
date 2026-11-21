@@ -6,7 +6,7 @@
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="0.78539819"/>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.0099999998" PerspectiveFar="1000" Fov="45"/>
     </Entity>
     <Entity Name="Title" ID="6915984152568664743-4293896291227307020">
         <Transform>

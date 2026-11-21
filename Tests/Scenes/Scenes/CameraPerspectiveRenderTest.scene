@@ -6,7 +6,7 @@
             <Rotation X="34.37747" Y="17.188735" Z="11.459156"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" Fov="0.78539819"/>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="18" OrthoNear="-10" OrthoFar="10" PerspectiveNear="0.1" PerspectiveFar="100" Fov="45"/>
     </Entity>
     <Entity Name="Floor" ID="2003378496898268992-6711123319541859989">
         <Transform>

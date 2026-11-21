@@ -42,7 +42,7 @@ Saved as a `<Widget>` element inside the entity's `<Entity>` element. Attributes
 | `AnchorLeft` `AnchorRight` `AnchorTop` `AnchorBottom` | attributes | float, 0-1 | `0` |
 | `MarginLeft` `MarginTop` | attributes | float, pixels | `0` |
 | `MarginRight` `MarginBottom` | attributes | float, pixels | `100` |
-| `Rotation` | attribute | float, radians | `0` |
+| `Rotation` | attribute | float, degrees | `0` |
 | `Position` | child `X` `Y` | float, pixels; recalculated from anchors and margins | 0, 0 |
 | `Size` | child `X` `Y` | float, pixels; used when `FixedWidth` / `FixedHeight` is set | 100, 100 |
 

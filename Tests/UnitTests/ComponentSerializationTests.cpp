@@ -184,6 +184,24 @@ TEST_CASE("The transform's rotation is saved in degrees and loads back to the sa
 	CHECK(fromXml.GetComponent<TransformComponent>().GetEulerAngles() == angles);
 }
 
+TEST_CASE("A camera's field of view and a widget's rotation are saved in degrees")
+{
+	Scene source("");
+	Entity camera = source.CreateEntity("Camera");
+	camera.AddComponent<CameraComponent>().camera.SetVerticalFov(1.5707964f);
+	Entity widget = source.CreateEntity("Widget");
+	widget.AddComponent<WidgetComponent>().rotation = (float)DegToRad(30.0);
+
+	const std::string cameraXml = SceneSerializer::SerializeEntity(camera);
+	const std::string widgetXml = SceneSerializer::SerializeEntity(widget);
+	CHECK(cameraXml.find(R"(Fov="90")") != std::string::npos);
+	CHECK(widgetXml.find(R"(Rotation="30")") != std::string::npos);
+
+	Scene loaded("");
+	CHECK(SceneSerializer::DeserializeEntity(&loaded, cameraXml).GetComponent<CameraComponent>().camera.GetVerticalFov() == 1.5707964f);
+	CHECK(SceneSerializer::DeserializeEntity(&loaded, widgetXml).GetComponent<WidgetComponent>().rotation == (float)DegToRad(30.0));
+}
+
 TEST_CASE("Saving a loaded entity writes the same XML")
 {
 	Scene source("");

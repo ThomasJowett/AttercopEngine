@@ -64,7 +64,8 @@ ignored, with a warning in the console giving the file and line, so a misspelt n
 | List | one child element per item | `<Vertex X="0" Y="1"/>` |
 
 An asset that isn't set is left out. An unknown enum or layer name is reported in the console and
-the default is used. Rotations are in radians.
+the default is used. Angles are in degrees: a transform's and a widget's `Rotation`, and a camera's
+`Fov`. Lua uses radians for the same values.
 
 ## A complete example
 
