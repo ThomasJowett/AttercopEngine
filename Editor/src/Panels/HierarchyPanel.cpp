@@ -362,9 +362,8 @@ void HierarchyPanel::ApplyDrop()
 
 	if (drop.position != DropPosition::Onto && drop.target)
 	{
-		bool before = drop.position == DropPosition::Before;
-		Scope<MoveSiblingCommand> moveCommand = CreateScope<MoveSiblingCommand>(drop.dragged, drop.target, before);
-		if (before)
+		Scope<ReparentEntitiesCommand> moveCommand = CreateScope<ReparentEntitiesCommand>(std::vector<Entity>{ drop.dragged });
+		if (drop.position == DropPosition::Before)
 			SceneGraph::MoveBefore(drop.dragged, drop.target);
 		else
 			SceneGraph::MoveAfter(drop.dragged, drop.target);
@@ -379,7 +378,7 @@ void HierarchyPanel::ApplyDrop()
 	if (currentParent == parent.GetHandle())
 		return;
 
-	Scope<ReparentEntityCommand> reparentCommand = CreateScope<ReparentEntityCommand>(drop.dragged, parent);
+	Scope<ReparentEntitiesCommand> reparentCommand = CreateScope<ReparentEntitiesCommand>(std::vector<Entity>{ drop.dragged });
 	if (parent)
 		SceneGraph::Reparent(drop.dragged, parent);
 	else
@@ -609,10 +608,17 @@ void HierarchyPanel::CreateMenu()
 
 void HierarchyPanel::AddCreated(Entity entity)
 {
-	if (m_SelectedEntity)
+	if (m_SelectedEntity.BelongsToScene(entity.GetScene()))
 		m_SelectedEntity.AddChild(entity);
-	m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(entity));
+	m_History->Push(*entity.GetScene(), CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ entity }));
 	m_SelectedEntity = entity;
+}
+
+std::vector<Entity> HierarchyPanel::GetSelectedRoots() const
+{
+	if (m_SelectedEntity.BelongsToScene(SceneManager::CurrentScene()))
+		return { m_SelectedEntity };
+	return {};
 }
 
 void HierarchyPanel::Copy()
@@ -629,24 +635,47 @@ void HierarchyPanel::Cut()
 
 void HierarchyPanel::Paste()
 {
-	m_SelectedEntity = SceneSerializer::DeserializeEntity(SceneManager::CurrentScene(), ImGui::GetClipboardText(), true);
-	if (m_SelectedEntity)
-		m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(m_SelectedEntity));
+	// New UUIDs now, which redo keeps
+	Scene* scene = SceneManager::CurrentScene();
+	Entity pasted = SceneSerializer::DeserializeEntity(scene, ImGui::GetClipboardText(), true);
+	if (!pasted)
+		return;
+	m_History->Push(*scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ pasted }));
+	m_SelectedEntity = pasted;
 }
 
 void HierarchyPanel::Duplicate()
 {
+	std::vector<Entity> roots = GetSelectedRoots();
+	if (roots.empty())
+		return;
+
 	CLIENT_DEBUG("Duplicated");
-	m_SelectedEntity = SceneManager::CurrentScene()->DuplicateEntity(m_SelectedEntity, Entity());
-	m_SelectedEntity.GetName() += "_copy";
-	m_History->Push(*SceneManager::CurrentScene(), CreateScope<AddEntityCommand>(m_SelectedEntity));
+	Scene* scene = SceneManager::CurrentScene();
+	std::vector<Entity> copies;
+	for (Entity root : roots)
+	{
+		Entity copy = scene->DuplicateEntity(root, Entity());
+		copy.GetName() += "_copy";
+		copies.push_back(copy);
+	}
+	m_History->Push(*scene, CreateScope<CreateEntitiesCommand>(copies));
+	m_SelectedEntity = copies.front();
 }
 
 void HierarchyPanel::Delete()
 {
-	Scope<RemoveEntityCommand> removeCommand = CreateScope<RemoveEntityCommand>(m_SelectedEntity);
-	m_SelectedEntity.Destroy();
-	m_History->Push(*SceneManager::CurrentScene(), std::move(removeCommand));
+	std::vector<Entity> roots = GetSelectedRoots();
+	if (roots.empty())
+		return;
+
+	// An edit still open on them is recorded before they go
+	Scene* scene = SceneManager::CurrentScene();
+	m_History->End(*scene);
+	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(roots);
+	for (Entity root : roots)
+		root.Destroy();
+	m_History->Push(*scene, std::move(deleteCommand));
 	m_SelectedEntity = {};
 }
 

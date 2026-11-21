@@ -872,13 +872,17 @@ void ViewportPanel::OnImGuiRender()
 							StaticMeshComponent& staticMeshComp = staticMeshEntity.AddComponent<StaticMeshComponent>();
 
 							staticMeshComp.SetMesh(AssetManager::GetAsset<StaticMesh>(FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory())));
+							m_History->Push(*SceneManager::CurrentScene(), CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ staticMeshEntity }));
 						}
 					}
 					else if (file->extension() == ".tmx")
 					{
 						if (ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
 						{
-							ImportManager::ImportAsset(*file, file->stem());
+							HistoryGroup group(*m_History, *SceneManager::CurrentScene(), "Import " + file->filename().string());
+							std::vector<Entity> roots;
+							ImportManager::ImportAsset(*file, file->stem(), &roots);
+							m_History->Push(*SceneManager::CurrentScene(), CreateScope<CreateEntitiesCommand>(roots));
 						}
 					}
 					else if (file->extension() == ".scene")
@@ -887,7 +891,8 @@ void ViewportPanel::OnImGuiRender()
 						{
 							Ref<Scene> scene = CreateRef<Scene>(*file);
 							scene->Load();
-							SceneManager::CurrentScene()->InstantiateScene(scene, Vector3f());
+							std::vector<Entity> roots = SceneManager::CurrentScene()->InstantiateScene(scene, Vector3f());
+							m_History->Push(*SceneManager::CurrentScene(), CreateScope<CreateEntitiesCommand>(roots));
 						}
 					}
 				}

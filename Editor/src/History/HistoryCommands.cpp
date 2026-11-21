@@ -6,6 +6,9 @@
 
 #include "TinyXml2/tinyxml2.h"
 
+#include <algorithm>
+#include <unordered_set>
+
 namespace HistoryCommands
 {
 	Entity Find(Scene& scene, const Uuid& id)
@@ -44,90 +47,244 @@ namespace HistoryCommands
 		return size;
 	}
 
-	static std::optional<Uuid> ParentID(Entity entity)
+	static std::optional<Uuid> IdOf(Entity entity, entt::entity handle)
 	{
-		if (Entity parent = entity.GetParent())
-			return parent.GetID();
-		return std::nullopt;
+		if (handle == entt::null)
+			return std::nullopt;
+		return Entity(handle, entity.GetScene()).GetID();
 	}
 
-	static std::optional<Uuid> NextSiblingID(Entity entity)
+	static void AddInOrder(Entity entity, std::vector<Entity>& order)
 	{
-		if (const HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
-		{
-			if (hierarchyComp->nextSibling != entt::null)
-				return Entity(hierarchyComp->nextSibling, entity.GetScene()).GetID();
-		}
-		return std::nullopt;
+		order.push_back(entity);
+		for (Entity child : SceneGraph::GetChildren(entity))
+			AddInOrder(child, order);
 	}
 
-	static std::optional<Uuid> PreviousSiblingID(Entity entity)
+	std::vector<Entity> TopLevelInOrder(const std::vector<Entity>& entities)
 	{
+		if (entities.empty())
+			return {};
+
+		Entity first = entities.front();
+		Scene& scene = *first.GetScene();
+		std::unordered_set<entt::entity> chosen;
+		for (Entity entity : entities)
+		{
+			if (entity.BelongsToScene(&scene))
+				chosen.insert(entity.GetHandle());
+		}
+
+		std::vector<Entity> order;
+		for (Entity root : SceneGraph::GetRoots(scene))
+			AddInOrder(root, order);
+
+		std::vector<Entity> topLevel;
+		for (Entity entity : order)
+		{
+			if (!chosen.count(entity.GetHandle()))
+				continue;
+			bool underChosen = false;
+			for (Entity ancestor = entity.GetParent(); ancestor && !underChosen; ancestor = ancestor.GetParent())
+				underChosen = chosen.count(ancestor.GetHandle()) > 0;
+			if (!underChosen)
+				topLevel.push_back(entity);
+		}
+		return topLevel;
+	}
+
+	EntityPosition PositionOf(Entity entity)
+	{
+		EntityPosition position;
+		position.entity = entity.GetID();
 		if (const HierarchyComponent* hierarchyComp = entity.TryGetComponent<HierarchyComponent>())
 		{
-			if (hierarchyComp->previousSibling != entt::null)
-				return Entity(hierarchyComp->previousSibling, entity.GetScene()).GetID();
+			position.parent = IdOf(entity, hierarchyComp->parent);
+			position.nextSibling = IdOf(entity, hierarchyComp->nextSibling);
 		}
-		return std::nullopt;
+		return position;
+	}
+
+	void MoveTo(Scene& scene, Entity entity, const EntityPosition& position)
+	{
+		if (Entity parent = FindOptional(scene, position.parent))
+		{
+			SceneGraph::Reparent(entity, parent);
+		}
+		else
+		{
+			// The last root
+			SceneGraph::Unparent(entity);
+			std::vector<Entity> roots = SceneGraph::GetRoots(scene);
+			if (!roots.empty() && roots.back() != entity)
+				SceneGraph::MoveAfter(entity, roots.back());
+		}
+
+		if (Entity nextSibling = FindOptional(scene, position.nextSibling))
+			SceneGraph::MoveBefore(entity, nextSibling);
+	}
+
+	EntitySubtree SaveSubtree(Entity entity)
+	{
+		return { PositionOf(entity), SceneSerializer::SerializeEntity(entity), entity.GetName() };
+	}
+
+	void RestoreSubtrees(Scene& scene, const std::vector<EntitySubtree>& subtrees)
+	{
+		// Last first, so a next sibling that is also restored is already in place
+		for (auto subtree = subtrees.rbegin(); subtree != subtrees.rend(); ++subtree)
+		{
+			if (Entity entity = SceneSerializer::DeserializeEntity(&scene, subtree->serialised, false))
+				MoveTo(scene, entity, subtree->position);
+		}
+	}
+
+	void RemoveSubtrees(Scene& scene, const std::vector<EntitySubtree>& subtrees)
+	{
+		for (const EntitySubtree& subtree : subtrees)
+		{
+			if (Entity entity = Find(scene, subtree.position.entity))
+				scene.RemoveEntity(entity);
+		}
+	}
+
+	static size_t SizeOf(const std::vector<EntitySubtree>& subtrees)
+	{
+		size_t size = subtrees.capacity() * sizeof(EntitySubtree);
+		for (const EntitySubtree& subtree : subtrees)
+			size += subtree.serialised.capacity() + subtree.name.capacity();
+		return size;
+	}
+
+	static std::string NameOf(const std::string& action, const std::vector<EntitySubtree>& subtrees)
+	{
+		if (subtrees.size() == 1)
+			return action + " " + subtrees.front().name;
+		return action + " " + std::to_string(subtrees.size()) + " Entities";
+	}
+
+	static std::vector<EntityPosition> PositionsInOrder(Scene& scene, const std::vector<Uuid>& ids)
+	{
+		std::vector<Entity> entities;
+		for (const Uuid& id : ids)
+		{
+			if (Entity entity = Find(scene, id))
+				entities.push_back(entity);
+		}
+		std::vector<EntityPosition> positions;
+		for (Entity entity : TopLevelInOrder(entities))
+			positions.push_back(PositionOf(entity));
+		return positions;
+	}
+
+	static void MoveAllTo(Scene& scene, const std::vector<EntityPosition>& positions)
+	{
+		// Last first, so a next sibling that also moves is already in place
+		for (auto position = positions.rbegin(); position != positions.rend(); ++position)
+		{
+			if (Entity entity = Find(scene, position->entity))
+				MoveTo(scene, entity, *position);
+		}
 	}
 }
 
 using namespace HistoryCommands;
 
-AddEntityCommand::AddEntityCommand(Entity entity)
-	: m_Entity(entity.GetID()), m_Parent(ParentID(entity))
+CreateEntitiesCommand::CreateEntitiesCommand(const std::vector<Entity>& roots)
 {
+	for (Entity root : roots)
+		m_Roots.push_back(root.GetID());
 }
 
-void AddEntityCommand::Undo(Scene& scene)
+void CreateEntitiesCommand::Undo(Scene& scene)
 {
-	if (Entity entity = Find(scene, m_Entity))
-		SceneGraph::Remove(entity);
+	RemoveSubtrees(scene, m_Subtrees);
 }
 
-void AddEntityCommand::Redo(Scene& scene)
+void CreateEntitiesCommand::Redo(Scene& scene)
 {
-	Entity entity = SceneSerializer::DeserializeEntity(&scene, m_EntityPrefab, false);
-	if (Entity parent = FindOptional(scene, m_Parent))
-		SceneGraph::Reparent(entity, parent);
+	RestoreSubtrees(scene, m_Subtrees);
 }
 
-bool AddEntityCommand::End(Scene& scene)
+bool CreateEntitiesCommand::End(Scene& scene)
 {
-	Entity entity = Find(scene, m_Entity);
-	if (!entity)
-		return false;
-	m_EntityPrefab = SceneSerializer::SerializeEntity(entity);
-	m_Name = entity.GetName();
-	return true;
+	std::vector<Entity> roots;
+	for (const Uuid& id : m_Roots)
+	{
+		if (Entity root = Find(scene, id))
+			roots.push_back(root);
+	}
+	m_Subtrees.clear();
+	for (Entity root : TopLevelInOrder(roots))
+		m_Subtrees.push_back(SaveSubtree(root));
+	return !m_Subtrees.empty();
 }
 
-RemoveEntityCommand::RemoveEntityCommand(Entity entity)
-	: m_Entity(entity.GetID()), m_Parent(ParentID(entity)), m_NextSibling(NextSiblingID(entity)),
-	m_EntityPrefab(SceneSerializer::SerializeEntity(entity)), m_Name(entity.GetName())
+std::string CreateEntitiesCommand::GetName() const { return NameOf("Create", m_Subtrees); }
+
+size_t CreateEntitiesCommand::GetSize() const
 {
+	return sizeof(*this) + m_Roots.capacity() * sizeof(Uuid) + HistoryCommands::SizeOf(m_Subtrees);
 }
 
-void RemoveEntityCommand::Undo(Scene& scene)
+DeleteEntitiesCommand::DeleteEntitiesCommand(const std::vector<Entity>& roots)
 {
-	Entity entity = SceneSerializer::DeserializeEntity(&scene, m_EntityPrefab, false);
-	if (Entity nextSibling = FindOptional(scene, m_NextSibling))
-		SceneGraph::MoveBefore(entity, nextSibling);
-	else if (Entity parent = FindOptional(scene, m_Parent))
-		SceneGraph::Reparent(entity, parent);
+	for (Entity root : TopLevelInOrder(roots))
+		m_Subtrees.push_back(SaveSubtree(root));
 }
 
-void RemoveEntityCommand::Redo(Scene& scene)
+void DeleteEntitiesCommand::Undo(Scene& scene)
 {
-	if (Entity entity = Find(scene, m_Entity))
-		SceneGraph::Remove(entity);
+	RestoreSubtrees(scene, m_Subtrees);
 }
 
-ReparentEntityCommand::ReparentEntityCommand(Entity entity, Entity newParent)
-	: m_Entity(entity.GetID()), m_OldParent(ParentID(entity)), m_OldNextSibling(NextSiblingID(entity)), m_Name(entity.GetName())
+void DeleteEntitiesCommand::Redo(Scene& scene)
 {
-	if (newParent)
-		m_NewParent = newParent.GetID();
+	RemoveSubtrees(scene, m_Subtrees);
+}
+
+std::string DeleteEntitiesCommand::GetName() const { return NameOf("Delete", m_Subtrees); }
+size_t DeleteEntitiesCommand::GetSize() const { return sizeof(*this) + HistoryCommands::SizeOf(m_Subtrees); }
+
+ReparentEntitiesCommand::ReparentEntitiesCommand(const std::vector<Entity>& entities)
+{
+	for (Entity entity : TopLevelInOrder(entities))
+	{
+		m_Entities.push_back(entity.GetID());
+		m_Before.push_back(PositionOf(entity));
+		m_Name = "Move " + entity.GetName();
+	}
+	if (m_Entities.size() != 1)
+		m_Name = "Move " + std::to_string(m_Entities.size()) + " Entities";
+}
+
+void ReparentEntitiesCommand::Undo(Scene& scene)
+{
+	MoveAllTo(scene, m_Before);
+}
+
+void ReparentEntitiesCommand::Redo(Scene& scene)
+{
+	MoveAllTo(scene, m_After);
+}
+
+bool ReparentEntitiesCommand::End(Scene& scene)
+{
+	m_After = PositionsInOrder(scene, m_Entities);
+	for (const EntityPosition& after : m_After)
+	{
+		if (std::find(m_Before.begin(), m_Before.end(), after) == m_Before.end())
+			return true;
+	}
+	return false;
+}
+
+std::string ReparentEntitiesCommand::GetName() const { return m_Name; }
+
+size_t ReparentEntitiesCommand::GetSize() const
+{
+	return sizeof(*this) + m_Entities.capacity() * sizeof(Uuid) + m_Name.capacity()
+		+ (m_Before.capacity() + m_After.capacity()) * sizeof(EntityPosition);
 }
 
 CompoundCommand::CompoundCommand(std::string name)
@@ -166,29 +323,6 @@ size_t CompoundCommand::GetSize() const
 	for (const Scope<SceneCommand>& command : m_Commands)
 		size += command->GetSize();
 	return size;
-}
-
-	if (Entity previousSibling = FindOptional(scene, m_OldPreviousSibling))
-		SceneGraph::MoveAfter(entity, previousSibling);
-	else if (Entity nextSibling = FindOptional(scene, m_OldNextSibling))
-		SceneGraph::MoveBefore(entity, nextSibling);
-	else if (Entity oldParent = FindOptional(scene, m_OldParent))
-		SceneGraph::Reparent(entity, oldParent);
-	else
-		SceneGraph::Unparent(entity);
-}
-
-void MoveSiblingCommand::Redo(Scene& scene)
-{
-	Entity entity = Find(scene, m_Entity);
-	Entity anchor = Find(scene, m_NewAnchor);
-	if (!entity || !anchor)
-		return;
-
-	if (m_NewIsBefore)
-		SceneGraph::MoveBefore(entity, anchor);
-	else
-		SceneGraph::MoveAfter(entity, anchor);
 }
 
 EditKey ComponentEditKey(Entity entity, const Reflection::ComponentType& type)
