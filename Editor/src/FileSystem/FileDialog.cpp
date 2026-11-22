@@ -3,6 +3,8 @@
 #include "Utilities/StringUtils.h"
 #include "Logging/Logger.h"
 
+#include <filesystem>
+
 #ifdef _WINDOWS
 #include <commdlg.h>
 #include <cderr.h>
@@ -104,17 +106,17 @@ std::optional<std::wstring> FileDialog::Open(const wchar_t *title, const std::ve
 
 std::optional<std::vector<std::wstring>> FileDialog::MultiOpen(const wchar_t *title, const std::vector<DialogFilterItem>& filters)
 {
-	wchar_t filename[MAX_PATH];
+	// Room for the folder and every selected name
+	std::vector<wchar_t> filename(32768, L'\0');
 	std::wstring filterStr = BuildFilterString(filters);
 
 	OPENFILENAME ofn;
-	ZeroMemory(&filename, sizeof(filename));
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = GetActiveWindow();
 	ofn.lpstrFilter = filterStr.c_str();
-	ofn.lpstrFile = filename;
-	ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrFile = filename.data();
+	ofn.nMaxFile = static_cast<DWORD>(filename.size());
 	ofn.lpstrTitle = title;
 	ofn.Flags = OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
 
@@ -127,8 +129,9 @@ std::optional<std::vector<std::wstring>> FileDialog::MultiOpen(const wchar_t *ti
 
 	std::vector<std::wstring> files;
 
+	// One file comes back as a full path; several as the folder then each name, all null-separated
 	wchar_t *str = ofn.lpstrFile;
-	std::wstring directory = filename;
+	std::wstring directory = str;
 	str += (directory.length() + 1);
 	if (!*str)
 	{
@@ -139,8 +142,7 @@ std::optional<std::vector<std::wstring>> FileDialog::MultiOpen(const wchar_t *ti
 	{
 		std::wstring file = str;
 		str += (file.length() + 1);
-		std::wstring ws(file);
-		files.push_back(directory + ws);
+		files.push_back((std::filesystem::path(directory) / file).wstring());
 	}
 
 	return files;
@@ -232,30 +234,29 @@ std::optional<std::vector<std::wstring>> FileDialog::MultiOpen(const wchar_t *ti
 	std::string outputString;
 	std::wstring filterStr = BuildZenityFilter(filters);
 
+	// Paths only, separated by '|'
 	if (!filters.empty())
-		sprintf(call, "zenity --file-selection --modal --title=\"%ls\" %ls --multiple 2>&l", title, filterStr.c_str());
+		sprintf(call, "zenity --file-selection --modal --title=\"%ls\" %ls --multiple --separator='|' 2>/dev/null", title, filterStr.c_str());
 	else
-		sprintf(call, "zenity --file-selection --modal --title=\"%ls\" --multiple 2>&l", title);
+		sprintf(call, "zenity --file-selection --modal --title=\"%ls\" --multiple --separator='|' 2>/dev/null", title);
 
 	FILE *f = popen(call, "r");
 
 	if(f)
 	{
 		char outpLine[PATH_MAX];
-		std::vector<std::wstring> files;
-
-		while (!feof(f))
-		{
-			if(fgets(outpLine, PATH_MAX, f)!= NULL)
-			{
-				outputString += outpLine;
-
-				if(!outputString.empty())
-					files.push_back(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(outputString));
-			}
-		}
+		while (fgets(outpLine, PATH_MAX, f) != NULL)
+			outputString += outpLine;
 
 		pclose(f);
+		rtrim(outputString);
+
+		std::vector<std::wstring> files;
+		for (const std::string& path : SplitString(outputString, '|'))
+		{
+			if (!path.empty())
+				files.push_back(std::filesystem::u8path(path).wstring());
+		}
 
 		if(!files.empty())
 			return files;
