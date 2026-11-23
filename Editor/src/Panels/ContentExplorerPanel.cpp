@@ -318,19 +318,8 @@ void ContentExplorerPanel::UpdateReferencesAfterRename(const std::filesystem::pa
 	std::filesystem::path oldRelative = FileUtils::RelativePath(oldPath, Application::GetOpenDocumentDirectory());
 	std::filesystem::path newRelative = FileUtils::RelativePath(newPath, Application::GetOpenDocumentDirectory());
 
-	std::vector<std::filesystem::path> updatedFiles = AssetReferenceUtils::UpdateReferences(oldRelative, newRelative);
-
-	// A renamed folder moves every file inside it
-	ForEachFile(newPath, [&](const std::filesystem::path& file)
-		{
-			std::filesystem::path pathInside = std::filesystem::relative(file, newPath);
-			std::filesystem::path oldFile = pathInside == "." ? oldRelative : oldRelative / pathInside;
-			std::filesystem::path newFile = pathInside == "." ? newRelative : newRelative / pathInside;
-			AssetManager::RemoveAsset(oldFile);
-			AssetReferenceUtils::UpdateCurrentSceneTextureReferences(oldFile, newFile);
-		});
-
-	AssetReferenceUtils::ReloadAffectedNonSceneAssets(updatedFiles);
+	AssetReferenceUtils::UpdateReferences(oldRelative, newRelative);
+	AssetManager::RenameAssets(oldRelative, newRelative);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

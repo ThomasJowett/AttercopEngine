@@ -84,10 +84,8 @@ void TextureView::OnImGuiRender()
 					{
 						std::filesystem::remove(absolutePath);
 
-						std::vector<std::filesystem::path> updatedFiles = AssetReferenceUtils::UpdateReferences(oldRelativePath, newRelativePath);
-						AssetManager::RemoveAsset(oldRelativePath);
-						AssetReferenceUtils::UpdateCurrentSceneTextureReferences(oldRelativePath, newRelativePath);
-						AssetReferenceUtils::ReloadAffectedNonSceneAssets(updatedFiles);
+						AssetReferenceUtils::UpdateReferences(oldRelativePath, newRelativePath);
+						AssetManager::RenameAssets(oldRelativePath, newRelativePath);
 
 						m_FilePath = newRelativePath;
 						m_Texture = AssetManager::GetTexture(m_FilePath);
