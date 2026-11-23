@@ -3,6 +3,7 @@
 #include "imgui/imgui.h"
 #include "IconsFontAwesome6.h"
 #include "History/HistoryCommands.h"
+#include "History/PropertyCommands.h"
 
 #include "Scene/SceneGraph.h"
 #include "Scene/SceneSerializer.h"
@@ -236,10 +237,7 @@ void HierarchyPanel::DrawRow(Scene* scene, const Row& row)
 	HiddenComponent* hiddenComp = entity.TryGetComponent<HiddenComponent>();
 	bool isHidden = hiddenComp && hiddenComp->hidden;
 	if (ImGui::SmallButton(isHidden ? ICON_FA_EYE_SLASH : ICON_FA_EYE))
-	{
-		entity.GetOrAddComponent<HiddenComponent>().hidden = !isHidden;
-		scene->MakeDirty();
-	}
+		HistoryCommands::SetHidden(*m_History, entity, !isHidden);
 	ImGui::SameLine();
 
 	bool isOpen = row.hasChildren && !m_ClosedNodes.count(row.entity);
