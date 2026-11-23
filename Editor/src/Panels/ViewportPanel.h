@@ -102,6 +102,8 @@ private:
 	Ref<TilemapEditor> m_TilemapEditor;
 	bool m_RightClickMenuOpen = false;
 	bool m_WidgetHandleActive = false;
+	// The gizmo drag's undo interaction, 0 when it isn't in use
+	uint32_t m_GizmoInteraction = 0;
 
 	Ref<Mesh> m_GridMesh;
 

@@ -24,14 +24,20 @@ public:
 	bool IsOpen() const { return m_Interaction != 0; }
 	uint32_t GetInteraction() const { return m_Interaction; }
 
-	// Opens the component's undo step before an edit that doesn't go through Set
-	void RecordComponentEdit(Entity entity, const Reflection::ComponentType& type);
+	// Records the property for undo before an edit that doesn't go through Set, such as a custom field
+	void Record(Entity entity, const Reflection::PropertyPath& path);
+	// Records every saved field of the component before it's changed directly
+	void RecordComponent(Entity entity, const Reflection::ComponentType& type);
+
+	// A number no other interaction has, shared with the gizmo and the viewport's handles
+	static uint32_t NewInteraction();
 
 private:
 	bool IsOn(Entity entity, const Reflection::PropertyPath& path) const;
+	// The open interaction on this property, or a new one
+	uint32_t InteractionFor(Entity entity, const Reflection::PropertyPath& path);
 
 	SceneHistory* m_History;
-	uint32_t m_NextInteraction = 1;
 	uint32_t m_Interaction = 0;
 	std::optional<Uuid> m_Entity;
 	Reflection::PropertyPath m_Path;

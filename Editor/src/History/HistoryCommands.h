@@ -15,6 +15,7 @@ namespace HistoryCommands
 	// The entity with this UUID, or a null entity if there's no UUID
 	Entity FindOptional(Scene& scene, const std::optional<Uuid>& id);
 	// Bytes held by captured values
+	size_t SizeOf(const Reflection::Value& value);
 	size_t SizeOf(const Reflection::ComponentValues& values);
 }
 

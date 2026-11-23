@@ -25,6 +25,11 @@ bool SceneHistory::IsOpen(const EditKey& key) const
 	return m_OpenCommand && m_OpenKey == key;
 }
 
+SceneCommand* SceneHistory::GetOpenCommand(const EditKey& key) const
+{
+	return IsOpen(key) ? m_OpenCommand.get() : nullptr;
+}
+
 void SceneHistory::End(Scene& scene)
 {
 	if (!m_OpenCommand)
