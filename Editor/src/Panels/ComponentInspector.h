@@ -35,6 +35,8 @@ public:
 	// One field, wherever it's shown; false if it isn't
 	bool DrawField(Entity entity, const Reflection::ComponentType& type, int field);
 	void DrawAddComponentMenu(Entity entity);
+	// Adds the component with add, as one undo step that keeps the values add gave it
+	void AddComponent(Entity entity, const Reflection::ComponentType& type, const std::function<void()>& add);
 
 	// Sets a property as an inspector edit, recorded for undo
 	bool Set(Entity entity, const Reflection::PropertyPath& path, const Reflection::Value& value);

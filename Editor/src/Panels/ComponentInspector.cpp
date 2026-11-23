@@ -1,6 +1,6 @@
 #include "ComponentInspector.h"
 
-#include "History/HistoryCommands.h"
+#include "History/PropertyCommands.h"
 #include "History/SceneHistory.h"
 #include "Inspector/InspectorWidgets.h"
 
@@ -339,7 +339,8 @@ void ComponentInspector::DrawComponent(Entity entity, const ComponentType& type)
 		m_Edits.End();
 		if (m_History)
 			m_History->End(scene);
-		Scope<RemoveComponentCommand> command = CreateScope<RemoveComponentCommand>(entity, type);
+		Scope<AddRemoveComponentCommand> command = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, type,
+			AddRemoveComponentCommand::Action::Remove);
 		type.remove(scene.GetRegistry(), entity.GetHandle());
 		scene.MakeDirty();
 		if (m_History)
@@ -687,7 +688,10 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 					{
 						if (ImGui::MenuItem(file.filename().string().c_str()))
 						{
-							entity.AddComponent<LuaScriptComponent>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
+							AddComponent(entity, *type, [&]
+								{
+									entity.AddComponent<LuaScriptComponent>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
+								});
 							break;
 						}
 					}
@@ -700,15 +704,20 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 			if (excluded && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
 				ImGui::SetTooltip("Can't be on the same entity as a %s", SplitWords(excluded->name).c_str());
 			if (added)
-			{
-				Scope<AddComponentCommand> command = CreateScope<AddComponentCommand>(entity, *type);
-				type->emplace(scene.GetRegistry(), entity.GetHandle());
-				scene.MakeDirty();
-				if (m_History)
-					m_History->Push(scene, std::move(command));
-			}
+				AddComponent(entity, *type, [&] { type->emplace(scene.GetRegistry(), entity.GetHandle()); });
 		}
 		ImGui::EndMenu();
 	}
 	ImGui::EndPopup();
+}
+
+void ComponentInspector::AddComponent(Entity entity, const ComponentType& type, const std::function<void()>& add)
+{
+	Scene& scene = *entity.GetScene();
+	Scope<AddRemoveComponentCommand> command = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, type,
+		AddRemoveComponentCommand::Action::Add);
+	add();
+	scene.MakeDirty();
+	if (m_History)
+		m_History->Push(scene, std::move(command));
 }

@@ -218,19 +218,12 @@ void PropertiesPanel::OnImGuiRender()
 					if (ViewerManager::GetFileType(*file) == FileType::MESH)
 					{
 						if (ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
-						{
-							StaticMeshComponent comp = entity.GetOrAddComponent<StaticMeshComponent>();
-							comp.mesh->Load(FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory()));
-						}
+							SetOrAdd(entity, Reflection::TypeOf<StaticMeshComponent>(), "Mesh", *file);
 					}
 					else if (file->extension() == ".lua")
 					{
 						if (ImGui::AcceptDragDropPayload("Asset", ImGuiDragDropFlags_None))
-						{
-							LuaScriptComponent& comp = entity.GetOrAddComponent<LuaScriptComponent>();
-							comp.script = AssetManager::GetAsset<LuaScript>(FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory()));
-							comp.ParseScript(entity);
-						}
+							SetOrAdd(entity, Reflection::TypeOf<LuaScriptComponent>(), "Script", *file);
 					}
 
 					CLIENT_DEBUG(file->string());
@@ -240,19 +233,40 @@ void PropertiesPanel::OnImGuiRender()
 		}
 		else if (SceneManager::IsSceneLoaded())
 		{
-			Vector2f gravity = SceneManager::CurrentScene()->GetGravity();
+			using Setting = SetSceneSettingCommand::Setting;
+			Scene& scene = *SceneManager::CurrentScene();
+			Vector2f gravity = scene.GetGravity();
 			if (ImGui::Vector("Gravity Scale", gravity, Vector2f(0.0f, -9.81f)))
-			{
-				SceneManager::CurrentScene()->SetGravity(gravity);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
-			int pixels = SceneManager::CurrentScene()->GetPixelsPerUnit();
+				SetSceneSetting(scene, Setting::Gravity, gravity);
+			int pixels = scene.GetPixelsPerUnit();
 			if (ImGui::InputInt("Pixels per unit", &pixels, 1, 16, ImGuiInputTextFlags_CharsDecimal))
-			{
-				SceneManager::CurrentScene()->SetPixelsPerUnit(pixels);
-				SceneManager::CurrentScene()->MakeDirty();
-			}
+				SetSceneSetting(scene, Setting::PixelsPerUnit, (uint32_t)std::max(pixels, 1));
 		}
 	}
 	ImGui::End();
+}
+
+void PropertiesPanel::SetOrAdd(Entity entity, const Reflection::ComponentType& type, const char* field, const std::filesystem::path& file)
+{
+	const Reflection::PropertyPath path{ &type, type.FindField(field) };
+	const Reflection::AssetValue asset{ FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()), nullptr };
+	if (type.tryGet(entity.GetScene()->GetRegistry(), entity.GetHandle()))
+	{
+		m_Inspector.Set(entity, path, asset);
+		return;
+	}
+	m_Inspector.AddComponent(entity, type, [&]
+		{
+			type.emplace(entity.GetScene()->GetRegistry(), entity.GetHandle());
+			Reflection::Set(entity, path, asset, Reflection::ChangeSource::Editor);
+		});
+}
+
+void PropertiesPanel::SetSceneSetting(Scene& scene, SetSceneSettingCommand::Setting setting, const Reflection::Value& value)
+{
+	const EditKey key = SetSceneSettingCommand::KeyOf(setting);
+	if (m_History->IsEnabled() && !m_History->IsOpen(key))
+		m_History->Begin(scene, key, CreateScope<SetSceneSettingCommand>(scene, setting));
+	SetSceneSettingCommand::Set(scene, setting, value);
+	scene.MakeDirty();
 }
