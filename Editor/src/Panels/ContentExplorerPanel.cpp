@@ -779,7 +779,7 @@ void ContentExplorerPanel::ItemContextMenu(size_t index, bool isDirectory, const
 			}
 		}
 
-		if (ImGui::Selectable("Rename") && m_NumberSelected == 1)
+		if (ImGui::Selectable(ICON_FA_PEN" Rename") && m_NumberSelected == 1)
 		{
 			m_Renaming = true;
 		}
