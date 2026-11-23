@@ -120,7 +120,7 @@ namespace Reflection
 		Value (*get)(const void* component) = nullptr;
 		// False, with the component unchanged, if the value doesn't fit
 		bool (*set)(void* component, const Value& value) = nullptr;
-		// Used by Reflection::Set instead of set when there is one; loading and Restore use set
+		// Used by Reflection::Set instead of set when there is one, except for undo; loading and Restore use set
 		bool (*edit)(void* component, const Value& value) = nullptr;
 
 		Predicate showIf;
