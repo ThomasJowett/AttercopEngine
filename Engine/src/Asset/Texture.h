@@ -99,6 +99,9 @@ public:
 	void Clear();
 	size_t Size() const { return m_Textures.size(); }
 	bool Exists(const std::filesystem::path& name) const;
+	// Moves every cached texture at oldPath, or inside it when oldPath is a folder, to the matching path under newPath
+	size_t Rename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath,
+		std::vector<std::pair<std::filesystem::path, std::filesystem::path>>* outMoved = nullptr);
 private:
 	std::unordered_map<std::filesystem::path, Ref<Texture2D>> m_Textures;
 };

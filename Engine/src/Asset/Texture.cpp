@@ -1,6 +1,7 @@
 #include "Texture.h"
 
 #include "Renderer/Renderer.h"
+#include "Utilities/FileUtils.h"
 #include "Platform/OpenGL/OpenGLTexture.h"
 #include "Platform/WebGPU/WebGPUTexture.h"
 #include "Platform/Null/NullTexture.h"
@@ -174,4 +175,58 @@ bool TextureLibrary2D::Exists(const std::filesystem::path& name) const
 {
 	PROFILE_FUNCTION();
 	return m_Textures.find(name) != m_Textures.end();
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+size_t TextureLibrary2D::Rename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath,
+	std::vector<std::pair<std::filesystem::path, std::filesystem::path>>* outMoved)
+{
+	PROFILE_FUNCTION();
+
+	const std::string oldNorm = FileUtils::NormalisePath(oldPath);
+	const std::string newNorm = FileUtils::NormalisePath(newPath);
+
+	struct Move
+	{
+		std::filesystem::path oldKey;
+		std::filesystem::path newKey;
+		Ref<Texture2D> texture;
+	};
+	std::vector<Move> toMove;
+	std::vector<Ref<Texture2D>> missingAtNew;
+
+	for (auto it = m_Textures.begin(); it != m_Textures.end(); )
+	{
+		const std::string key = FileUtils::NormalisePath(it->first);
+		if (it->second && it->second->IsMissing() && FileUtils::MatchReference(key, newNorm))
+			missingAtNew.push_back(it->second);
+
+		std::optional<std::string> rest = FileUtils::MatchReference(key, oldNorm);
+		if (rest)
+		{
+			std::filesystem::path targetKey = std::filesystem::path(newNorm + *rest);
+			targetKey.make_preferred();
+			toMove.push_back({ it->first, targetKey, it->second });
+			it = m_Textures.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	// Placeholders the moved files now exist for, whether or not anything cached moved onto them
+	for (const Ref<Texture2D>& missing : missingAtNew)
+		missing->Reload();
+
+	for (const auto& move : toMove)
+	{
+		move.texture->SetFilepath(move.newKey);
+		m_Textures[move.newKey] = move.texture;
+		if (outMoved)
+			outMoved->push_back({ move.oldKey, move.newKey });
+	}
+
+	return toMove.size();
 }

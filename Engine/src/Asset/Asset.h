@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <vector>
 
+class TextureLibrary2D;
+
 class Asset
 {
 public:
@@ -36,6 +38,11 @@ public:
 		m_Missing = true;
 	}
 protected:
+	friend class AssetLibrary;
+	friend class TextureLibrary2D;
+	// Called when the file moves; assets that derive anything from their path override it
+	virtual void SetFilepath(const std::filesystem::path& filepath) { m_Filepath = filepath; m_Filepath.make_preferred(); }
+
 	std::filesystem::path m_Filepath;
 	bool m_Missing = false;
 };
@@ -66,6 +73,64 @@ public:
 		{
 			ENGINE_ERROR("Asset not found: {0}", filepath);
 		}
+	}
+
+	// Moves every cached asset at oldPath, or inside it when oldPath is a folder, to the matching path under newPath
+	size_t Rename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath,
+		std::vector<std::pair<std::filesystem::path, std::filesystem::path>>* outMoved = nullptr)
+	{
+		PROFILE_FUNCTION();
+		const std::string oldNorm = FileUtils::NormalisePath(ToKey(oldPath));
+		const std::string newNorm = FileUtils::NormalisePath(ToKey(newPath));
+
+		struct Move
+		{
+			std::filesystem::path oldKey;
+			std::filesystem::path newKey;
+			Ref<Asset> asset;
+		};
+		std::vector<Move> toMove;
+		std::vector<Ref<Asset>> missingAtNew;
+
+		for (auto it = m_Assets.begin(); it != m_Assets.end(); )
+		{
+			Ref<Asset> asset = it->second.lock();
+			if (!asset)
+			{
+				it = m_Assets.erase(it);
+				continue;
+			}
+
+			const std::string key = FileUtils::NormalisePath(it->first);
+			if (asset->IsMissing() && FileUtils::MatchReference(key, newNorm))
+				missingAtNew.push_back(asset);
+
+			std::optional<std::string> rest = FileUtils::MatchReference(key, oldNorm);
+			if (rest)
+			{
+				std::filesystem::path targetKey = ToKey(std::filesystem::path(newNorm + *rest));
+				toMove.push_back({ it->first, targetKey, asset });
+				it = m_Assets.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+
+		// Placeholders the moved files now exist for, whether or not anything cached moved onto them
+		for (const Ref<Asset>& missing : missingAtNew)
+			missing->Reload();
+
+		for (const auto& move : toMove)
+		{
+			move.asset->SetFilepath(move.newKey);
+			m_Assets[move.newKey] = move.asset;
+			if (outMoved)
+				outMoved->push_back({ move.oldKey, move.newKey });
+		}
+
+		return toMove.size();
 	}
 
 	template<typename T>
