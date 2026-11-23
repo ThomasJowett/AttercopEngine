@@ -85,7 +85,8 @@ void PropertiesPanel::RegisterOverrides()
 				ImGui::AssetEdit<Material>(("Material " + std::to_string(slot)).c_str(), material, staticMesh.GetMeshMaterial(slot), FileType::MATERIAL);
 				if (material != previous)
 				{
-					inspector.GetEdits().RecordComponentEdit(entity, Reflection::TypeOf<StaticMeshComponent>());
+					const Reflection::ComponentType& type = Reflection::TypeOf<StaticMeshComponent>();
+					inspector.GetEdits().Record(entity, Reflection::PropertyPath{ &type, type.FindField("Materials") });
 					staticMesh.SetMaterialOverride(slot, material);
 					entity.GetScene()->MakeDirty();
 				}
@@ -166,7 +167,7 @@ void PropertiesPanel::RegisterOverrides()
 				if (WidgetComponent* widget = entity.TryGetComponent<WidgetComponent>())
 				{
 					HistoryGroup group(*m_History, *entity.GetScene(), "Pixel Perfect");
-					inspector.GetEdits().RecordComponentEdit(entity, Reflection::TypeOf<WidgetComponent>());
+					inspector.GetEdits().RecordComponent(entity, Reflection::TypeOf<WidgetComponent>());
 					// A fixed size is what makes the size below take effect
 					widget->fixedWidth = true;
 					widget->fixedHeight = true;

@@ -24,7 +24,7 @@ namespace HistoryCommands
 		return id ? Find(scene, *id) : Entity();
 	}
 
-	static size_t SizeOf(const Reflection::Value& value)
+	size_t SizeOf(const Reflection::Value& value)
 	{
 		size_t size = sizeof(value);
 		if (const std::string* text = value.TryAs<std::string>())

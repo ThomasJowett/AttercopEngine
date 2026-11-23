@@ -3,6 +3,7 @@
 #include "Core/UUID.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,8 @@ struct EditKey
 	const Reflection::ComponentType* component = nullptr;
 	// "" for the whole component
 	std::string propertyPath;
+	// An inspector or gizmo interaction, whatever it changes; 0 for none
+	uint32_t interaction = 0;
 
 	EditKey() = default;
 	EditKey(std::vector<Uuid> keyEntities, const Reflection::ComponentType* keyComponent, std::string keyPropertyPath = "")
@@ -30,9 +33,17 @@ struct EditKey
 		std::sort(entities.begin(), entities.end());
 	}
 
+	static EditKey ForInteraction(uint32_t interaction)
+	{
+		EditKey key;
+		key.interaction = interaction;
+		return key;
+	}
+
 	bool operator==(const EditKey& other) const
 	{
-		return component == other.component && propertyPath == other.propertyPath && entities == other.entities;
+		return interaction == other.interaction && component == other.component && propertyPath == other.propertyPath
+			&& entities == other.entities;
 	}
 	bool operator!=(const EditKey& other) const { return !(*this == other); }
 };

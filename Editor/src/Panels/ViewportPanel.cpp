@@ -23,6 +23,8 @@
 #include "FileSystem/FileDialog.h"
 #include "Viewers/ViewerManager.h"
 #include "Importers/ImportManager.h"
+#include "History/PropertyCommands.h"
+#include "Inspector/PropertyEdits.h"
 
 #include "HierarchyPanel.h"
 #include "Scene/Components.h"
@@ -1012,11 +1014,20 @@ void ViewportPanel::OnImGuiRender()
 						gizmoOperation == ImGuizmo::BOUNDS ? bounds : NULL,
 						snap ? snapValues : NULL);
 
+					// One step per drag; the rotation is recorded as its quaternion
+					if (!ImGuizmo::IsUsing())
+						m_GizmoInteraction = 0;
+					else if (m_GizmoInteraction == 0)
+						m_GizmoInteraction = PropertyEdits::NewInteraction();
+
 					if (ImGuizmo::IsUsing())
 					{
-						const EditKey key = ComponentEditKey<TransformComponent>(selectedEntity);
-						if (m_History->IsEnabled() && !m_History->IsOpen(key))
-							m_History->Begin(*SceneManager::CurrentScene(), key, CreateScope<EditComponentCommand>(selectedEntity, Reflection::TypeOf<TransformComponent>()));
+						const Reflection::ComponentType& transformType = Reflection::TypeOf<TransformComponent>();
+						for (const char* field : { "Position", "Orientation", "Scale" })
+						{
+							HistoryCommands::RecordProperty(*m_History, m_GizmoInteraction, { selectedEntity },
+								Reflection::PropertyPath{ &transformType, transformType.FindField(field) });
+						}
 						transformMat.Transpose();
 						Matrix4x4 localMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix()) * transformMat;
 
@@ -1115,8 +1126,8 @@ void ViewportPanel::OnImGuiRender()
 					// The step closes when the handle is let go
 					auto beginWidgetEdit = [&]()
 					{
-						m_History->Begin(*SceneManager::CurrentScene(), ComponentEditKey<WidgetComponent>(selectedEntity),
-							CreateScope<EditComponentCommand>(selectedEntity, Reflection::TypeOf<WidgetComponent>()));
+						HistoryCommands::RecordComponent(*m_History, PropertyEdits::NewInteraction(), { selectedEntity },
+							Reflection::TypeOf<WidgetComponent>());
 					};
 
 					auto trackHandle = [&]()

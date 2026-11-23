@@ -2,6 +2,7 @@
 #include "TestHelpers.h"
 
 #include "History/HistoryCommands.h"
+#include "History/PropertyCommands.h"
 #include "History/SceneHistory.h"
 #include "Reflection/Reflection.h"
 #include "Scene/Components.h"
@@ -315,6 +316,7 @@ TEST_CASE("Copying a transform keeps both forms of its rotation")
 
 TEST_CASE("Undo brings back the Euler angles exactly and a matching quaternion")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = scene.CreateEntity("Turned");
 	TransformComponent& transform = entity.AddComponent<TransformComponent>();
@@ -326,7 +328,7 @@ TEST_CASE("Undo brings back the Euler angles exactly and a matching quaternion")
 	const Quaternion rotation = transform.GetRotation();
 
 	SceneHistory history;
-	Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>());
+	Scope<SetPropertyCommand> command = CreateScope<SetPropertyCommand>(std::vector<Entity>{ entity }, *Reflection::PropertyPath::Parse("Transform.Rotation"));
 	transform.SetEulerAngles(Vector3f(0.0f, 0.0f, 0.0f));
 	history.Push(scene, std::move(command));
 	history.Undo(scene);
