@@ -22,14 +22,8 @@
 
 namespace
 {
-	std::string NormalisePath(const std::filesystem::path& path)
-	{
-		std::filesystem::path normalised = path;
-		normalised.make_preferred();
-		std::string pathString = normalised.string();
-		std::replace(pathString.begin(), pathString.end(), '\\', '/');
-		return pathString;
-	}
+	using FileUtils::NormalisePath;
+	using FileUtils::MatchReference;
 
 	// Every asset reference uses the "Filepath" attribute (SerializationUtils::Encode/Decode),
 	// whichever element it's on and whatever it points at
@@ -47,18 +41,6 @@ namespace
 		}
 
 		return changed;
-	}
-
-	// The part of reference after path: empty for the path itself, "/rest" for something inside it, nullopt otherwise
-	std::optional<std::string> MatchReference(const std::string& reference, const std::string& path)
-	{
-		if (reference.compare(0, path.size(), path) != 0)
-			return std::nullopt;
-		if (reference.size() == path.size())
-			return std::string();
-		if (reference[path.size()] == '/')
-			return reference.substr(path.size());
-		return std::nullopt;
 	}
 
 	static const char* s_ScannedExtensions[] = { ".material", ".scene", ".spritesheet", ".tileset", ".proj", ".behaviourtree", ".statemachine" };
