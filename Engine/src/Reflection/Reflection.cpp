@@ -568,7 +568,9 @@ namespace Reflection
 		if (newFieldValue == oldFieldValue)
 			return true;
 
-		if (!(field.edit ? field.edit : field.set)(component, newFieldValue))
+		// Undo sets the plain value, as loading does
+		const bool useEdit = field.edit && source != ChangeSource::Undo;
+		if (!(useEdit ? field.edit : field.set)(component, newFieldValue))
 		{
 			ENGINE_WARN("Can't set {0} to {1}: the value doesn't fit", pathText, value.ToString());
 			return false;
