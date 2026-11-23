@@ -101,3 +101,25 @@ std::filesystem::path FileUtils::ToProjectRelative(const std::filesystem::path& 
 
 	return path;
 }
+
+std::string FileUtils::NormalisePath(const std::filesystem::path& path)
+{
+	std::filesystem::path normalised = path;
+	normalised.make_preferred();
+	std::string pathString = normalised.string();
+	std::replace(pathString.begin(), pathString.end(), '\\', '/');
+	while (pathString.size() > 1 && pathString.back() == '/')
+		pathString.pop_back();
+	return pathString;
+}
+
+std::optional<std::string> FileUtils::MatchReference(const std::string& reference, const std::string& path)
+{
+	if (reference.compare(0, path.size(), path) != 0)
+		return std::nullopt;
+	if (reference.size() == path.size())
+		return std::string();
+	if (reference[path.size()] == '/')
+		return reference.substr(path.size());
+	return std::nullopt;
+}
