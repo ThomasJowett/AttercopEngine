@@ -1,7 +1,9 @@
 #include "vendor/doctest.h"
 
 #include "History/HistoryCommands.h"
+#include "History/PropertyCommands.h"
 #include "History/SceneHistory.h"
+#include "Inspector/PropertyEdits.h"
 #include "ComponentFixture.h"
 #include "Reflection/Reflection.h"
 #include "Scene/Components.h"
@@ -10,7 +12,11 @@
 #include "Scene/SceneGraph.h"
 #include "Scene/SceneSerializer.h"
 
+#include "TinyXml2/tinyxml2.h"
+
 #include <functional>
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,20 +39,25 @@ namespace HistoryTests
 		entity.GetComponent<TransformComponent>().SetPosition(Vector3f(x, 0.0f, 0.0f));
 	}
 
+	Reflection::PropertyPath PropertyAt(const char* text)
+	{
+		std::optional<Reflection::PropertyPath> path = Reflection::PropertyPath::Parse(text);
+		REQUIRE(path);
+		return *path;
+	}
+
 	// Moves the entity as one pushed step
 	void PushMove(SceneHistory& history, Scene& scene, Entity entity, float x)
 	{
-		Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>());
+		Scope<SetPropertyCommand> command = CreateScope<SetPropertyCommand>(std::vector<Entity>{ entity }, PropertyAt("Transform.Position"));
 		SetX(entity, x);
 		history.Push(scene, std::move(command));
 	}
 
-	// Moves the entity inside an open step
-	void DragTo(SceneHistory& history, Scene& scene, Entity entity, float x)
+	// Moves the entity inside the interaction's open step, as a drag does each frame
+	void DragTo(SceneHistory& history, Entity entity, float x, uint32_t interaction = 1)
 	{
-		const EditKey key = ComponentEditKey<TransformComponent>(entity);
-		if (!history.IsOpen(key))
-			history.Begin(scene, key, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
+		HistoryCommands::RecordProperty(history, interaction, { entity }, PropertyAt("Transform.Position"));
 		SetX(entity, x);
 	}
 
@@ -95,6 +106,27 @@ namespace HistoryTests
 		history.Push(scene, std::move(command));
 	}
 
+	// A default-constructed component's value of the field, or a custom field's saved XML
+	Reflection::Value DefaultOf(const Reflection::ComponentType& type, int field)
+	{
+		std::shared_ptr<void> component = type.create();
+		const Reflection::FieldInfo& info = type.fields[field];
+		if (!info.IsCustom())
+			return info.get(component.get());
+		tinyxml2::XMLDocument document;
+		tinyxml2::XMLElement* element = document.NewElement(type.name.c_str());
+		document.InsertEndChild(element);
+		info.save(component.get(), element);
+		tinyxml2::XMLPrinter printer(nullptr, true);
+		document.Print(&printer);
+		return Reflection::Value(std::string(printer.CStr()));
+	}
+
+	bool SameValues(const Reflection::ComponentValues& a, const Reflection::ComponentValues& b)
+	{
+		return a.values == b.values && a.custom == b.custom;
+	}
+
 	// Saving as the editor does: the file matches the scene at this position
 	void Save(SceneHistory& history, Scene& scene)
 	{
@@ -108,6 +140,7 @@ using namespace HistoryTests;
 
 TEST_CASE("Pushed steps undo and redo in order")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Mover");
 	SceneHistory history;
@@ -142,6 +175,7 @@ TEST_CASE("Pushed steps undo and redo in order")
 
 TEST_CASE("A push after undo drops the redo tail")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Mover");
 	SceneHistory history;
@@ -165,14 +199,15 @@ TEST_CASE("A push after undo drops the redo tail")
 
 TEST_CASE("A step that changed nothing isn't pushed")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Mover");
 	SceneHistory history;
 
 	SUBCASE("dragged back to where it started")
 	{
-		DragTo(history, scene, entity, 4.0f);
-		DragTo(history, scene, entity, 0.0f);
+		DragTo(history, entity, 4.0f);
+		DragTo(history, entity, 0.0f);
 		CHECK(history.HasOpenStep());
 		history.End(scene);
 		CHECK_FALSE(history.HasOpenStep());
@@ -182,7 +217,7 @@ TEST_CASE("A step that changed nothing isn't pushed")
 
 	SUBCASE("pushed with no change")
 	{
-		history.Push(scene, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
+		history.Push(scene, CreateScope<SetPropertyCommand>(std::vector<Entity>{ entity }, PropertyAt("Transform.Position")));
 		CHECK(history.GetStepCount() == 0);
 	}
 
@@ -195,25 +230,26 @@ TEST_CASE("A step that changed nothing isn't pushed")
 
 TEST_CASE("One step is open at a time, and a new key closes the old one")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity a = CreateMovable(scene, "A");
 	Entity b = CreateMovable(scene, "B");
 	SceneHistory history;
 
 	// A drag over many frames is one step, from where it started
-	DragTo(history, scene, a, 1.0f);
-	DragTo(history, scene, a, 2.0f);
-	DragTo(history, scene, a, 3.0f);
-	CHECK(history.IsOpen(ComponentEditKey<TransformComponent>(a)));
+	DragTo(history, a, 1.0f, 1);
+	DragTo(history, a, 2.0f, 1);
+	DragTo(history, a, 3.0f, 1);
+	CHECK(history.IsOpen(EditKey::ForInteraction(1)));
 	CHECK(history.GetStepCount() == 0);
 
-	// A component of the same entity is another key
-	CHECK_FALSE(history.IsOpen(ComponentEditKey<NameComponent>(a)));
+	// Another interaction is another key
+	CHECK_FALSE(history.IsOpen(EditKey::ForInteraction(2)));
 
-	DragTo(history, scene, b, 7.0f);
+	DragTo(history, b, 7.0f, 2);
 	CHECK(history.GetStepCount() == 1);
-	CHECK_FALSE(history.IsOpen(ComponentEditKey<TransformComponent>(a)));
-	CHECK(history.IsOpen(ComponentEditKey<TransformComponent>(b)));
+	CHECK_FALSE(history.IsOpen(EditKey::ForInteraction(1)));
+	CHECK(history.IsOpen(EditKey::ForInteraction(2)));
 
 	// Undo closes the open step first
 	CHECK(history.CanUndo());
@@ -228,16 +264,21 @@ TEST_CASE("One step is open at a time, and a new key closes the old one")
 	CHECK(X(a) == 3.0f);
 }
 
-TEST_CASE("Keys match on entities, component and property")
+TEST_CASE("Keys match on entities, component, property and interaction")
 {
+	RegisterComponents();
 	const Uuid first, second;
 	CHECK(EditKey({ first, second }, nullptr) == EditKey({ second, first }, nullptr));
 	CHECK(EditKey({ first }, nullptr, "Position") != EditKey({ first }, nullptr, "Scale"));
 	CHECK(EditKey({ first }, nullptr) != EditKey({ second }, nullptr));
+	CHECK(EditKey::ForInteraction(3) == EditKey::ForInteraction(3));
+	CHECK(EditKey::ForInteraction(3) != EditKey::ForInteraction(4));
+	CHECK(EditKey::ForInteraction(3) != EditKey());
 }
 
 TEST_CASE("The scene is clean at the saved position")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Mover");
 	scene.MakeClean();
@@ -319,7 +360,7 @@ TEST_CASE("The scene is clean at the saved position")
 
 	SUBCASE("saving while a step is open closes it first")
 	{
-		DragTo(history, scene, entity, 4.0f);
+		DragTo(history, entity, 4.0f);
 		Save(history, scene);
 		CHECK(history.GetStepCount() == 1);
 		CHECK(history.IsAtSavedPoint());
@@ -339,6 +380,7 @@ TEST_CASE("The scene is clean at the saved position")
 
 TEST_CASE("Pushing past the memory budget drops the oldest steps")
 {
+	RegisterComponents();
 	Scene scene("");
 	std::vector<std::string> log;
 	SceneHistory history(100);
@@ -390,13 +432,14 @@ TEST_CASE("Pushing past the memory budget drops the oldest steps")
 
 TEST_CASE("Nothing is recorded in Play, and the history still applies after Stop")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Mover");
 	const Uuid id = entity.GetID();
 	SceneHistory history;
 
 	PushMove(history, scene, entity, 1.0f);
-	DragTo(history, scene, entity, 2.0f);
+	DragTo(history, entity, 2.0f);
 
 	// What the editor does on Play
 	history.End(scene);
@@ -406,7 +449,7 @@ TEST_CASE("Nothing is recorded in Play, and the history still applies after Stop
 
 	Entity running = scene.GetEntityByID(id);
 	PushMove(history, scene, running, 5.0f);
-	DragTo(history, scene, running, 6.0f);
+	DragTo(history, running, 6.0f);
 	CHECK_FALSE(history.HasOpenStep());
 	CHECK(history.GetStepCount() == 2);
 	CHECK_FALSE(history.CanUndo());
@@ -431,6 +474,7 @@ TEST_CASE("Nothing is recorded in Play, and the history still applies after Stop
 
 TEST_CASE("Commands find their entity by UUID after it is deleted and undone")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("Parent");
 	Entity first = CreateMovable(scene, "First");
@@ -466,6 +510,7 @@ TEST_CASE("Commands find their entity by UUID after it is deleted and undone")
 
 TEST_CASE("An entity created under a parent comes back under it on redo")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("Parent");
 	SceneHistory history;
@@ -484,97 +529,9 @@ TEST_CASE("An entity created under a parent comes back under it on redo")
 	CHECK(redone.GetParent() == parent);
 }
 
-TEST_CASE("Adding and removing a component undo and redo")
-{
-	Scene scene("");
-	Entity entity = scene.CreateEntity("Entity");
-	SceneHistory history;
-
-	Scope<AddComponentCommand> add = CreateScope<AddComponentCommand>(entity, Reflection::TypeOf<CircleRendererComponent>());
-	entity.AddComponent<CircleRendererComponent>().thickness = 0.5f;
-	history.Push(scene, std::move(add));
-
-	Scope<RemoveComponentCommand> remove = CreateScope<RemoveComponentCommand>(entity, Reflection::TypeOf<CircleRendererComponent>());
-	entity.RemoveComponent<CircleRendererComponent>();
-	history.Push(scene, std::move(remove));
-
-	history.Undo(scene);
-	REQUIRE(entity.HasComponent<CircleRendererComponent>());
-	CHECK(entity.GetComponent<CircleRendererComponent>().thickness == 0.5f);
-	history.Undo(scene);
-	CHECK_FALSE(entity.HasComponent<CircleRendererComponent>());
-	history.Redo(scene);
-	REQUIRE(entity.HasComponent<CircleRendererComponent>());
-	CHECK(entity.GetComponent<CircleRendererComponent>().thickness == 0.5f);
-}
-
-TEST_CASE("The edit command undoes and redoes the whole of every component in the fixture")
-{
-	Scene scene("");
-	Entity root = ComponentFixture::Create(scene);
-	Entity child = root.GetChild();
-	SceneHistory history;
-
-	for (const Reflection::ComponentType* type : Reflection::Components())
-	{
-		if (type->IsInternal())
-			continue;
-		for (Entity entity : { root, child })
-		{
-			if (!type->tryGet(scene.GetRegistry(), entity.GetHandle()))
-				continue;
-			INFO(type->name);
-			const Reflection::ComponentValues edited = Reflection::Capture(entity, *type);
-
-			// The edit puts the component back to its defaults
-			Scope<EditComponentCommand> command = CreateScope<EditComponentCommand>(entity, *type);
-			Reflection::Restore(entity, Reflection::Defaults(*type), Reflection::ChangeSource::Editor);
-			const Reflection::ComponentValues defaults = Reflection::Capture(entity, *type);
-			const size_t position = history.GetPosition();
-			history.Push(scene, std::move(command));
-			if (defaults.values == edited.values && defaults.custom == edited.custom)
-			{
-				CHECK(history.GetPosition() == position);
-				continue;
-			}
-			REQUIRE(history.GetPosition() == position + 1);
-
-			history.Undo(scene);
-			Reflection::ComponentValues undone = Reflection::Capture(entity, *type);
-			CHECK(undone.values == edited.values);
-			CHECK(undone.custom == edited.custom);
-
-			history.Redo(scene);
-			Reflection::ComponentValues redone = Reflection::Capture(entity, *type);
-			CHECK(redone.values == defaults.values);
-			CHECK(redone.custom == defaults.custom);
-
-			// Back to the fixture's values for the next component
-			history.Undo(scene);
-		}
-	}
-	ComponentFixture::Check(root);
-}
-
-TEST_CASE("Ending an edit that changed nothing pushes no step")
-{
-	Scene scene("");
-	Entity root = ComponentFixture::Create(scene);
-	SceneHistory history;
-
-	for (const Reflection::ComponentType* type : Reflection::Components())
-	{
-		if (type->IsInternal() || !type->tryGet(scene.GetRegistry(), root.GetHandle()))
-			continue;
-		INFO(type->name);
-		history.Begin(scene, ComponentEditKey(root, *type), CreateScope<EditComponentCommand>(root, *type));
-		history.End(scene);
-		CHECK(history.GetStepCount() == 0);
-	}
-}
-
 TEST_CASE("A deleted child comes back in the middle with its UUIDs and data, and older edits still apply")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("Parent");
 	Entity first = CreateMovable(scene, "First");
@@ -617,6 +574,7 @@ TEST_CASE("A deleted child comes back in the middle with its UUIDs and data, and
 
 TEST_CASE("A root deleted from the middle of the roots comes back in place")
 {
+	RegisterComponents();
 	Scene scene("");
 	scene.CreateEntity("A");
 	Entity b = scene.CreateEntity("B");
@@ -638,6 +596,7 @@ TEST_CASE("A root deleted from the middle of the roots comes back in place")
 
 TEST_CASE("Deleting several entities is one step that puts them all back in place")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("P");
 	std::vector<Entity> children;
@@ -673,6 +632,7 @@ TEST_CASE("Deleting several entities is one step that puts them all back in plac
 
 TEST_CASE("Redoing a duplicate gives the copies the same UUIDs as the first time")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("Parent");
 	Entity original = scene.CreateEntity("Original");
@@ -703,6 +663,7 @@ TEST_CASE("Redoing a duplicate gives the copies the same UUIDs as the first time
 
 TEST_CASE("Pasting keeps the UUIDs it was given through undo and redo")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity source = scene.CreateEntity("Source");
 	const std::string clipboard = SceneSerializer::SerializeEntity(source);
@@ -722,6 +683,7 @@ TEST_CASE("Pasting keeps the UUIDs it was given through undo and redo")
 
 TEST_CASE("Reparenting and reordering round trip to the same structure")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity a = scene.CreateEntity("A");
 	Entity b = scene.CreateEntity("B");
@@ -793,6 +755,7 @@ TEST_CASE("Reparenting and reordering round trip to the same structure")
 
 TEST_CASE("A group is one step, undone in reverse")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity entity = CreateMovable(scene, "Entity");
 	std::vector<std::string> log;
@@ -816,10 +779,10 @@ TEST_CASE("A group is one step, undone in reverse")
 		PushMove(history, scene, entity, 1.0f);
 		{
 			HistoryGroup group(history, scene, "Move and add");
-			DragTo(history, scene, entity, 2.0f);
+			DragTo(history, entity, 2.0f);
 			Entity created = scene.CreateEntity("Created");
 			history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ created }));
-			DragTo(history, scene, entity, 3.0f);
+			DragTo(history, entity, 3.0f);
 		}
 		CHECK(history.GetStepCount() == 2);
 		CHECK(Structure(scene) == "Entity Created");
@@ -833,7 +796,7 @@ TEST_CASE("A group is one step, undone in reverse")
 
 	SUBCASE("a step open before the group isn't part of it")
 	{
-		DragTo(history, scene, entity, 1.0f);
+		DragTo(history, entity, 1.0f);
 		{
 			HistoryGroup group(history, scene, "Add");
 			history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ scene.CreateEntity("Created") }));
@@ -861,8 +824,8 @@ TEST_CASE("A group is one step, undone in reverse")
 	{
 		{
 			HistoryGroup group(history, scene, "Nothing");
-			history.Push(scene, CreateScope<EditComponentCommand>(entity, Reflection::TypeOf<TransformComponent>()));
-			DragTo(history, scene, entity, 0.0f);
+			history.Push(scene, CreateScope<SetPropertyCommand>(std::vector<Entity>{ entity }, PropertyAt("Transform.Position")));
+			DragTo(history, entity, 0.0f);
 		}
 		CHECK(history.GetStepCount() == 0);
 		CHECK_FALSE(history.CanUndo());
@@ -883,6 +846,7 @@ TEST_CASE("A group is one step, undone in reverse")
 
 TEST_CASE("An entity created under the selection comes back under it, after its siblings, with its components")
 {
+	RegisterComponents();
 	Scene scene("");
 	Entity parent = scene.CreateEntity("Parent");
 	parent.AddChild(scene.CreateEntity("Older"));
@@ -909,6 +873,7 @@ TEST_CASE("An entity created under the selection comes back under it, after its 
 
 TEST_CASE("Instantiating a scene returns its roots, which undo and redo as one step")
 {
+	RegisterComponents();
 	Ref<Scene> prefab = CreateRef<Scene>("");
 	Entity first = prefab->CreateEntity("First");
 	first.AddChild(prefab->CreateEntity("Inner"));
@@ -930,4 +895,410 @@ TEST_CASE("Instantiating a scene returns its roots, which undo and redo as one s
 	CHECK(Structure(scene) == "Existing");
 	CHECK(history.Redo(scene).size() == 2);
 	CHECK(Structure(scene) == "Existing First(Inner) Second");
+}
+
+TEST_CASE("Removing any component and undoing gives its values back, and undoing an add leaves none")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	Entity child = root.GetChild();
+	SceneHistory history;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		for (Entity entity : { root, child })
+		{
+			if (!type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+				continue;
+			INFO(type->name);
+			const Reflection::ComponentValues fixture = Reflection::Capture(entity, *type);
+
+			Scope<AddRemoveComponentCommand> remove = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, *type,
+				AddRemoveComponentCommand::Action::Remove);
+			type->remove(scene.GetRegistry(), entity.GetHandle());
+			const size_t position = history.GetPosition();
+			history.Push(scene, std::move(remove));
+			REQUIRE(history.GetPosition() == position + 1);
+
+			history.Undo(scene);
+			REQUIRE(type->tryGet(scene.GetRegistry(), entity.GetHandle()));
+			CHECK(SameValues(Reflection::Capture(entity, *type), fixture));
+			history.Redo(scene);
+			CHECK_FALSE(type->tryGet(scene.GetRegistry(), entity.GetHandle()));
+			history.Undo(scene);
+		}
+	}
+	ComponentFixture::Check(root);
+
+	Entity bare = scene.CreateEntity("Bare");
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		INFO(type->name);
+		Scope<AddRemoveComponentCommand> add = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ bare }, *type,
+			AddRemoveComponentCommand::Action::Add);
+		type->emplace(scene.GetRegistry(), bare.GetHandle());
+		const Reflection::ComponentValues added = Reflection::Capture(bare, *type);
+		history.Push(scene, std::move(add));
+
+		history.Undo(scene);
+		CHECK_FALSE(type->tryGet(scene.GetRegistry(), bare.GetHandle()));
+		history.Redo(scene);
+		REQUIRE(type->tryGet(scene.GetRegistry(), bare.GetHandle()));
+		CHECK(SameValues(Reflection::Capture(bare, *type), added));
+		history.Undo(scene);
+		CHECK_FALSE(type->tryGet(scene.GetRegistry(), bare.GetHandle()));
+	}
+}
+
+TEST_CASE("Setting any property to the fixture's value undoes to the default and redoes to the fixture's")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	Entity child = root.GetChild();
+	SceneHistory history;
+	int tested = 0;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		for (Entity entity : { root, child })
+		{
+			if (!type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+				continue;
+			const Reflection::ComponentValues fixture = Reflection::Capture(entity, *type);
+			for (int i = 0; i < (int)type->fields.size(); ++i)
+			{
+				const Reflection::FieldInfo& field = type->fields[i];
+				if (field.Has(Reflection::FieldFlags::ReadOnly) || (!field.set && !field.IsCustom()))
+					continue;
+				const Reflection::PropertyPath path{ type, i };
+				INFO(path.ToString());
+				const Reflection::Value fixtureValue = *HistoryCommands::ReadProperty(entity, path);
+
+				// The rest of the component keeps the fixture's values
+				Reflection::Restore(entity, fixture, Reflection::ChangeSource::Load);
+				HistoryCommands::WriteProperty(entity, path, DefaultOf(*type, i));
+				const Reflection::Value start = *HistoryCommands::ReadProperty(entity, path);
+				if (start == fixtureValue)
+					continue;
+				const Reflection::ComponentValues before = Reflection::Capture(entity, *type);
+
+				// As the inspector does
+				HistoryCommands::RecordProperty(history, PropertyEdits::NewInteraction(), { entity }, path);
+				if (field.IsCustom())
+					REQUIRE(HistoryCommands::WriteProperty(entity, path, fixtureValue));
+				else
+					REQUIRE(Reflection::Set(entity, path, fixtureValue, Reflection::ChangeSource::Editor));
+				CHECK(*HistoryCommands::ReadProperty(entity, path) == fixtureValue);
+				const Reflection::ComponentValues after = Reflection::Capture(entity, *type);
+				const size_t position = history.GetPosition();
+				history.End(scene);
+				REQUIRE(history.GetPosition() == position + 1);
+				++tested;
+
+				history.Undo(scene);
+				CHECK(*HistoryCommands::ReadProperty(entity, path) == start);
+				CHECK(SameValues(Reflection::Capture(entity, *type), before));
+				history.Redo(scene);
+				CHECK(*HistoryCommands::ReadProperty(entity, path) == fixtureValue);
+				CHECK(SameValues(Reflection::Capture(entity, *type), after));
+			}
+			Reflection::Restore(entity, fixture, Reflection::ChangeSource::Load);
+		}
+	}
+	ComponentFixture::Check(root);
+	CHECK(tested > 100);
+}
+
+TEST_CASE("Recording every field of every component with no change pushes nothing")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	SceneHistory history;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal() || !type->tryGet(scene.GetRegistry(), root.GetHandle()))
+			continue;
+		INFO(type->name);
+		HistoryCommands::RecordComponent(history, PropertyEdits::NewInteraction(), { root }, *type);
+		CHECK(history.HasOpenStep());
+		history.End(scene);
+		CHECK(history.GetStepCount() == 0);
+	}
+}
+
+TEST_CASE("One interaction is one step whatever it changes, and a drag back to the start pushes nothing")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity entity = CreateMovable(scene, "Mover");
+	const Colour tint = entity.AddComponent<SpriteComponent>().tint;
+	scene.MakeClean();
+	SceneHistory history;
+	PropertyEdits edits(&history);
+	const Reflection::PropertyPath position = PropertyAt("Transform.Position");
+
+	SUBCASE("a drag")
+	{
+		edits.Begin(entity, position);
+		for (float x : { 1.0f, 2.0f, 3.0f })
+			REQUIRE(edits.Set(entity, position, Vector3f(x, 0.0f, 0.0f)));
+		edits.End();
+		history.End(scene);
+		REQUIRE(history.GetStepCount() == 1);
+		history.Undo(scene);
+		CHECK(X(entity) == 0.0f);
+		history.Redo(scene);
+		CHECK(X(entity) == 3.0f);
+	}
+
+	SUBCASE("several properties of several components")
+	{
+		const uint32_t interaction = PropertyEdits::NewInteraction();
+		for (float x : { 1.0f, 2.0f })
+		{
+			HistoryCommands::RecordProperty(history, interaction, { entity }, position);
+			HistoryCommands::RecordProperty(history, interaction, { entity }, PropertyAt("Sprite.Tint"));
+			SetX(entity, x);
+			entity.GetComponent<SpriteComponent>().tint = Colour(x, 0.0f, 0.0f, 1.0f);
+		}
+		history.End(scene);
+		REQUIRE(history.GetStepCount() == 1);
+		history.Undo(scene);
+		CHECK(X(entity) == 0.0f);
+		CHECK(entity.GetComponent<SpriteComponent>().tint == tint);
+		history.Redo(scene);
+		CHECK(X(entity) == 2.0f);
+		CHECK(entity.GetComponent<SpriteComponent>().tint == Colour(2.0f, 0.0f, 0.0f, 1.0f));
+	}
+
+	SUBCASE("two drags are two steps")
+	{
+		for (float x : { 1.0f, 2.0f })
+		{
+			edits.Begin(entity, position);
+			REQUIRE(edits.Set(entity, position, Vector3f(x, 0.0f, 0.0f)));
+			edits.End();
+		}
+		history.End(scene);
+		CHECK(history.GetStepCount() == 2);
+	}
+
+	SUBCASE("dragged back to the start")
+	{
+		edits.Begin(entity, position);
+		REQUIRE(edits.Set(entity, position, Vector3f(4.0f, 0.0f, 0.0f)));
+		REQUIRE(edits.Set(entity, position, Vector3f(0.0f, 0.0f, 0.0f)));
+		edits.End();
+		history.End(scene);
+		CHECK(history.GetStepCount() == 0);
+		CHECK_FALSE(scene.IsDirty());
+	}
+}
+
+TEST_CASE("A resize in the inspector undoes with the tiles it cut off")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	TilemapComponent& tilemap = root.GetComponent<TilemapComponent>();
+	const std::vector<std::vector<uint32_t>> tiles = tilemap.tiles;
+	SceneHistory history;
+	PropertyEdits edits(&history);
+
+	const Reflection::PropertyPath width = PropertyAt("Tilemap.TilesWide");
+	edits.Begin(root, width);
+	REQUIRE(edits.Set(root, width, 1u));
+	edits.End();
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+	CHECK(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1 }, { 4 } });
+
+	history.Undo(scene);
+	CHECK(tilemap.tilesWide == 3);
+	CHECK(tilemap.tiles == tiles);
+	history.Redo(scene);
+	CHECK(tilemap.tiles == std::vector<std::vector<uint32_t>>{ { 1 }, { 4 } });
+}
+
+TEST_CASE("A paint stroke stores only the cells it changed, and undo puts them back")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	TilemapComponent& tilemap = root.GetComponent<TilemapComponent>();
+	const std::vector<std::vector<uint32_t>> start = tilemap.tiles;
+	REQUIRE(start == std::vector<std::vector<uint32_t>>{ { 1, 2, 3 }, { 4, 5, 6 } });
+	SceneHistory history;
+
+	Scope<SetTilesCommand> stroke = CreateScope<SetTilesCommand>(root);
+	tilemap.tiles[0][1] = 9;
+	tilemap.tiles[1][2] = 7;
+	tilemap.tiles[1][0] = 4;
+	const std::vector<std::vector<uint32_t>> painted = tilemap.tiles;
+	REQUIRE(stroke->End(scene));
+	const std::vector<SetTilesCommand::Cell>& cells = stroke->GetCells();
+	REQUIRE(cells.size() == 2);
+	CHECK(cells[0].index == 1);
+	CHECK(cells[0].oldTile == 2);
+	CHECK(cells[0].newTile == 9);
+	CHECK(cells[1].index == 5);
+	CHECK(cells[1].oldTile == 6);
+	CHECK(cells[1].newTile == 7);
+	CHECK(stroke->GetSize() <= sizeof(SetTilesCommand) + 4 * sizeof(SetTilesCommand::Cell));
+	history.Push(scene, std::move(stroke));
+	REQUIRE(history.GetStepCount() == 1);
+
+	history.Undo(scene);
+	CHECK(tilemap.tiles == start);
+	history.Redo(scene);
+	CHECK(tilemap.tiles == painted);
+
+	SUBCASE("a stroke over several frames, as the Tilemap Editor makes")
+	{
+		history.Begin(scene, SetTilesCommand::KeyOf(root), CreateScope<SetTilesCommand>(root));
+		tilemap.tiles[0][0] = 8;
+		history.Begin(scene, SetTilesCommand::KeyOf(root), CreateScope<SetTilesCommand>(root));
+		tilemap.tiles[0][2] = 8;
+		history.End(scene);
+		REQUIRE(history.GetStepCount() == 2);
+		history.Undo(scene);
+		CHECK(tilemap.tiles == painted);
+	}
+
+	SUBCASE("a stroke that changed nothing")
+	{
+		history.Begin(scene, SetTilesCommand::KeyOf(root), CreateScope<SetTilesCommand>(root));
+		history.End(scene);
+		CHECK(history.GetStepCount() == 1);
+	}
+}
+
+TEST_CASE("A gizmo step moving, turning and scaling two entities undoes and redoes exactly")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	a.GetComponent<TransformComponent>().SetEulerAngles(Vector3f(0.1f, 0.2f, 0.3f));
+	b.GetComponent<TransformComponent>().SetRotation(Quaternion(Vector3f(1.0f, 1.0f, 0.0f), 0.4f));
+	SceneHistory history;
+
+	struct Pose
+	{
+		Vector3f position;
+		Quaternion rotation;
+		Vector3f scale;
+
+		bool operator==(const Pose& other) const
+		{
+			return position == other.position && rotation == other.rotation && scale == other.scale;
+		}
+	};
+	auto poseOf = [](Entity entity)
+		{
+			const TransformComponent& transform = entity.GetComponent<TransformComponent>();
+			return Pose{ transform.GetPosition(), transform.GetRotation(), transform.GetScale() };
+		};
+	const Pose startA = poseOf(a);
+	const Pose startB = poseOf(b);
+
+	// As the gizmo does each frame of one drag
+	const uint32_t interaction = PropertyEdits::NewInteraction();
+	const Reflection::ComponentType& type = Reflection::TypeOf<TransformComponent>();
+	for (int frame = 1; frame <= 3; ++frame)
+	{
+		for (Entity entity : { a, b })
+		{
+			for (const char* field : { "Position", "Orientation", "Scale" })
+				HistoryCommands::RecordProperty(history, interaction, { entity }, Reflection::PropertyPath{ &type, type.FindField(field) });
+			TransformComponent& transform = entity.GetComponent<TransformComponent>();
+			const float offset = entity == a ? 1.0f : 2.0f;
+			transform.SetPosition(transform.GetPosition() + Vector3f((float)frame, offset, 0.0f));
+			transform.SetRotation(Quaternion(Vector3f(0.0f, 1.0f, 0.0f), 0.1f * offset) * transform.GetRotation());
+			transform.SetScale(transform.GetScale() * offset);
+		}
+	}
+	const Pose endA = poseOf(a);
+	const Pose endB = poseOf(b);
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+
+	history.Undo(scene);
+	CHECK(poseOf(a) == startA);
+	CHECK(poseOf(b) == startB);
+	history.Redo(scene);
+	CHECK(poseOf(a) == endA);
+	CHECK(poseOf(b) == endB);
+	history.Undo(scene);
+	CHECK(poseOf(a) == startA);
+	CHECK(poseOf(b) == startB);
+}
+
+TEST_CASE("Scene settings undo and redo")
+{
+	RegisterComponents();
+	using Setting = SetSceneSettingCommand::Setting;
+	Scene scene("");
+	const Vector2f gravity = scene.GetGravity();
+	const uint32_t pixels = scene.GetPixelsPerUnit();
+	SceneHistory history;
+
+	// A drag of the gravity is one step
+	for (const Vector2f& dragged : { Vector2f(0.0f, -5.0f), Vector2f(1.0f, -3.0f) })
+	{
+		if (!history.IsOpen(SetSceneSettingCommand::KeyOf(Setting::Gravity)))
+			history.Begin(scene, SetSceneSettingCommand::KeyOf(Setting::Gravity), CreateScope<SetSceneSettingCommand>(scene, Setting::Gravity));
+		scene.SetGravity(dragged);
+	}
+
+	Scope<SetSceneSettingCommand> pixelsCommand = CreateScope<SetSceneSettingCommand>(scene, Setting::PixelsPerUnit);
+	scene.SetPixelsPerUnit(32);
+	history.Push(scene, std::move(pixelsCommand));
+	REQUIRE(history.GetStepCount() == 2);
+
+	history.Undo(scene);
+	CHECK(scene.GetPixelsPerUnit() == pixels);
+	history.Undo(scene);
+	CHECK(scene.GetGravity() == gravity);
+	history.Redo(scene);
+	CHECK(scene.GetGravity() == Vector2f(1.0f, -3.0f));
+	history.Redo(scene);
+	CHECK(scene.GetPixelsPerUnit() == 32);
+}
+
+TEST_CASE("The eye button undoes and redoes, adding the Hidden component in the same step")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity entity = scene.CreateEntity("Lamp");
+	SceneHistory history;
+
+	HistoryCommands::SetHidden(history, entity, true);
+	REQUIRE(history.GetStepCount() == 1);
+	REQUIRE(entity.HasComponent<HiddenComponent>());
+	CHECK(entity.GetComponent<HiddenComponent>().hidden);
+
+	HistoryCommands::SetHidden(history, entity, false);
+	REQUIRE(history.GetStepCount() == 2);
+	CHECK_FALSE(entity.GetComponent<HiddenComponent>().hidden);
+
+	history.Undo(scene);
+	CHECK(entity.GetComponent<HiddenComponent>().hidden);
+	history.Undo(scene);
+	CHECK_FALSE(entity.HasComponent<HiddenComponent>());
+	history.Redo(scene);
+	REQUIRE(entity.HasComponent<HiddenComponent>());
+	CHECK(entity.GetComponent<HiddenComponent>().hidden);
+	history.Redo(scene);
+	CHECK_FALSE(entity.GetComponent<HiddenComponent>().hidden);
 }
