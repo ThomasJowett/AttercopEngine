@@ -278,8 +278,7 @@ void TilemapEditor::OnRender(const Vector3f& mousePosition)
 	{
 		if (Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !m_Painting && !Input::IsKeyPressed(KEY_LEFT_ALT))
 		{
-			m_History->Begin(*m_TilemapEntity.GetScene(), ComponentEditKey<TilemapComponent>(m_TilemapEntity),
-				CreateScope<EditComponentCommand>(m_TilemapEntity, Reflection::TypeOf<TilemapComponent>()));
+			m_History->Begin(*m_TilemapEntity.GetScene(), SetTilesCommand::KeyOf(m_TilemapEntity), CreateScope<SetTilesCommand>(m_TilemapEntity));
 			m_Painting = true;
 			m_RectStartCoords[0] = m_HoveredCoords[0];
 			m_RectStartCoords[1] = m_HoveredCoords[1];

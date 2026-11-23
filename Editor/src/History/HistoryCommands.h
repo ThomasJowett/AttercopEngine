@@ -19,15 +19,6 @@ namespace HistoryCommands
 	size_t SizeOf(const Reflection::ComponentValues& values);
 }
 
-// The key of an edit of one entity's whole component
-EditKey ComponentEditKey(Entity entity, const Reflection::ComponentType& type);
-
-template<typename T>
-EditKey ComponentEditKey(Entity entity)
-{
-	return ComponentEditKey(entity, Reflection::TypeOf<T>());
-}
-
 // Where an entity sits: its parent, and the sibling after it or none for the last; roots have no parent
 struct EntityPosition
 {
@@ -131,51 +122,4 @@ public:
 private:
 	std::string m_Name;
 	std::vector<Scope<SceneCommand>> m_Commands;
-};
-
-// Adds the component and records it, as the Add Component menu does
-class AddComponentCommand : public SceneCommand
-{
-public:
-	// Construct before adding the component
-	AddComponentCommand(Entity entity, const Reflection::ComponentType& type);
-	void Undo(Scene& scene) override;
-	void Redo(Scene& scene) override;
-	bool End(Scene& scene) override;
-	std::string GetName() const override;
-	size_t GetSize() const override;
-private:
-	Uuid m_Entity;
-	Reflection::ComponentValues m_Added;
-};
-
-class RemoveComponentCommand : public SceneCommand
-{
-public:
-	// Construct before removing the component
-	RemoveComponentCommand(Entity entity, const Reflection::ComponentType& type);
-	void Undo(Scene& scene) override;
-	void Redo(Scene& scene) override;
-	std::string GetName() const override;
-	size_t GetSize() const override;
-private:
-	Uuid m_Entity;
-	Reflection::ComponentValues m_Removed;
-};
-
-// A whole component's saved values before and after an edit, put back through its description
-class EditComponentCommand : public SceneCommand
-{
-public:
-	// Construct before the edit
-	EditComponentCommand(Entity entity, const Reflection::ComponentType& type);
-	bool End(Scene& scene) override;
-	void Undo(Scene& scene) override;
-	void Redo(Scene& scene) override;
-	std::string GetName() const override;
-	size_t GetSize() const override;
-private:
-	Uuid m_Entity;
-	Reflection::ComponentValues m_Before;
-	Reflection::ComponentValues m_After;
 };
