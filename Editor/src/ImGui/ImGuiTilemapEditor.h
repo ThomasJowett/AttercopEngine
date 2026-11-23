@@ -3,7 +3,7 @@
 #include "Scene/Components/TransformComponent.h"
 #include "Core/Layer.h"
 
-#include "History/HistoryCommands.h"
+#include "History/PropertyCommands.h"
 #include "History/SceneHistory.h"
 
 class TilemapEditor : public Layer

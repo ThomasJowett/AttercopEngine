@@ -22,6 +22,8 @@ public:
 	void Begin(Scene& scene, const EditKey& key, Scope<SceneCommand> command);
 	bool IsOpen(const EditKey& key) const;
 	bool HasOpenStep() const { return m_OpenCommand != nullptr; }
+	// The open step's command if its key is this one, otherwise nullptr
+	SceneCommand* GetOpenCommand(const EditKey& key) const;
 	// Captures the open step's "after" state and pushes it, unless nothing changed
 	void End(Scene& scene);
 	// A change made in one go
