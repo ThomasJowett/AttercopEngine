@@ -11,6 +11,7 @@
 #include "Scene/Scene.h"
 #include "Scene/SceneGraph.h"
 #include "Scene/SceneSerializer.h"
+#include "Selection/EntitySelection.h"
 
 #include "TinyXml2/tinyxml2.h"
 
@@ -543,24 +544,30 @@ TEST_CASE("A deleted child comes back in the middle with its UUIDs and data, and
 	const Uuid id = middle.GetID();
 	const Uuid childId = middle.GetChild().GetID();
 	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
 
 	PushMove(history, scene, middle, 8.0f);
 	const std::string saved = SceneSerializer::SerializeEntity(middle);
 
+	// As the Hierarchy does: the selection is captured first and cleared before the step is pushed
+	selection.Select(id);
+	const SelectionState selectedBefore = selection.Capture();
 	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(std::vector<Entity>{ middle });
 	middle.Destroy();
-	history.Push(scene, std::move(deleteCommand));
+	selection.Clear();
+	history.Push(scene, std::move(deleteCommand), &selectedBefore);
 	CHECK(Structure(scene) == "Parent(First Last)");
 	CHECK_FALSE(scene.GetEntityByID(id));
 	CHECK_FALSE(scene.GetEntityByID(childId));
 
-	const std::vector<Uuid> selection = history.Undo(scene);
+	history.Undo(scene);
 	CHECK(Structure(scene) == "Parent(First Root(Child) Last)");
 	Entity restored = scene.GetEntityByID(id);
 	REQUIRE(restored);
 	CHECK(restored.GetChild().GetID() == childId);
 	CHECK(SceneSerializer::SerializeEntity(restored) == saved);
-	CHECK(selection == std::vector<Uuid>{ id });
+	CHECK(selection.GetAll() == std::vector<Uuid>{ id });
 
 	// The move before the delete undoes on the restored entity
 	history.Undo(scene);
@@ -650,11 +657,11 @@ TEST_CASE("Redoing a duplicate gives the copies the same UUIDs as the first time
 	history.Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ copy }));
 	CHECK(Structure(scene) == "Parent(Original(Inner) After Original_copy(Inner))");
 
-	CHECK(history.Undo(scene).empty());
+	history.Undo(scene);
 	CHECK_FALSE(scene.GetEntityByID(copyId));
 	CHECK(Structure(scene) == "Parent(Original(Inner) After)");
 
-	CHECK(history.Redo(scene) == std::vector<Uuid>{ copyId });
+	history.Redo(scene);
 	Entity redone = scene.GetEntityByID(copyId);
 	REQUIRE(redone);
 	CHECK(redone.GetChild().GetID() == innerId);
@@ -893,7 +900,7 @@ TEST_CASE("Instantiating a scene returns its roots, which undo and redo as one s
 
 	history.Undo(scene);
 	CHECK(Structure(scene) == "Existing");
-	CHECK(history.Redo(scene).size() == 2);
+	history.Redo(scene);
 	CHECK(Structure(scene) == "Existing First(Inner) Second");
 }
 
@@ -1301,4 +1308,111 @@ TEST_CASE("The eye button undoes and redoes, adding the Hidden component in the 
 	CHECK(entity.GetComponent<HiddenComponent>().hidden);
 	history.Redo(scene);
 	CHECK_FALSE(entity.GetComponent<HiddenComponent>().hidden);
+}
+
+TEST_CASE("Undo and redo restore the selection from before and after a step, skipping a missing UUID")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	Entity c = CreateMovable(scene, "C");
+	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
+
+	// A step opens with one selection and closes with another
+	selection.SetAll({ a.GetID(), b.GetID() }, a.GetID());
+	history.Begin(scene, EditKey::ForInteraction(1), CreateScope<SetPropertyCommand>(std::vector<Entity>{ a }, PropertyAt("Transform.Position")));
+	SetX(a, 4.0f);
+	selection.Select(c.GetID());
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+
+	selection.Select(b.GetID());
+	history.Undo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ a.GetID(), b.GetID() });
+	CHECK(selection.GetActive() == a.GetID());
+	history.Redo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ c.GetID() });
+
+	// A UUID that is gone is skipped
+	selection.SetAll({ a.GetID(), b.GetID() });
+	const Uuid cId = c.GetID();
+	selection.SetAll({ b.GetID(), cId });
+	c.Destroy();
+	history.Undo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ a.GetID(), b.GetID() });
+	selection.Select(a.GetID());
+	history.Redo(scene);
+	CHECK(selection.IsEmpty());
+}
+
+TEST_CASE("Undoing a step whose selection is only a missing entity clears the selection")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
+
+	selection.Select(Uuid(9, 9));
+	PushMove(history, scene, a, 1.0f);
+	selection.Select(a.GetID());
+	history.Undo(scene);
+	CHECK(selection.IsEmpty());
+	CHECK(selection.GetActive().IsNil());
+}
+
+TEST_CASE("Selecting on its own pushes no step")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
+
+	scene.MakeClean();
+	selection.Select(a.GetID());
+	selection.Add(b.GetID());
+	selection.Toggle(a.GetID());
+	selection.Clear();
+	history.End(scene);
+	CHECK(history.GetStepCount() == 0);
+	CHECK_FALSE(history.CanUndo());
+	CHECK_FALSE(scene.IsDirty());
+
+	// The selection a step stores is the one when it opened, however much it changed before
+	selection.Select(a.GetID());
+	PushMove(history, scene, a, 2.0f);
+	selection.Select(b.GetID());
+	history.Undo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ a.GetID() });
+}
+
+TEST_CASE("A group stores the selection from when it opened and when it closed")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
+
+	selection.Select(a.GetID());
+	{
+		HistoryGroup group(history, scene, "Two moves");
+		PushMove(history, scene, a, 1.0f);
+		selection.Select(b.GetID());
+		PushMove(history, scene, b, 1.0f);
+	}
+	REQUIRE(history.GetStepCount() == 1);
+	history.Undo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ a.GetID() });
+	history.Redo(scene);
+	CHECK(selection.GetAll() == std::vector<Uuid>{ b.GetID() });
 }

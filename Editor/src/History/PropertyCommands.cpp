@@ -106,19 +106,38 @@ namespace HistoryCommands
 
 	void SetHidden(SceneHistory& history, Entity entity, bool hidden)
 	{
-		Scene& scene = *entity.GetScene();
+		SetHidden(history, std::vector<Entity>{ entity }, hidden);
+	}
+
+	void SetHidden(SceneHistory& history, const std::vector<Entity>& entities, bool hidden)
+	{
+		if (entities.empty())
+			return;
+
+		Entity first = entities.front();
+		Scene& scene = *first.GetScene();
 		const Reflection::ComponentType& type = Reflection::TypeOf<HiddenComponent>();
 		const Reflection::PropertyPath path{ &type, type.FindField("Hidden") };
-		HistoryGroup group(history, scene, (hidden ? "Hide " : "Show ") + entity.GetName());
-		if (!entity.HasComponent<HiddenComponent>())
+		const std::string name = entities.size() == 1 ? first.GetName() : std::to_string(entities.size()) + " Entities";
+		HistoryGroup group(history, scene, (hidden ? "Hide " : "Show ") + name);
+
+		std::vector<Entity> missing;
+		for (Entity entity : entities)
 		{
-			Scope<AddRemoveComponentCommand> add = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, type,
+			if (!entity.HasComponent<HiddenComponent>())
+				missing.push_back(entity);
+		}
+		if (!missing.empty())
+		{
+			Scope<AddRemoveComponentCommand> add = CreateScope<AddRemoveComponentCommand>(missing, type,
 				AddRemoveComponentCommand::Action::Add);
-			entity.AddComponent<HiddenComponent>();
+			for (Entity entity : missing)
+				entity.AddComponent<HiddenComponent>();
 			history.Push(scene, std::move(add));
 		}
-		RecordProperty(history, PropertyEdits::NewInteraction(), { entity }, path);
-		Reflection::Set(entity, path, hidden, Reflection::ChangeSource::Editor);
+		RecordProperty(history, PropertyEdits::NewInteraction(), entities, path);
+		for (Entity entity : entities)
+			Reflection::Set(entity, path, hidden, Reflection::ChangeSource::Editor);
 	}
 }
 
@@ -271,28 +290,6 @@ size_t EditPropertiesCommand::GetSize() const
 	for (const Scope<SetPropertyCommand>& command : m_Commands)
 		size += command->GetSize();
 	return size;
-}
-
-static void AddEntitiesOnce(std::vector<Uuid>& selection, const std::vector<Uuid>& entities)
-{
-	for (const Uuid& entity : entities)
-	{
-		if (std::find(selection.begin(), selection.end(), entity) == selection.end())
-			selection.push_back(entity);
-	}
-}
-
-std::vector<Uuid> EditPropertiesCommand::GetSelectionAfterUndo() const
-{
-	std::vector<Uuid> selection;
-	for (const Scope<SetPropertyCommand>& command : m_Commands)
-		AddEntitiesOnce(selection, command->GetEntities());
-	return selection;
-}
-
-std::vector<Uuid> EditPropertiesCommand::GetSelectionAfterRedo() const
-{
-	return GetSelectionAfterUndo();
 }
 
 AddRemoveComponentCommand::AddRemoveComponentCommand(const std::vector<Entity>& entities, const Reflection::ComponentType& type, Action action)
