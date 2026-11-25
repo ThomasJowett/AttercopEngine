@@ -29,6 +29,11 @@ public:
 	static std::string SerializeEntity(Entity entity);
 	static Entity DeserializeEntity(Scene* scene, const std::string& prefab, bool resetUuid = false);
 
+	// The subtrees in an <Entities> element, in the order given
+	static std::string SerializeEntities(const std::vector<Entity>& roots);
+	// Reads an <Entities> element, or a single <Entity>; returns the roots, none if the text is neither
+	static std::vector<Entity> DeserializeEntities(Scene* scene, const std::string& text, bool resetUuid = false);
+
 	// The play-mode snapshot: every root entity as a save writes it, with each entity's handle
 	static void WriteSnapshot(Scene* scene, tinyxml2::XMLDocument& document);
 	// Loads a snapshot into an empty registry, giving each entity its handle back
