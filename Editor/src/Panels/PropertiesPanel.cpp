@@ -43,8 +43,8 @@ namespace PropertiesPanelOverrides
 	}
 }
 
-PropertiesPanel::PropertiesPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
-	:Layer("Properties"), m_Show(show), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history),
+PropertiesPanel::PropertiesPanel(bool* show, Ref<EntitySelection> selection, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
+	:Layer("Properties"), m_Show(show), m_Selection(selection), m_TilemapEditor(tilemapEditor), m_History(history),
 	m_Inspector(history.get())
 {
 	RegisterOverrides();
@@ -198,7 +198,9 @@ void PropertiesPanel::OnImGuiRender()
 			MainDockSpace::SetFocussedWindow(this);
 		}
 
-		Entity entity = m_HierarchyPanel->GetSelectedEntity();
+		// One entity until the inspector edits many: the active one
+		Scene* selectionScene = SceneManager::CurrentScene();
+		Entity entity = selectionScene ? m_Selection->GetActiveEntity(*selectionScene) : Entity();
 		if (entity)
 		{
 			ImGui::BeginGroup();

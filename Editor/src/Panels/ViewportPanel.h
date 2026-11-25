@@ -14,6 +14,7 @@
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/HistoryCommands.h"
 #include "History/SceneHistory.h"
+#include "Selection/EntitySelection.h"
 #include "Scene/Components/UIWidgets/WidgetComponent.h"
 
 class ViewportPanel
@@ -35,7 +36,7 @@ class ViewportPanel
 	};
 
 public:
-	ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history);
+	ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<EntitySelection> selection, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history);
 	~ViewportPanel() = default;
 
 	void OnAttach() override;
@@ -50,6 +51,8 @@ public:
 	virtual void Duplicate() override;
 	virtual void Delete() override;
 	virtual void SelectAll() override;
+	virtual void SelectNone() override;
+	virtual void InvertSelection() override;
 	virtual bool HasSelection() const override;
 	virtual bool IsReadOnly() const override { return false; }
 
@@ -58,7 +61,8 @@ private:
 
 	// Bounds of what the entity draws, in its own space before its transform
 	BoundingBox GetLocalBounds(Entity entity) const;
-	void FrameSelectedEntity();
+	// Frames the union of the selected entities' bounds
+	void FrameSelectedEntities();
 	// What frustum culling tests: one box per submesh for static meshes, otherwise one per entity
 	void DrawBoundingBoxes();
 
@@ -94,7 +98,9 @@ private:
 
 	int m_SelectedViewportShading = 0;
 
+	// Copy, paste and the other selection commands go through the Hierarchy
 	Ref<HierarchyPanel> m_HierarchyPanel;
+	Ref<EntitySelection> m_Selection;
 	Entity m_HoveredEntity;
 
 	int m_PixelData = -1;

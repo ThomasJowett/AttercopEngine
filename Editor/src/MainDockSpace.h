@@ -6,6 +6,7 @@
 #include "Toolbars/SaveOpenToolbar.h"
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/SceneHistory.h"
+#include "Selection/EntitySelection.h"
 
 class HierarchyPanel;
 
@@ -26,6 +27,7 @@ public:
 	virtual void OnImGuiRender() override;
 
 	static void SetFocussedWindow(Layer* focussedPanel) { s_CurrentlyFocusedPanel = focussedPanel->weak_from_this(); }
+	static bool IsFocussedWindow(const Layer* panel) { return s_CurrentlyFocusedPanel.lock().get() == panel; }
 
 private:
 	void OpenProject(const std::filesystem::path& filename);
@@ -35,8 +37,6 @@ private:
 	void HandleKeyBoardInputs();
 	void UndoScene();
 	void RedoScene();
-	// Selects the first of these entities that exists, or clears a selection that no longer exists
-	void SelectAfterUndo(Scene& scene, const std::vector<Uuid>& selection);
 	// Closes the open history step once nothing is being dragged, typed or painted
 	void CloseFinishedEdit();
 
@@ -83,6 +83,8 @@ private:
 	Ref<HierarchyPanel> m_HierarchyPanel;
 
 	Ref<SceneHistory> m_History;
+	// The selected entities, shared by the Hierarchy, Viewport and Properties panels
+	Ref<EntitySelection> m_Selection;
 	// The scene the history belongs to
 	std::filesystem::path m_HistoryScene;
 

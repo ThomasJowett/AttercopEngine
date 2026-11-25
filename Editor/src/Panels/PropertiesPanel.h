@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HierarchyPanel.h"
+#include "Selection/EntitySelection.h"
 #include "ComponentInspector.h"
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/PropertyCommands.h"
@@ -12,7 +12,7 @@ class PropertiesPanel :
 	public Layer
 {
 public:
-	PropertiesPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history);
+	PropertiesPanel(bool* show, Ref<EntitySelection> selection, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history);
 	~PropertiesPanel() = default;
 
 	void OnImGuiRender() override;
@@ -25,7 +25,7 @@ private:
 
 	bool* m_Show;
 
-	Ref<HierarchyPanel> m_HierarchyPanel;
+	Ref<EntitySelection> m_Selection;
 	Ref<TilemapEditor> m_TilemapEditor;
 	Ref<SceneHistory> m_History;
 
