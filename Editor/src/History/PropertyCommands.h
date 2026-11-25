@@ -29,6 +29,8 @@ namespace HistoryCommands
 
 	// The Hierarchy's eye button: sets Hidden, adding the component if it's missing, as one step
 	void SetHidden(SceneHistory& history, Entity entity, bool hidden);
+	// One step for all of them, adding the Hidden component where it's missing
+	void SetHidden(SceneHistory& history, const std::vector<Entity>& entities, bool hidden);
 }
 
 // One property's value on each entity before and after a change, put back through Reflection::Set
@@ -42,8 +44,6 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
-	std::vector<Uuid> GetSelectionAfterUndo() const override { return m_Entities; }
-	std::vector<Uuid> GetSelectionAfterRedo() const override { return m_Entities; }
 
 	const Reflection::PropertyPath& GetPath() const { return m_Path; }
 	const std::vector<Uuid>& GetEntities() const { return m_Entities; }
@@ -73,8 +73,6 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
-	std::vector<Uuid> GetSelectionAfterUndo() const override;
-	std::vector<Uuid> GetSelectionAfterRedo() const override;
 
 	const std::vector<Scope<SetPropertyCommand>>& GetCommands() const { return m_Commands; }
 
@@ -97,8 +95,6 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override;
 	size_t GetSize() const override;
-	std::vector<Uuid> GetSelectionAfterUndo() const override { return m_Entities; }
-	std::vector<Uuid> GetSelectionAfterRedo() const override { return m_Entities; }
 
 private:
 	void Add(Scene& scene);
@@ -154,8 +150,6 @@ public:
 	void Redo(Scene& scene) override;
 	std::string GetName() const override { return "Paint Tiles"; }
 	size_t GetSize() const override;
-	std::vector<Uuid> GetSelectionAfterUndo() const override { return { m_Entity }; }
-	std::vector<Uuid> GetSelectionAfterRedo() const override { return { m_Entity }; }
 
 	const std::vector<Cell>& GetCells() const { return m_Cells; }
 	static EditKey KeyOf(Entity tilemap);

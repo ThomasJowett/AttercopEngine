@@ -2,6 +2,7 @@
 
 #include "Core/core.h"
 #include "History/SceneCommand.h"
+#include "Selection/EntitySelection.h"
 
 #include <cstdint>
 #include <string>
@@ -18,6 +19,9 @@ public:
 	explicit SceneHistory(size_t budget = DefaultBudget);
 	~SceneHistory();
 
+	// The selection each step stores and undo and redo restore; none leaves the selection alone
+	void SetSelection(EntitySelection* selection) { m_Selection = selection; }
+
 	// Opens a step whose command has captured the "before" state; closes any open step with another key
 	void Begin(Scene& scene, const EditKey& key, Scope<SceneCommand> command);
 	bool IsOpen(const EditKey& key) const;
@@ -26,12 +30,12 @@ public:
 	SceneCommand* GetOpenCommand(const EditKey& key) const;
 	// Captures the open step's "after" state and pushes it, unless nothing changed
 	void End(Scene& scene);
-	// A change made in one go
-	void Push(Scene& scene, Scope<SceneCommand> command);
+	// A change made in one go; its "before" selection is the one given, or the current one if none
+	void Push(Scene& scene, Scope<SceneCommand> command, const SelectionState* before = nullptr);
 
-	// Both return the entities to select, or nothing to leave the selection as it is
-	std::vector<Uuid> Undo(Scene& scene);
-	std::vector<Uuid> Redo(Scene& scene);
+	// Restore the selection stored when the step opened (undo) or closed (redo), skipping entities that are gone
+	void Undo(Scene& scene);
+	void Redo(Scene& scene);
 	bool CanUndo() const;
 	bool CanRedo() const;
 
@@ -63,13 +67,16 @@ private:
 	struct Step
 	{
 		Scope<SceneCommand> command;
+		SelectionState before;
+		SelectionState after;
 		uint64_t id = 0;
 		size_t size = 0;
 	};
 
 	// Adds a finished command to the open group, or as a new step
-	void Record(Scene& scene, Scope<SceneCommand> command);
-	void Add(Scene& scene, Scope<SceneCommand> command);
+	void Record(Scene& scene, Scope<SceneCommand> command, SelectionState before);
+	void Add(Scene& scene, Scope<SceneCommand> command, SelectionState before);
+	SelectionState CaptureSelection() const;
 	uint64_t CurrentId() const;
 	void UpdateDirty(Scene& scene) const;
 
@@ -84,10 +91,14 @@ private:
 	uint64_t m_SavedId = 0;
 	bool m_UnrecordedChange = false;
 
+	EntitySelection* m_Selection = nullptr;
+
 	EditKey m_OpenKey;
 	Scope<SceneCommand> m_OpenCommand;
+	SelectionState m_OpenBefore;
 
 	Scope<CompoundCommand> m_Group;
+	SelectionState m_GroupBefore;
 	int m_GroupDepth = 0;
 
 	bool m_Enabled = true;
