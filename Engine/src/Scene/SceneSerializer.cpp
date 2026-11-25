@@ -386,3 +386,47 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, const std::string& prefa
 	}
 	return Entity();
 }
+
+std::string SceneSerializer::SerializeEntities(const std::vector<Entity>& roots)
+{
+	tinyxml2::XMLDocument doc;
+	tinyxml2::XMLElement* pEntitiesElement = doc.NewElement("Entities");
+	doc.InsertFirstChild(pEntitiesElement);
+	for (Entity root : roots)
+		SceneSerializer::SerializeEntity(pEntitiesElement->InsertNewChildElement("Entity"), root);
+	pEntitiesElement->SetAttribute("FormatVersion", Migration::CurrentVersion(Migration::FileType::Scene));
+	tinyxml2::XMLPrinter printer;
+	doc.Accept(&printer);
+	return printer.CStr();
+}
+
+std::vector<Entity> SceneSerializer::DeserializeEntities(Scene* scene, const std::string& text, bool resetUuid)
+{
+	std::vector<Entity> roots;
+	tinyxml2::XMLDocument doc;
+	if (doc.Parse(text.c_str()) != tinyxml2::XMLError::XML_SUCCESS || !doc.RootElement())
+		return roots;
+
+	const bool single = std::strcmp(doc.RootElement()->Name(), "Entity") == 0;
+	if (!single && std::strcmp(doc.RootElement()->Name(), "Entities") != 0)
+		return roots;
+
+	Migration::Report report;
+	Migration::Upgrade(Migration::FileType::Scene, doc, k_PastedEntity, report);
+	tinyxml2::XMLElement* pRoot = doc.RootElement();
+	if (!pRoot)
+		return roots;
+
+	if (single)
+	{
+		if (Entity root = ReadEntityTree(scene, pRoot, resetUuid, k_PastedEntity))
+			roots.push_back(root);
+		return roots;
+	}
+	for (tinyxml2::XMLElement* pEntity = pRoot->FirstChildElement("Entity"); pEntity; pEntity = pEntity->NextSiblingElement("Entity"))
+	{
+		if (Entity root = ReadEntityTree(scene, pEntity, resetUuid, k_PastedEntity))
+			roots.push_back(root);
+	}
+	return roots;
+}
