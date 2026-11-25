@@ -35,8 +35,8 @@
 #include "Events/SceneEvent.h"
 #include "ImGui/ImGuiShortcut.h"
 
-ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
-	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_TilemapEditor(tilemapEditor), m_History(history),
+ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<EntitySelection> selection, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
+	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_Selection(selection), m_TilemapEditor(tilemapEditor), m_History(history),
 	m_Operation(OperationMode::Select), m_Translation(TranslationMode::Local)
 {
 	FrameBufferSpecification frameBufferSpecificationEditorCamera = { 1920, 1080 };
@@ -196,18 +196,22 @@ void ViewportPanel::OnUpdate(float deltaTime)
 				// is the equivalent guard for the anchor/margin handles (set last frame, during
 				// OnImGuiRender) - without it, clicking a handle also pixel-picks whatever's under that
 				// same screen pixel and stomps the selection the handle was meant to be editing.
-				bool overGizmo = m_HierarchyPanel->GetSelectedEntity().IsSceneValid() && (ImGuizmo::IsUsing() || ImGuizmo::IsOver());
+				Scene* clickScene = SceneManager::CurrentScene();
+				bool overGizmo = clickScene && m_Selection->GetActiveEntity(*clickScene).IsSceneValid() && (ImGuizmo::IsUsing() || ImGuizmo::IsOver());
 				if (!overGizmo && !m_WidgetHandleActive && !m_RightClickMenuOpen && m_RelativeMousePosition == m_MousePositionBeginClick)
-					m_HierarchyPanel->SetSelectedEntity(m_HoveredEntity);
+				{
+					if (m_HoveredEntity)
+						m_Selection->Select(m_HoveredEntity.GetID());
+					else
+						m_Selection->Clear();
+				}
 			}
 		}
 
+		// What only makes sense for one entity uses the active one
 		Entity selectedEntity;
-
-		if (m_HierarchyPanel->GetSelectedEntity().IsSceneValid())
-		{
-			selectedEntity = m_HierarchyPanel->GetSelectedEntity();
-		}
+		if (Scene* activeScene = SceneManager::CurrentScene())
+			selectedEntity = m_Selection->GetActiveEntity(*activeScene);
 
 		// Preview Camera window
 		if (selectedEntity && selectedEntity.HasComponent<CameraComponent>())
@@ -913,18 +917,20 @@ void ViewportPanel::OnImGuiRender()
 			cameraViewMat.Transpose();
 			cameraProjectionMat.Transpose();
 
-			if (m_HierarchyPanel->GetSelectedEntity().IsSceneValid())
+			// A double-click in the Hierarchy frames the whole selection
+			if (m_HierarchyPanel->IsFocused())
 			{
-				Entity selectedEntity = m_HierarchyPanel->GetSelectedEntity();
+				FrameSelectedEntities();
+				m_HierarchyPanel->HasFocused();
+			}
+
+			Scene* gizmoScene = SceneManager::CurrentScene();
+			if (Entity selectedEntity = gizmoScene ? m_Selection->GetActiveEntity(*gizmoScene) : Entity())
+			{
 
 				TransformComponent* transformComp = selectedEntity.TryGetComponent<TransformComponent>();
 				if (transformComp)
 				{
-					if (m_HierarchyPanel->IsFocused())
-					{
-						FrameSelectedEntity();
-						m_HierarchyPanel->HasFocused();
-					}
 
 
 					// Draw a camera preview if the selected entity has a camera
@@ -1362,9 +1368,19 @@ void ViewportPanel::SelectAll()
 	m_HierarchyPanel->SelectAll();
 }
 
+void ViewportPanel::SelectNone()
+{
+	m_HierarchyPanel->SelectNone();
+}
+
+void ViewportPanel::InvertSelection()
+{
+	m_HierarchyPanel->InvertSelection();
+}
+
 bool ViewportPanel::HasSelection() const
 {
-	return m_HierarchyPanel->GetSelectedEntity();
+	return m_HierarchyPanel->HasSelection();
 }
 
 void ViewportPanel::HandleKeyboardInputs()
@@ -1415,7 +1431,9 @@ void ViewportPanel::HandleKeyboardInputs()
 		else if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_T))
 			m_Operation = OperationMode::Universal;
 		else if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_F) && SceneManager::GetSceneState() != SceneState::Play)
-			FrameSelectedEntity();
+			FrameSelectedEntities();
+		else if (!ctrl && !shift && !alt && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_H) && SceneManager::GetSceneState() != SceneState::Play)
+			m_HierarchyPanel->ToggleHidden();
 	}
 }
 
@@ -1493,27 +1511,30 @@ void ViewportPanel::DrawBoundingBoxes()
 		});
 }
 
-void ViewportPanel::FrameSelectedEntity()
+void ViewportPanel::FrameSelectedEntities()
 {
-	Entity entity = m_HierarchyPanel->GetSelectedEntity();
-	if (!entity.IsSceneValid())
+	Scene* scene = SceneManager::CurrentScene();
+	if (!scene)
 		return;
 
-	const TransformComponent* transformComp = entity.TryGetComponent<TransformComponent>();
-	if (!transformComp)
-		return;
-
-	BoundingBox localBounds = GetLocalBounds(entity);
-	Vector3f min = localBounds.Min();
-	Vector3f max = localBounds.Max();
-
-	// Enclose all eight transformed corners, so rotation and scale are accounted for
+	// Enclose all eight transformed corners of every selected entity, so rotation and scale are accounted for
 	BoundingBox worldBounds;
-	for (int corner = 0; corner < 8; ++corner)
+	for (Entity entity : m_Selection->Resolve(*scene))
 	{
-		Vector3f point((corner & 1) ? max.x : min.x, (corner & 2) ? max.y : min.y, (corner & 4) ? max.z : min.z);
-		worldBounds.Merge(transformComp->GetWorldMatrix() * point);
+		const TransformComponent* transformComp = entity.TryGetComponent<TransformComponent>();
+		if (!transformComp)
+			continue;
+
+		BoundingBox localBounds = GetLocalBounds(entity);
+		Vector3f min = localBounds.Min();
+		Vector3f max = localBounds.Max();
+		for (int corner = 0; corner < 8; ++corner)
+		{
+			Vector3f point((corner & 1) ? max.x : min.x, (corner & 2) ? max.y : min.y, (corner & 4) ? max.z : min.z);
+			worldBounds.Merge(transformComp->GetWorldMatrix() * point);
+		}
 	}
 
-	m_CameraController.Frame(worldBounds);
+	if (worldBounds.IsValid())
+		m_CameraController.Frame(worldBounds);
 }

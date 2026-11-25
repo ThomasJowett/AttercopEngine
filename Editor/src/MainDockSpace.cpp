@@ -85,6 +85,8 @@ MainDockSpace::MainDockSpace()
 
 	m_ContentExplorer = nullptr;
 	m_History = CreateRef<SceneHistory>();
+	m_Selection = CreateRef<EntitySelection>();
+	m_History->SetSelection(m_Selection.get());
 
 #ifdef DEBUG
 	m_ShowImGuiDemo = true;
@@ -150,11 +152,11 @@ void MainDockSpace::OnAttach()
 	Application::GetLayerStack().AddOverlay(CreateRef<JoystickInfoPanel>(&m_ShowJoystickInfo));
 	Application::GetLayerStack().AddOverlay(CreateRef<ErrorListPanel>(&m_ShowErrorList));
 	Application::GetLayerStack().AddOverlay(CreateRef<FindInFilesPanel>(&m_ShowFindInFiles));
-	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy, m_History);
+	Ref<HierarchyPanel> hierarchyPanel = CreateRef<HierarchyPanel>(&m_ShowHierarchy, m_History, m_Selection);
 	m_HierarchyPanel = hierarchyPanel;
 	Application::GetLayerStack().AddOverlay(hierarchyPanel);
-	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, m_TilemapEditor, m_History));
-	Application::GetLayerStack().AddOverlay(CreateRef<PropertiesPanel>(&m_ShowProperties, hierarchyPanel, m_TilemapEditor, m_History));
+	Application::GetLayerStack().AddOverlay(CreateRef<ViewportPanel>(&m_ShowViewport, hierarchyPanel, m_Selection, m_TilemapEditor, m_History));
+	Application::GetLayerStack().AddOverlay(CreateRef<PropertiesPanel>(&m_ShowProperties, m_Selection, m_TilemapEditor, m_History));
 
 	Application::GetLayerStack().AddOverlay(m_TilemapEditor);
 
@@ -227,6 +229,7 @@ void MainDockSpace::OnEvent(Event& event)
 			if (SceneManager::GetSceneState() == SceneState::Edit && e.GetFilepath() != m_HistoryScene)
 			{
 				m_History->Clear();
+				m_Selection->Clear();
 				m_HistoryScene = e.GetFilepath();
 			}
 			ViewerManager::CloseAll();
@@ -445,6 +448,10 @@ void MainDockSpace::OnImGuiRender()
 			ImGui::Separator();//-----------------------------------------------
 			if (ImGui::MenuItem(ICON_FA_ARROW_POINTER" Select All", ShortcutLabel("A").c_str(), nullptr, copyable))
 				iCopy->SelectAll();
+			if (ImGui::MenuItem("Select None", ShortcutLabel("Shift + A").c_str(), nullptr, copyable))
+				iCopy->SelectNone();
+			if (ImGui::MenuItem("Invert Selection", ShortcutLabel("I").c_str(), nullptr, copyable))
+				iCopy->InvertSelection();
 			ImGui::Separator();//-----------------------------------------------
 			if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS" Find in Files", ShortcutLabel("Shift + F").c_str()))
 				FindInFilesPanel::RequestFocus();
@@ -643,6 +650,7 @@ void MainDockSpace::OpenProject(const std::filesystem::path& filename)
 bool MainDockSpace::OnOpenProject(AppOpenDocumentChangedEvent& event)
 {
 	m_History->Clear();
+	m_Selection->Clear();
 	m_HistoryScene.clear();
 	OpenProject(Application::Get().GetOpenDocument());
 #ifdef __EMSCRIPTEN__
@@ -657,7 +665,7 @@ void MainDockSpace::UndoScene()
 	if (!SceneManager::IsSceneLoaded() || !m_History->CanUndo())
 		return;
 	Scene& scene = *SceneManager::CurrentScene();
-	SelectAfterUndo(scene, m_History->Undo(scene));
+	m_History->Undo(scene);
 }
 
 void MainDockSpace::RedoScene()
@@ -665,21 +673,7 @@ void MainDockSpace::RedoScene()
 	if (!SceneManager::IsSceneLoaded() || !m_History->CanRedo())
 		return;
 	Scene& scene = *SceneManager::CurrentScene();
-	SelectAfterUndo(scene, m_History->Redo(scene));
-}
-
-void MainDockSpace::SelectAfterUndo(Scene& scene, const std::vector<Uuid>& selection)
-{
-	for (const Uuid& id : selection)
-	{
-		if (Entity entity = scene.GetEntityByID(id))
-		{
-			m_HierarchyPanel->SetSelectedEntity(entity);
-			return;
-		}
-	}
-	if (!m_HierarchyPanel->GetSelectedEntity().BelongsToScene(&scene))
-		m_HierarchyPanel->SetSelectedEntity(Entity());
+	m_History->Redo(scene);
 }
 
 void MainDockSpace::CloseFinishedEdit()
@@ -794,11 +788,20 @@ void MainDockSpace::HandleKeyBoardInputs()
 			if (iCopy->HasSelection())
 				iCopy->Duplicate();
 	}
-	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_A))
+	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_A) && !editingText)
 	{
 		if (ICopyable* iCopy = dynamic_cast<ICopyable*>(focusedPanel.get()))
-			if (iCopy->HasSelection())
-				iCopy->SelectAll();
+			iCopy->SelectAll();
+	}
+	else if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_A) && !editingText)
+	{
+		if (ICopyable* iCopy = dynamic_cast<ICopyable*>(focusedPanel.get()))
+			iCopy->SelectNone();
+	}
+	else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_I) && !editingText)
+	{
+		if (ICopyable* iCopy = dynamic_cast<ICopyable*>(focusedPanel.get()))
+			iCopy->InvertSelection();
 	}
 }
 

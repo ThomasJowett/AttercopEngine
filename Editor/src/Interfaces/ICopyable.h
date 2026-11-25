@@ -10,6 +10,9 @@ public:
 	virtual void Delete() = 0;
 	virtual bool HasSelection() const = 0;
 	virtual void SelectAll() = 0;
+	// Only panels that select entities have these
+	virtual void SelectNone() {}
+	virtual void InvertSelection() {}
 
 	virtual bool IsReadOnly() const = 0;
 };

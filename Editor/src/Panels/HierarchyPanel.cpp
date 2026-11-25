@@ -1,9 +1,12 @@
 #include "HierarchyPanel.h"
 
+#include <algorithm>
+
 #include "imgui/imgui.h"
 #include "IconsFontAwesome6.h"
 #include "History/HistoryCommands.h"
 #include "History/PropertyCommands.h"
+#include "Selection/SelectionOperations.h"
 
 #include "Scene/SceneGraph.h"
 #include "Scene/SceneSerializer.h"
@@ -16,6 +19,7 @@
 namespace
 {
 	constexpr const char* s_ContextMenuName = "EntityContextMenu";
+	constexpr const char* s_SceneMenuName = "SceneContextMenu";
 
 	// True if entity is ancestor or one of its descendants
 	bool IsSelfOrDescendant(entt::registry& registry, entt::entity entity, entt::entity ancestor)
@@ -31,8 +35,8 @@ namespace
 	}
 }
 
-HierarchyPanel::HierarchyPanel(bool* show, Ref<SceneHistory> history)
-	:Layer("Hierarchy"), m_Show(show), m_History(history), m_TextFilter(CreateScope<ImGuiTextFilter>())
+HierarchyPanel::HierarchyPanel(bool* show, Ref<SceneHistory> history, Ref<EntitySelection> selection)
+	:Layer("Hierarchy"), m_Show(show), m_History(history), m_Selection(selection), m_TextFilter(CreateScope<ImGuiTextFilter>())
 {
 }
 
@@ -78,11 +82,6 @@ void HierarchyPanel::OnImGuiRender()
 			MainDockSpace::SetFocussedWindow(this);
 		}
 
-		if ((ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsWindowHovered()) || !m_SelectedEntity.BelongsToScene(SceneManager::CurrentScene()))
-		{
-			m_SelectedEntity = {};
-		}
-
 		if (!SceneManager::IsSceneLoaded())
 		{
 			ImGui::TextUnformatted("No scene loaded");
@@ -90,10 +89,11 @@ void HierarchyPanel::OnImGuiRender()
 			return;
 		}
 
-		// right click on a blank space
-		if (ImGui::BeginPopupContextWindow())
+		// Right click on a blank space or the Scene node; rows have their own menu
+		if (ImGui::BeginPopupContextWindow(s_SceneMenuName, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
 		{
-			m_SelectedEntity = {};
+			m_Selection->Clear();
+			m_CreateParent = Entity();
 			CreateMenu();
 			ImGui::EndPopup();
 		}
@@ -105,44 +105,77 @@ void HierarchyPanel::OnImGuiRender()
 
 		Scene* scene = SceneManager::CurrentScene();
 
-		if (m_SelectedEntity && !m_SelectedEntity.IsSceneValid())
-			m_SelectedEntity = Entity();
+		BuildRows(scene);
 
+		// A double-click's second release would change the selection the double-click kept
+		m_SkipSelectionRequests = m_SkipNextRelease && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+		if (m_SkipSelectionRequests)
+			m_SkipNextRelease = false;
+		if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().MouseClickedCount[ImGuiMouseButton_Left] == 1)
+			m_SelectionBeforeClick = m_Selection->Capture();
+
+		// At the window's own ID, so clicking empty space focuses the scope and box select can start there
+		ImGuiMultiSelectIO* selectionIo = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_ClearOnEscape | ImGuiMultiSelectFlags_ClearOnClickVoid
+			| ImGuiMultiSelectFlags_BoxSelect1d | ImGuiMultiSelectFlags_ScopeWindow | ImGuiMultiSelectFlags_SelectOnClickRelease
+			| ImGuiMultiSelectFlags_NoSelectAll, (int)m_Selection->Count(), (int)m_Rows.size());
+		ApplySelectionRequests(*selectionIo, *scene);
+
+		bool openSceneMenu = false;
 		if (ImGui::TreeNodeEx("Scene", ImGuiTreeNodeFlags_DefaultOpen
 			| ImGuiTreeNodeFlags_SpanAvailWidth
 			| ImGuiTreeNodeFlags_Bullet
 			| ImGuiTreeNodeFlags_OpenOnDoubleClick))
 		{
+			openSceneMenu = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 			DragDropTarget(Entity());
-
-			BuildRows(scene);
 
 			ImGuiListClipper clipper;
 			clipper.Begin((int)m_Rows.size());
 
+			// The range's start must stay submitted
+			if (selectionIo->RangeSrcItem >= 0 && selectionIo->RangeSrcItem < (ImGuiSelectionUserData)m_Rows.size())
+				clipper.IncludeItemByIndex((int)selectionIo->RangeSrcItem);
+
 			// Keep the dragged row submitted so its drag source stays alive while scrolled away
-			if (const ImGuiPayload* payload = ImGui::GetDragDropPayload(); payload && payload->IsDataType("Entity"))
+			const ImGuiPayload* payload = ImGui::GetDragDropPayload();
+			if (payload && payload->IsDataType("Entities") && !m_DraggedRow.IsNil())
 			{
-				entt::entity dragged = ((const Entity*)payload->Data)->GetHandle();
-				for (size_t i = 0; i < m_Rows.size(); ++i)
+				if (Entity dragged = scene->GetEntityByID(m_DraggedRow))
 				{
-					if (m_Rows[i].entity == dragged)
+					for (size_t i = 0; i < m_Rows.size(); ++i)
 					{
-						clipper.IncludeItemByIndex((int)i);
-						break;
+						if (m_Rows[i].entity == dragged.GetHandle())
+						{
+							clipper.IncludeItemByIndex((int)i);
+							break;
+						}
 					}
 				}
 			}
+			else
+				m_DraggedRow = Uuid::Nil();
 
 			while (clipper.Step())
 			{
 				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
-					DrawRow(scene, m_Rows[i]);
+					DrawRow(scene, m_Rows[i], i);
 			}
 
 			EntityContextMenu();
 			ImGui::TreePop();
 		}
+		else
+			openSceneMenu = ImGui::IsItemClicked(ImGuiMouseButton_Right);
+
+		selectionIo = ImGui::EndMultiSelect();
+		ApplySelectionRequests(*selectionIo, *scene);
+
+		if (openSceneMenu)
+			ImGui::OpenPopup(s_SceneMenuName);
+
+		// H hides the selection, or shows it if all of it is hidden; by hover, as the Viewport does, so only one panel acts
+		if (ImGui::IsWindowHovered() && !ImGui::GetIO().WantTextInput && ImGui::IsKeyChordPressed(ImGuiKey_H))
+			ToggleHidden();
 
 		ImVec2 available = ImGui::GetContentRegionAvail();
 		ImGui::Dummy(available);
@@ -160,25 +193,11 @@ void HierarchyPanel::OnEvent(Event& event)
 	EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<AppOpenDocumentChangedEvent>([=](AppOpenDocumentChangedEvent&)
 		{
-			// Clear the selected entity when project changes
-			m_SelectedEntity = Entity();
 			m_ContextEntity = Entity();
 			m_PendingDrop.reset();
 			m_ClosedNodes.clear();
 			return false;
 		});
-}
-
-/* ------------------------------------------------------------------------------------------------------------------ */
-
-Entity HierarchyPanel::GetSelectedEntity()
-{
-	return m_SelectedEntity;
-}
-
-void HierarchyPanel::SetSelectedEntity(Entity entity)
-{
-	m_SelectedEntity = entity;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -193,17 +212,64 @@ void HierarchyPanel::BuildRows(Scene* scene)
 	// Filtered rows are every match, listed flat
 	if (m_TextFilter->IsActive())
 	{
-		registry.each([&](entt::entity entity)
-			{
-				const NameComponent* nameComp = registry.try_get<NameComponent>(entity);
-				if (nameComp && m_TextFilter->PassFilter(nameComp->name.c_str()))
-					m_Rows.push_back({ entity, 0, false });
-			});
+		for (entt::entity entity : FilteredEntities(registry))
+			m_Rows.push_back({ entity, 0, false });
 		return;
 	}
 
 	for (Entity root : SceneGraph::GetRoots(*scene))
 		AddRows(registry, root.GetHandle(), 0);
+}
+
+std::vector<entt::entity> HierarchyPanel::FilteredEntities(entt::registry& registry) const
+{
+	std::vector<entt::entity> matches;
+	registry.each([&](entt::entity entity)
+		{
+			const NameComponent* nameComp = registry.try_get<NameComponent>(entity);
+			if (nameComp && m_TextFilter->PassFilter(nameComp->name.c_str()))
+				matches.push_back(entity);
+		});
+	return matches;
+}
+
+void HierarchyPanel::ApplySelectionRequests(const ImGuiMultiSelectIO& io, Scene& scene)
+{
+	if (m_SkipSelectionRequests)
+		return;
+
+	const int rowCount = (int)m_Rows.size();
+	for (const ImGuiSelectionRequest& request : io.Requests)
+	{
+		if (request.Type == ImGuiSelectionRequestType_SetAll)
+		{
+			std::vector<Uuid> ids;
+			if (request.Selected)
+			{
+				for (const Row& row : m_Rows)
+					ids.push_back(Entity{ row.entity, &scene }.GetID());
+			}
+			m_Selection->SetAll(std::move(ids));
+		}
+		else if (request.Type == ImGuiSelectionRequestType_SetRange)
+		{
+			// First is never after last; the direction says which end was clicked, which becomes active
+			const int first = (int)request.RangeFirstItem;
+			const int last = (int)request.RangeLastItem;
+			const bool backwards = request.RangeDirection < 0;
+			for (int n = 0; n <= last - first; ++n)
+			{
+				const int i = backwards ? last - n : first + n;
+				if (i < 0 || i >= rowCount)
+					continue;
+				const Uuid id = Entity{ m_Rows[i].entity, &scene }.GetID();
+				if (request.Selected)
+					m_Selection->Add(id);
+				else
+					m_Selection->Remove(id);
+			}
+		}
+	}
 }
 
 void HierarchyPanel::AddRows(entt::registry& registry, entt::entity entity, int depth)
@@ -224,7 +290,7 @@ void HierarchyPanel::AddRows(entt::registry& registry, entt::entity entity, int 
 	}
 }
 
-void HierarchyPanel::DrawRow(Scene* scene, const Row& row)
+void HierarchyPanel::DrawRow(Scene* scene, const Row& row, int index)
 {
 	Entity entity{ row.entity, scene };
 	const std::string& name = entity.GetName();
@@ -242,11 +308,12 @@ void HierarchyPanel::DrawRow(Scene* scene, const Row& row)
 
 	bool isOpen = row.hasChildren && !m_ClosedNodes.count(row.entity);
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen
-		| ((m_SelectedEntity == entity) ? ImGuiTreeNodeFlags_Selected : 0)
+		| (m_Selection->Contains(entity.GetID()) ? ImGuiTreeNodeFlags_Selected : 0)
 		| (row.hasChildren ? 0 : ImGuiTreeNodeFlags_Leaf);
 
 	if (row.hasChildren)
 		ImGui::SetNextItemOpen(isOpen);
+	ImGui::SetNextItemSelectionUserData(index);
 	bool opened = ImGui::TreeNodeEx("node", flags, "%s", name.c_str());
 
 	if (row.hasChildren && opened != isOpen)
@@ -259,20 +326,42 @@ void HierarchyPanel::DrawRow(Scene* scene, const Row& row)
 
 	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 	{
-		ImGui::SetDragDropPayload("Entity", &entity, sizeof(Entity));
-		ImGui::TextUnformatted(name.c_str());
+		// The top-level selection if this row is selected, otherwise this row alone
+		const ImGuiPayload* current = ImGui::GetDragDropPayload();
+		if (!current || !current->Data)
+		{
+			std::vector<Uuid> ids;
+			if (m_Selection->Contains(entity.GetID()))
+			{
+				for (Entity selected : HistoryCommands::TopLevelInOrder(m_Selection->Resolve(*scene)))
+					ids.push_back(selected.GetID());
+			}
+			else
+				ids.push_back(entity.GetID());
+			ImGui::SetDragDropPayload("Entities", ids.data(), ids.size() * sizeof(Uuid));
+			current = ImGui::GetDragDropPayload();
+		}
+		m_DraggedRow = entity.GetID();
+		const size_t count = current->DataSize / sizeof(Uuid);
+		if (count > 1)
+			ImGui::Text("%zu entities", count);
+		else
+			ImGui::TextUnformatted(name.c_str());
 		ImGui::EndDragDropSource();
 	}
 	// Below an open node is its first child, so there's no drop after it
 	RowDragDropTarget(entity, !isOpen);
 
-	if (ImGui::IsItemClicked(ImGuiMouseButton_Right) || ImGui::IsItemClicked(ImGuiMouseButton_Left))
+	// ImGui selects an unselected row on right-click and keeps the selection on a selected one.
+	// A double-click on a row that was selected keeps the selection from before its first click, to frame all of it.
+	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 	{
-		m_SelectedEntity = entity;
-		if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-		{
-			m_Focused = true;
-		}
+		const Uuid id = entity.GetID();
+		const std::vector<Uuid>& before = m_SelectionBeforeClick.ids;
+		if (std::find(before.begin(), before.end(), id) != before.end())
+			m_Selection->SetAll(before, id);
+		m_SkipNextRelease = true;
+		m_Focused = true;
 	}
 
 	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup))
@@ -291,22 +380,28 @@ void HierarchyPanel::DrawRow(Scene* scene, const Row& row)
 void HierarchyPanel::RowDragDropTarget(Entity entity, bool canDropAfter)
 {
 	const ImGuiPayload* peek = ImGui::GetDragDropPayload();
-	if (!peek || !peek->IsDataType("Entity"))
-		return;
-
-	// No drops onto the dragged entity or its descendants
-	const Entity* dragged = (const Entity*)peek->Data;
-	if (!dragged->BelongsToScene(entity.GetScene())
-		|| IsSelfOrDescendant(entity.GetScene()->GetRegistry(), entity.GetHandle(), dragged->GetHandle()))
+	if (!peek || !peek->IsDataType("Entities"))
 		return;
 
 	if (!ImGui::BeginDragDropTarget())
 		return;
 
-	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Entity", ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+	// No drops onto a dragged entity or its descendants
+	Scene* scene = entity.GetScene();
+	const Uuid* dragged = (const Uuid*)peek->Data;
+	const size_t count = peek->DataSize / sizeof(Uuid);
+	for (size_t i = 0; i < count; ++i)
 	{
-		ASSERT(payload->DataSize == sizeof(Entity), "Drag-drop entity data not the correct size");
+		Entity draggedEntity = scene->GetEntityByID(dragged[i]);
+		if (!draggedEntity || IsSelfOrDescendant(scene->GetRegistry(), entity.GetHandle(), draggedEntity.GetHandle()))
+		{
+			ImGui::EndDragDropTarget();
+			return;
+		}
+	}
 
+	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Entities", ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+	{
 		// Top quarter drops before, bottom quarter after, the rest onto
 		ImVec2 min = ImGui::GetItemRectMin();
 		ImVec2 max = ImGui::GetItemRectMax();
@@ -324,7 +419,7 @@ void HierarchyPanel::RowDragDropTarget(Entity entity, bool canDropAfter)
 			drawList->AddRect(min, max, colour, 0.0f, 0, 2.0f);
 
 		if (payload->IsDelivery())
-			m_PendingDrop = PendingDrop{ *(const Entity*)payload->Data, entity, position };
+			m_PendingDrop = PendingDrop{ std::vector<Uuid>(dragged, dragged + count), entity, position };
 	}
 	ImGui::EndDragDropTarget();
 }
@@ -333,10 +428,10 @@ void HierarchyPanel::DragDropTarget(Entity parent)
 {
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Entity", ImGuiDragDropFlags_None))
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Entities", ImGuiDragDropFlags_None))
 		{
-			ASSERT(payload->DataSize == sizeof(Entity), "Drag-drop entity data not the correct size");
-			m_PendingDrop = PendingDrop{ *(const Entity*)payload->Data, parent, DropPosition::Onto };
+			const Uuid* dragged = (const Uuid*)payload->Data;
+			m_PendingDrop = PendingDrop{ std::vector<Uuid>(dragged, dragged + payload->DataSize / sizeof(Uuid)), parent, DropPosition::Onto };
 		}
 		ImGui::EndDragDropTarget();
 	}
@@ -350,38 +445,8 @@ void HierarchyPanel::ApplyDrop()
 	PendingDrop drop = *m_PendingDrop;
 	m_PendingDrop.reset();
 
-	Scene* scene = SceneManager::CurrentScene();
-	if (!drop.dragged.BelongsToScene(scene) || (drop.target && !drop.target.BelongsToScene(scene)))
-		return;
-
-	entt::registry& registry = scene->GetRegistry();
-	if (drop.target && IsSelfOrDescendant(registry, drop.target.GetHandle(), drop.dragged.GetHandle()))
-		return;
-
-	if (drop.position != DropPosition::Onto && drop.target)
-	{
-		Scope<ReparentEntitiesCommand> moveCommand = CreateScope<ReparentEntitiesCommand>(std::vector<Entity>{ drop.dragged });
-		if (drop.position == DropPosition::Before)
-			SceneGraph::MoveBefore(drop.dragged, drop.target);
-		else
-			SceneGraph::MoveAfter(drop.dragged, drop.target);
-		m_History->Push(*scene, std::move(moveCommand));
-		return;
-	}
-
-	Entity parent = drop.position == DropPosition::Onto ? drop.target : Entity();
-
-	const HierarchyComponent* draggedHierarchyComp = drop.dragged.TryGetComponent<HierarchyComponent>();
-	entt::entity currentParent = draggedHierarchyComp ? draggedHierarchyComp->parent : entt::null;
-	if (currentParent == parent.GetHandle())
-		return;
-
-	Scope<ReparentEntitiesCommand> reparentCommand = CreateScope<ReparentEntitiesCommand>(std::vector<Entity>{ drop.dragged });
-	if (parent)
-		SceneGraph::Reparent(drop.dragged, parent);
-	else
-		SceneGraph::Unparent(drop.dragged);
-	m_History->Push(*scene, std::move(reparentCommand));
+	if (Scene* scene = SceneManager::CurrentScene())
+		SelectionOperations::Move(*m_History, *scene, drop.dragged, drop.target, drop.position);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -404,7 +469,7 @@ void HierarchyPanel::EntityContextMenu()
 		return;
 	}
 
-	m_SelectedEntity = m_ContextEntity;
+	m_CreateParent = m_ContextEntity;
 	if (ImGui::BeginMenu("Create")) {
 		CreateMenu();
 		ImGui::EndMenu();
@@ -419,6 +484,9 @@ void HierarchyPanel::EntityContextMenu()
 		Duplicate();
 	if (ImGui::MenuItem(ICON_FA_TRASH_CAN" Delete", "Del", nullptr, HasSelection()))
 		Delete();
+	ImGui::Separator();
+	if (ImGui::MenuItem(ICON_FA_EYE_SLASH" Hide or Show", "H", nullptr, HasSelection()))
+		ToggleHidden();
 	ImGui::EndPopup();
 }
 
@@ -606,23 +674,23 @@ void HierarchyPanel::CreateMenu()
 
 void HierarchyPanel::AddCreated(Entity entity)
 {
-	if (m_SelectedEntity.BelongsToScene(entity.GetScene()))
-		m_SelectedEntity.AddChild(entity);
-	m_History->Push(*entity.GetScene(), CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ entity }));
-	m_SelectedEntity = entity;
-}
-
-std::vector<Entity> HierarchyPanel::GetSelectedRoots() const
-{
-	if (m_SelectedEntity.BelongsToScene(SceneManager::CurrentScene()))
-		return { m_SelectedEntity };
-	return {};
+	Scene& scene = *entity.GetScene();
+	const SelectionState before = m_Selection->Capture();
+	if (m_CreateParent.BelongsToScene(&scene))
+		m_CreateParent.AddChild(entity);
+	m_Selection->Select(entity.GetID());
+	m_History->Push(scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ entity }), &before);
 }
 
 void HierarchyPanel::Copy()
 {
+	Scene* scene = SceneManager::CurrentScene();
+	const std::string text = scene ? SelectionOperations::Copy(*m_Selection, *scene) : std::string();
+	if (text.empty())
+		return;
+
 	CLIENT_DEBUG("Copied");
-	ImGui::SetClipboardText(SceneSerializer::SerializeEntity(m_SelectedEntity).c_str());
+	ImGui::SetClipboardText(text.c_str());
 }
 
 void HierarchyPanel::Cut()
@@ -633,58 +701,74 @@ void HierarchyPanel::Cut()
 
 void HierarchyPanel::Paste()
 {
-	// New UUIDs now, which redo keeps
+	const char* text = ImGui::GetClipboardText();
 	Scene* scene = SceneManager::CurrentScene();
-	Entity pasted = SceneSerializer::DeserializeEntity(scene, ImGui::GetClipboardText(), true);
-	if (!pasted)
-		return;
-	m_History->Push(*scene, CreateScope<CreateEntitiesCommand>(std::vector<Entity>{ pasted }));
-	m_SelectedEntity = pasted;
+	if (text && scene)
+		SelectionOperations::Paste(*m_History, *m_Selection, *scene, text);
 }
 
 void HierarchyPanel::Duplicate()
 {
-	std::vector<Entity> roots = GetSelectedRoots();
-	if (roots.empty())
-		return;
-
-	CLIENT_DEBUG("Duplicated");
-	Scene* scene = SceneManager::CurrentScene();
-	std::vector<Entity> copies;
-	for (Entity root : roots)
+	if (Scene* scene = SceneManager::CurrentScene())
 	{
-		Entity copy = scene->DuplicateEntity(root, Entity());
-		copy.GetName() += "_copy";
-		copies.push_back(copy);
+		CLIENT_DEBUG("Duplicated");
+		SelectionOperations::Duplicate(*m_History, *m_Selection, *scene);
 	}
-	m_History->Push(*scene, CreateScope<CreateEntitiesCommand>(copies));
-	m_SelectedEntity = copies.front();
 }
 
 void HierarchyPanel::Delete()
 {
-	std::vector<Entity> roots = GetSelectedRoots();
-	if (roots.empty())
-		return;
+	if (Scene* scene = SceneManager::CurrentScene())
+		SelectionOperations::Delete(*m_History, *m_Selection, *scene);
+}
 
-	// An edit still open on them is recorded before they go
-	Scene* scene = SceneManager::CurrentScene();
-	m_History->End(*scene);
-	Scope<DeleteEntitiesCommand> deleteCommand = CreateScope<DeleteEntitiesCommand>(roots);
-	for (Entity root : roots)
-		root.Destroy();
-	m_History->Push(*scene, std::move(deleteCommand));
-	m_SelectedEntity = {};
+void HierarchyPanel::ToggleHidden()
+{
+	if (Scene* scene = SceneManager::CurrentScene())
+		SelectionOperations::ToggleHidden(*m_History, *m_Selection, *scene);
 }
 
 bool HierarchyPanel::HasSelection() const
 {
-	return m_SelectedEntity;
+	Scene* scene = SceneManager::CurrentScene();
+	return scene && m_Selection->HasLive(*scene);
 }
 
 void HierarchyPanel::SelectAll()
 {
-	CLIENT_ERROR("Multi select entities not implemented yet!");
+	Scene* scene = SceneManager::CurrentScene();
+	if (!scene)
+		return;
+
+	std::vector<Uuid> ids;
+	if (m_TextFilter->IsActive() && MainDockSpace::IsFocussedWindow(this))
+	{
+		for (entt::entity entity : FilteredEntities(scene->GetRegistry()))
+			ids.push_back(Entity{ entity, scene }.GetID());
+	}
+	else
+	{
+		for (Entity entity : HistoryCommands::AllInHierarchyOrder(*scene))
+			ids.push_back(entity.GetID());
+	}
+	m_Selection->SetAll(std::move(ids));
+}
+
+void HierarchyPanel::SelectNone()
+{
+	m_Selection->Clear();
+}
+
+void HierarchyPanel::InvertSelection()
+{
+	Scene* scene = SceneManager::CurrentScene();
+	if (!scene)
+		return;
+
+	std::vector<Uuid> all;
+	for (Entity entity : HistoryCommands::AllInHierarchyOrder(*scene))
+		all.push_back(entity.GetID());
+	m_Selection->Invert(all);
 }
 
 bool HierarchyPanel::IsReadOnly() const
