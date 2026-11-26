@@ -35,6 +35,10 @@
 #include "Events/SceneEvent.h"
 #include "ImGui/ImGuiShortcut.h"
 
+#include <algorithm>
+#include <cmath>
+#include <optional>
+
 ViewportPanel::ViewportPanel(bool* show, Ref<HierarchyPanel> hierarchyPanel, Ref<EntitySelection> selection, Ref<TilemapEditor> tilemapEditor, Ref<SceneHistory> history)
 	:m_Show(show), Layer("Viewport"), m_HierarchyPanel(hierarchyPanel), m_Selection(selection), m_TilemapEditor(tilemapEditor), m_History(history),
 	m_Operation(OperationMode::Select), m_Translation(TranslationMode::Local)
@@ -188,33 +192,13 @@ void ViewportPanel::OnUpdate(float deltaTime)
 			{
 				m_HoveredEntity = Entity();
 			}
-
-			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Right))
-			{
-				// Only trust IsOver()/IsUsing() when the gizmo was actually drawn this frame -
-				// otherwise it's stale and still sits over the last selected entity. m_WidgetHandleActive
-				// is the equivalent guard for the anchor/margin handles (set last frame, during
-				// OnImGuiRender) - without it, clicking a handle also pixel-picks whatever's under that
-				// same screen pixel and stomps the selection the handle was meant to be editing.
-				Scene* clickScene = SceneManager::CurrentScene();
-				bool overGizmo = clickScene && m_Selection->GetActiveEntity(*clickScene).IsSceneValid() && (ImGuizmo::IsUsing() || ImGuizmo::IsOver());
-				if (!overGizmo && !m_WidgetHandleActive && !m_RightClickMenuOpen && m_RelativeMousePosition == m_MousePositionBeginClick)
-				{
-					if (m_HoveredEntity)
-						m_Selection->Select(m_HoveredEntity.GetID());
-					else
-						m_Selection->Clear();
-				}
-			}
 		}
 
-		// What only makes sense for one entity uses the active one
-		Entity selectedEntity;
-		if (Scene* activeScene = SceneManager::CurrentScene())
-			selectedEntity = m_Selection->GetActiveEntity(*activeScene);
+		// What only makes sense for one entity needs exactly one selected
+		Entity selectedEntity = GetSingleSelected(*SceneManager::CurrentScene());
 
 		// Preview Camera window
-		if (selectedEntity && selectedEntity.HasComponent<CameraComponent>())
+		if (selectedEntity && selectedEntity.HasComponent<CameraComponent>() && selectedEntity.HasComponent<TransformComponent>())
 		{
 			TransformComponent& transformComp = selectedEntity.GetComponent<TransformComponent>();
 
@@ -233,264 +217,152 @@ void ViewportPanel::OnUpdate(float deltaTime)
 		RenderCommand::StartRenderPass();
 		Renderer::BeginScene(m_CameraController.GetTransformMatrix(), m_CameraController.GetCamera()->GetProjectionMatrix());
 
-		if (selectedEntity && selectedEntity.HasComponent<TransformComponent>())
+		DrawSelectionOutlines(*SceneManager::CurrentScene());
+
+		if (selectedEntity && selectedEntity.HasComponent<TransformComponent>() && selectedEntity.HasComponent<TilemapComponent>())
 		{
 			TransformComponent& transformComp = selectedEntity.GetComponent<TransformComponent>();
 
-			if (selectedEntity.HasComponent<CircleCollider2DComponent>())
+			TilemapComponent& tilemapComp = selectedEntity.GetComponent<TilemapComponent>();
+
+			Colour gridLineColour(0.2f, 0.2f, 0.2f, 0.5f);
+			switch (tilemapComp.orientation)
 			{
-				CircleCollider2DComponent& circleComp = selectedEntity.GetComponent<CircleCollider2DComponent>();
+			case TilemapComponent::Orientation::orthogonal:
 
-				float scale = circleComp.radius * std::max(transformComp.GetScale().x, transformComp.GetScale().y);
+				for (size_t i = 0; i < tilemapComp.tilesHigh + 1; i++)
+				{
+					Vector3f start(0.0f, -(float)i, 0.001f);
+					Vector3f end((float)(tilemapComp.tilesWide), -(float)i, 0.001f);
 
-				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
-					* Matrix4x4::Translate(Vector3f(circleComp.offset.x, circleComp.offset.y, 0.001f))
-					* Matrix4x4::Scale(Vector3f(scale, scale, 1.0f));
+					start = transformComp.GetWorldMatrix() * start;
+					end = transformComp.GetWorldMatrix() * end;
 
-				Renderer2D::DrawHairLineCircle(transform, 60, Colours::LIME_GREEN, selectedEntity);
-			}
+					Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
+				}
+				for (size_t i = 0; i < tilemapComp.tilesWide + 1; i++)
+				{
+					Vector3f start((float)i, 0.0f, 0.001f);
+					Vector3f end((float)i, -(float)(tilemapComp.tilesHigh), 0.001f);
 
-			if (selectedEntity.HasComponent<BoxCollider2DComponent>())
+					start = transformComp.GetWorldMatrix() * start;
+					end = transformComp.GetWorldMatrix() * end;
+
+					Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
+				}
+				break;
+			case TilemapComponent::Orientation::isometric:
+				for (uint32_t i = 0; i < tilemapComp.tilesHigh + 1; i++)
+				{
+					Vector2f startIso = tilemapComp.IsoToWorld(0, i);
+					Vector2f endIso = tilemapComp.IsoToWorld(tilemapComp.tilesWide, i);
+					Vector3f start(startIso.x, startIso.y, 0.001f);
+					Vector3f end(endIso.x, endIso.y, 0.001f);
+
+					start = transformComp.GetWorldMatrix() * start;
+					end = transformComp.GetWorldMatrix() * end;
+
+					Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
+				}
+				for (uint32_t i = 0; i < tilemapComp.tilesWide + 1; i++)
+				{
+					Vector2f startIso = tilemapComp.IsoToWorld(i, 0);
+					Vector2f endIso = tilemapComp.IsoToWorld(i, tilemapComp.tilesHigh);
+					Vector3f start(startIso.x, startIso.y, 0.001f);
+					Vector3f end(endIso.x, endIso.y, 0.001f);
+
+					start = transformComp.GetWorldMatrix() * start;
+					end = transformComp.GetWorldMatrix() * end;
+
+					Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
+				}
+				break;
+			case TilemapComponent::Orientation::hexagonal:
 			{
-				BoxCollider2DComponent& boxComp = selectedEntity.GetComponent<BoxCollider2DComponent>();
+				Vector2f hexSize = tilemapComp.GetHexSize();
+				float halfWidth = hexSize.x / 2.0f;
+				float halfHeight = hexSize.y / 2.0f;
+				float quarterWidth = halfWidth * 0.5f;
 
-				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
-					* Matrix4x4::Translate(Vector3f(boxComp.offset.x, boxComp.offset.y, 0.001f))
-					* Matrix4x4::Scale(Vector3f(boxComp.size.x * transformComp.GetScale().x * 2, boxComp.size.y * transformComp.GetScale().y * 2, 1.0f));
+				std::vector<Vector2f> cornerOffsets = {
+					{-halfWidth, 0.0f},                // Left
+					{-quarterWidth, -halfHeight},      // Bottom-left
+					{quarterWidth, -halfHeight},       // Bottom-right
+					{halfWidth, 0.0f},                 // Right
+					{quarterWidth, halfHeight},        // Top-right
+					{-quarterWidth, halfHeight}        // Top-left
+				};
 
-				Renderer2D::DrawHairLineRect(transform, Colours::LIME_GREEN, selectedEntity);
-			}
+				/*      5 ----- 4
+					   /         \
+					  /           \
+					0 ------------ 3
+					  \           /
+					   \         /
+					    1 ----- 2
+				*/
 
-			if (selectedEntity.HasComponent<PolygonCollider2DComponent>())
-			{
-				PolygonCollider2DComponent& polygonComp = selectedEntity.GetComponent<PolygonCollider2DComponent>();
-
-				std::vector<Vector3f> vertices;
-				vertices.reserve(polygonComp.vertices.size());
-
-				for (Vector2f& vertex : polygonComp.vertices)
+				for (uint32_t r = 0; r < tilemapComp.tilesHigh; ++r)
 				{
-					Matrix4x4 transform = transformComp.GetParentMatrix()
-						* Matrix4x4::Translate(transformComp.GetPosition())
-						* Matrix4x4::RotateZ(transformComp.GetAngle2D())
-						* Matrix4x4::Translate(Vector3f(polygonComp.offset.x + vertex.x * transformComp.GetScale().x,
-							polygonComp.offset.y + vertex.y * transformComp.GetScale().y, 0.001f));
-					vertices.push_back(transform * Vector3f());
-				}
-
-				Renderer2D::DrawHairLinePolygon(vertices, Colours::LIME_GREEN, selectedEntity);
-			}
-
-			if (selectedEntity.HasComponent<CapsuleCollider2DComponent>())
-			{
-				CapsuleCollider2DComponent& capsuleComp = selectedEntity.GetComponent<CapsuleCollider2DComponent>();
-				Matrix4x4 transform = transformComp.GetParentMatrix()
-					* Matrix4x4::Translate(transformComp.GetPosition())
-					* Matrix4x4::RotateZ(transformComp.GetAngle2D())
-					* Matrix4x4::Translate(Vector3f(capsuleComp.offset.x, capsuleComp.offset.y, 0.001f));
-				float scaledradius;
-				float halfHeight;
-				if (capsuleComp.direction == CapsuleCollider2DComponent::Direction::Horizontal)
-				{
-					scaledradius = abs(capsuleComp.radius * transformComp.GetScale().y);
-					halfHeight = abs((capsuleComp.height * transformComp.GetScale().x) / 2.0f);
-					transform = transform * Matrix4x4::RotateZ((float)PIDIV2);
-				}
-				else
-				{
-					scaledradius = abs(capsuleComp.radius * transformComp.GetScale().x);
-					halfHeight = abs((capsuleComp.height * transformComp.GetScale().y) / 2.0f);
-				}
-
-				if (halfHeight > scaledradius)
-				{
-					Matrix4x4 topArcTransform = transform
-						* Matrix4x4::Translate(Vector3f(0.0f, halfHeight - scaledradius, 0.0f))
-						* Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
-					Renderer2D::DrawHairLineArc(topArcTransform, (float)DegToRad(270), (float)DegToRad(90), 30U, Colours::LIME_GREEN, selectedEntity);
-
-					Matrix4x4 bottomArcTransform = transform
-						* Matrix4x4::Translate(Vector3f(0.0f, -(halfHeight - scaledradius), 0.0f))
-						* Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
-					Renderer2D::DrawHairLineArc(bottomArcTransform, (float)DegToRad(90), (float)DegToRad(270), 30U, Colours::LIME_GREEN, selectedEntity);
-
-					Vector3f leftStart = transform * Vector3f(-scaledradius, -(halfHeight - scaledradius), 0.0f);
-					Vector3f leftEnd = transform * Vector3f(-scaledradius, halfHeight - scaledradius, 0.0f);
-					Renderer2D::DrawHairLine(leftStart, leftEnd, Colours::LIME_GREEN, selectedEntity);
-
-					Vector3f rightStart = transform * Vector3f(scaledradius, -(halfHeight - scaledradius), 0.0f);
-					Vector3f rightEnd = transform * Vector3f(scaledradius, halfHeight - scaledradius, 0.0f);
-					Renderer2D::DrawHairLine(rightStart, rightEnd, Colours::LIME_GREEN, selectedEntity);
-				}
-				else
-				{
-					Matrix4x4 circleTransform = transform * Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
-					Renderer2D::DrawHairLineCircle(circleTransform, 60U, Colours::LIME_GREEN, selectedEntity);
-				}
-			}
-
-			if (selectedEntity.HasComponent<TilemapComponent>())
-			{
-				TilemapComponent& tilemapComp = selectedEntity.GetComponent<TilemapComponent>();
-
-				Colour gridLineColour(0.2f, 0.2f, 0.2f, 0.5f);
-				switch (tilemapComp.orientation)
-				{
-				case TilemapComponent::Orientation::orthogonal:
-
-					for (size_t i = 0; i < tilemapComp.tilesHigh + 1; i++)
+					for (uint32_t q = 0; q < tilemapComp.tilesWide; ++q)
 					{
-						Vector3f start(0.0f, -(float)i, 0.001f);
-						Vector3f end((float)(tilemapComp.tilesWide), -(float)i, 0.001f);
+						Vector2f centerHex = tilemapComp.HexToWorld(q, r);
 
-						start = transformComp.GetWorldMatrix() * start;
-						end = transformComp.GetWorldMatrix() * end;
+						std::vector<Vector3f> transformedCorners(cornerOffsets.size());
 
-						Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
-					}
-					for (size_t i = 0; i < tilemapComp.tilesWide + 1; i++)
-					{
-						Vector3f start((float)i, 0.0f, 0.001f);
-						Vector3f end((float)i, -(float)(tilemapComp.tilesHigh), 0.001f);
-
-						start = transformComp.GetWorldMatrix() * start;
-						end = transformComp.GetWorldMatrix() * end;
-
-						Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
-					}
-					break;
-				case TilemapComponent::Orientation::isometric:
-					for (uint32_t i = 0; i < tilemapComp.tilesHigh + 1; i++)
-					{
-						Vector2f startIso = tilemapComp.IsoToWorld(0, i);
-						Vector2f endIso = tilemapComp.IsoToWorld(tilemapComp.tilesWide, i);
-						Vector3f start(startIso.x, startIso.y, 0.001f);
-						Vector3f end(endIso.x, endIso.y, 0.001f);
-
-						start = transformComp.GetWorldMatrix() * start;
-						end = transformComp.GetWorldMatrix() * end;
-
-						Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
-					}
-					for (uint32_t i = 0; i < tilemapComp.tilesWide + 1; i++)
-					{
-						Vector2f startIso = tilemapComp.IsoToWorld(i, 0);
-						Vector2f endIso = tilemapComp.IsoToWorld(i, tilemapComp.tilesHigh);
-						Vector3f start(startIso.x, startIso.y, 0.001f);
-						Vector3f end(endIso.x, endIso.y, 0.001f);
-
-						start = transformComp.GetWorldMatrix() * start;
-						end = transformComp.GetWorldMatrix() * end;
-
-						Renderer2D::DrawHairLine(start, end, gridLineColour, selectedEntity);
-					}
-					break;
-				case TilemapComponent::Orientation::hexagonal:
-				{
-					Vector2f hexSize = tilemapComp.GetHexSize();
-					float halfWidth = hexSize.x / 2.0f;
-					float halfHeight = hexSize.y / 2.0f;
-					float quarterWidth = halfWidth * 0.5f;
-
-					std::vector<Vector2f> cornerOffsets = {
-						{-halfWidth, 0.0f},                // Left
-						{-quarterWidth, -halfHeight},      // Bottom-left
-						{quarterWidth, -halfHeight},       // Bottom-right
-						{halfWidth, 0.0f},                 // Right
-						{quarterWidth, halfHeight},        // Top-right
-						{-quarterWidth, halfHeight}        // Top-left
-					};
-
-					/*      5 ----- 4
-						   /         \
-						  /           \
-						0 ------------ 3
-						  \           /
-						   \         /
-						    1 ----- 2
-					*/
-
-					for (uint32_t r = 0; r < tilemapComp.tilesHigh; ++r)
-					{
-						for (uint32_t q = 0; q < tilemapComp.tilesWide; ++q)
+						for (size_t i = 0; i < cornerOffsets.size(); ++i)
 						{
-							Vector2f centerHex = tilemapComp.HexToWorld(q, r);
-
-							std::vector<Vector3f> transformedCorners(cornerOffsets.size());
-
-							for (size_t i = 0; i < cornerOffsets.size(); ++i)
-							{
-								Vector2f corner = centerHex + cornerOffsets[i];
-								transformedCorners[i] = transformComp.GetWorldMatrix() * Vector3f(corner.x, corner.y, 0.001f);
-							}
-
-							for (size_t i : {0, 1, 2})
-							{
-								Renderer2D::DrawHairLine(transformedCorners[i], transformedCorners[i + 1], gridLineColour, selectedEntity);
-							}
-
-							if (q == tilemapComp.tilesWide - 1 || (q % 2 == 0 && r == 0))
-							{
-								Renderer2D::DrawHairLine(transformedCorners[3], transformedCorners[4], gridLineColour, selectedEntity);
-							}
-
-							if (r == 0)
-							{
-								Renderer2D::DrawHairLine(transformedCorners[4], transformedCorners[5], gridLineColour, selectedEntity);
-							}
-
-							if (q == 0 || (q % 2 == 0 && r == 0))
-							{
-								Renderer2D::DrawHairLine(transformedCorners[0], transformedCorners[5], gridLineColour, selectedEntity);
-							}
-
+							Vector2f corner = centerHex + cornerOffsets[i];
+							transformedCorners[i] = transformComp.GetWorldMatrix() * Vector3f(corner.x, corner.y, 0.001f);
 						}
-					}
-					break;
-				}
-				case TilemapComponent::Orientation::staggered:
-					//TODO: draw lines on staggered grid
-					break;
-				default:
-					break;
-				}
 
-				m_TilemapEditor->SetTilemapEntity(selectedEntity);
+						for (size_t i : {0, 1, 2})
+						{
+							Renderer2D::DrawHairLine(transformedCorners[i], transformedCorners[i + 1], gridLineColour, selectedEntity);
+						}
 
-				if (m_TilemapEditor->IsShown() && m_WindowHovered)
-				{
-					// Calculate which tilemap cell is hovered
-					Matrix4x4 cameraViewMat = Matrix4x4::Inverse(m_CameraController.GetTransformMatrix());
-					Matrix4x4 cameraProjectionMat = m_CameraController.GetCamera()->GetProjectionMatrix();
-					Line3D ray = MathUtils::ComputeCameraRay(cameraViewMat, cameraProjectionMat, m_RelativeMousePosition, Vector2f(m_ViewportSize.x, m_ViewportSize.y));
+						if (q == tilemapComp.tilesWide - 1 || (q % 2 == 0 && r == 0))
+						{
+							Renderer2D::DrawHairLine(transformedCorners[3], transformedCorners[4], gridLineColour, selectedEntity);
+						}
 
-					Vector3f normal(0.0f, 0.0f, 1.0f);
-					Matrix4x4 transformMat = transformComp.GetWorldMatrix();
+						if (r == 0)
+						{
+							Renderer2D::DrawHairLine(transformedCorners[4], transformedCorners[5], gridLineColour, selectedEntity);
+						}
 
-					transformMat.Transpose();
+						if (q == 0 || (q % 2 == 0 && r == 0))
+						{
+							Renderer2D::DrawHairLine(transformedCorners[0], transformedCorners[5], gridLineColour, selectedEntity);
+						}
 
-					float translation[3], rotation[3], scale[3];
-					ImGuizmo::DecomposeMatrixToComponents(transformMat.m16, translation, rotation, scale);
-
-					Vector3f rotationRad((float)DegToRad(rotation[0]), (float)DegToRad(rotation[1]), (float)DegToRad(rotation[2]));
-
-					Quaternion quat(rotationRad);
-					quat.RotateVectorByQuaternion(normal);
-					Plane tilemapPlane(transformComp.GetWorldPosition(), normal);
-
-					if (Vector3f position; Plane::PlaneLineIntersection(tilemapPlane, ray, transformComp.GetWorldPosition(), position))
-					{
-						m_TilemapEditor->OnRender(position);
 					}
 				}
+				break;
 			}
-			else
+			case TilemapComponent::Orientation::staggered:
+				//TODO: draw lines on staggered grid
+				break;
+			default:
+				break;
+			}
+
+			m_TilemapEditor->SetTilemapEntity(selectedEntity);
+
+			if (m_TilemapEditor->IsShown() && m_WindowHovered)
 			{
-				m_TilemapEditor->Hide();
+				// Calculate which tilemap cell is hovered
+				Matrix4x4 cameraViewMat = Matrix4x4::Inverse(m_CameraController.GetTransformMatrix());
+				Matrix4x4 cameraProjectionMat = m_CameraController.GetCamera()->GetProjectionMatrix();
+				Line3D ray = MathUtils::ComputeCameraRay(cameraViewMat, cameraProjectionMat, m_RelativeMousePosition, Vector2f(m_ViewportSize.x, m_ViewportSize.y));
+
+				const Vector3f normal = transformComp.GetWorldRotation() * Vector3f(0.0f, 0.0f, 1.0f);
+				Plane tilemapPlane(transformComp.GetWorldPosition(), normal);
+
+				if (Vector3f position; Plane::PlaneLineIntersection(tilemapPlane, ray, transformComp.GetWorldPosition(), position))
+				{
+					m_TilemapEditor->OnRender(position);
+				}
 			}
 		}
 		else
@@ -621,6 +493,7 @@ void ViewportPanel::OnImGuiRender()
 
 	ImGuizmo::SetOrthographic(m_Is2DMode);
 	ImGuizmo::BeginFrame();
+	m_GizmoDrawn = false;
 
 	ImGuiIO& io = ImGui::GetIO();
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar;
@@ -716,11 +589,25 @@ void ViewportPanel::OnImGuiRender()
 			{
 				if (ImGui::Button(ICON_FA_CUBE))
 					m_Translation = TranslationMode::World;
+				ImGui::Tooltip("Local axes, from the active entity");
 			}
 			else
 			{
 				if (ImGui::Button(ICON_FA_EARTH_EUROPE))
 					m_Translation = TranslationMode::Local;
+				ImGui::Tooltip("World axes");
+			}
+			if (m_Pivot == GizmoTransform::Pivot::Centre)
+			{
+				if (ImGui::Button(ICON_FA_CROSSHAIRS))
+					m_Pivot = GizmoTransform::Pivot::Active;
+				ImGui::Tooltip("Pivot: the centre of the selection");
+			}
+			else
+			{
+				if (ImGui::Button(ICON_FA_LOCATION_DOT))
+					m_Pivot = GizmoTransform::Pivot::Centre;
+				ImGui::Tooltip("Pivot: the active entity");
 			}
 			ImGui::Separator();
 
@@ -924,338 +811,201 @@ void ViewportPanel::OnImGuiRender()
 				m_HierarchyPanel->HasFocused();
 			}
 
-			Scene* gizmoScene = SceneManager::CurrentScene();
-			if (Entity selectedEntity = gizmoScene ? m_Selection->GetActiveEntity(*gizmoScene) : Entity())
+			Scene& gizmoScene = *SceneManager::CurrentScene();
+			Entity selectedEntity = GetSingleSelected(gizmoScene);
+
+			// Draw a camera preview if the one selected entity has a camera
+			if (selectedEntity && selectedEntity.HasComponent<CameraComponent>() && selectedEntity.HasComponent<TransformComponent>())
 			{
+				ImVec2 cameraPreviewPosition = ImVec2(window_pos.x - ImGui::GetStyle().ItemSpacing.x - 1 + m_ViewportSize.x - m_CameraPreview->GetSpecification().width,
+					window_pos.y - ImGui::GetStyle().ItemSpacing.y + m_ViewportSize.y - m_CameraPreview->GetSpecification().height - 24.0f);
 
-				TransformComponent* transformComp = selectedEntity.TryGetComponent<TransformComponent>();
-				if (transformComp)
+				ImU32 color = ((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].x * 255.0f)) |
+					((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].y * 255.0f) << 8) |
+					((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].z * 255.0f) << 16) |
+					255 << 24;
+
+				ImGui::GetWindowDrawList()->AddRectFilled(cameraPreviewPosition,
+					ImVec2(cameraPreviewPosition.x + m_CameraPreview->GetSpecification().width + 2,
+						cameraPreviewPosition.y + m_CameraPreview->GetSpecification().height + 24.0f),
+					color, ImGui::GetStyle().WindowRounding);
+
+				float cameraCursorPosition = topLeft.x - ImGui::GetStyle().ItemSpacing.x + m_ViewportSize.x - m_CameraPreview->GetSpecification().width;
+				ImGui::SetCursorPos(ImVec2(cameraCursorPosition, topLeft.y - ImGui::GetStyle().ItemSpacing.y + m_ViewportSize.y - m_CameraPreview->GetSpecification().height - 21.0f));
+				ImGui::Text(" %s", selectedEntity.GetName().c_str());
+				ImGui::SetCursorPos(ImVec2(cameraCursorPosition, ImGui::GetCursorPosY()));
+				ImGui::Image(m_CameraPreview->GetColourAttachment(), ImVec2((float)m_CameraPreview->GetSpecification().width, (float)m_CameraPreview->GetSpecification().height));
+			}
+
+			DrawGizmo(gizmoScene, cameraViewMat, cameraProjectionMat);
+
+			m_WidgetHandleActive = false;
+			// Widget handles edit one widget, so only with exactly one selected
+			if (WidgetComponent* widgetComp = selectedEntity ? selectedEntity.TryGetComponent<WidgetComponent>() : nullptr)
+			{
+				// widgetComp->position/size are reference-resolution pixels (see SceneGraph::TraverseUI) -
+				// this scale converts them to the screen pixels window_pos/m_ViewportSize are already in.
+				// Anchor corners need no such conversion (they're 0-1 fractions of the parent already).
+				// Assumes the selected widget is a direct Canvas child (parent size == the reference
+				// canvas) - a widget nested under another widget's rect isn't precisely represented here.
+				float viewportScaleX = m_ViewportSize.x / (float)WidgetComponent::s_referenceWidth;
+				float viewportScaleY = m_ViewportSize.y / (float)WidgetComponent::s_referenceHeight;
+
+				ImVec2 topLeft(m_ViewportSize.x * widgetComp->anchorLeft + window_pos.x, m_ViewportSize.y * widgetComp->anchorTop + window_pos.y);
+				ImVec2 bottomLeft(m_ViewportSize.x * widgetComp->anchorLeft + window_pos.x, m_ViewportSize.y * widgetComp->anchorBottom + window_pos.y);
+				ImVec2 bottomRight(m_ViewportSize.x * widgetComp->anchorRight + window_pos.x, m_ViewportSize.y * widgetComp->anchorBottom + window_pos.y);
+				ImVec2 topRight(m_ViewportSize.x * widgetComp->anchorRight + window_pos.x, m_ViewportSize.y * widgetComp->anchorTop + window_pos.y);
+
+				// Fixed width/height means the rendered size is literal screen pixels, not scaled like
+				// everything else (see SceneGraph::UpdateUIWidgetTransform) - match that here too, or
+				// these handles land wherever the un-fixed case would have put them.
+				float renderWidth = widgetComp->fixedWidth ? widgetComp->size.x : widgetComp->size.x * viewportScaleX;
+				float renderHeight = widgetComp->fixedHeight ? widgetComp->size.y : widgetComp->size.y * viewportScaleY;
+
+				float rectLeft = window_pos.x + widgetComp->position.x * viewportScaleX;
+				float rectTop = window_pos.y + widgetComp->position.y * viewportScaleY;
+				float rectRight = rectLeft + renderWidth;
+				float rectBottom = rectTop + renderHeight;
+
+				ImVec2 leftMid(rectLeft, (rectTop + rectBottom) * 0.5f);
+				ImVec2 topMid((rectLeft + rectRight) * 0.5f, rectTop);
+				ImVec2 rightMid(rectRight, (rectTop + rectBottom) * 0.5f);
+				ImVec2 bottomMid((rectLeft + rectRight) * 0.5f, rectBottom);
+
+				ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+				auto drawHandle = [drawList](ImVec2 pos)
 				{
+					drawList->AddCircleFilled(pos, 4, IM_COL32(44, 44, 44, 255));
+					drawList->AddCircleFilled(pos, 3, IM_COL32(255, 255, 255, 255));
+				};
 
+				// The step closes when the handle is let go
+				auto beginWidgetEdit = [&]()
+				{
+					HistoryCommands::RecordComponent(*m_History, PropertyEdits::NewInteraction(), { selectedEntity },
+						Reflection::TypeOf<WidgetComponent>());
+				};
 
-					// Draw a camera preview if the selected entity has a camera
-					if (selectedEntity.HasComponent<CameraComponent>())
+				auto trackHandle = [&]()
+				{
+					m_WidgetHandleActive |= ImGui::IsItemHovered() || ImGui::IsItemActive();
+				};
+
+				const float handleRadius = 6.0f;
+				const ImVec2 handleSize(handleRadius * 2.0f, handleRadius * 2.0f);
+
+				// Corner handles drag the anchor point they sit on (both axes at once).
+				struct CornerHandle { const char* id; ImVec2 pos; bool left, top; };
+				CornerHandle corners[] = {
+					{ "anchor_tl", topLeft, true, true },
+					{ "anchor_bl", bottomLeft, true, false },
+					{ "anchor_br", bottomRight, false, false },
+					{ "anchor_tr", topRight, false, true },
+				};
+				for (CornerHandle& corner : corners)
+				{
+					ImGui::PushID(corner.id);
+					ImGui::SetCursorScreenPos(ImVec2(corner.pos.x - handleRadius, corner.pos.y - handleRadius));
+					ImGui::InvisibleButton(corner.id, handleSize);
+					if (ImGui::IsItemActivated())
+						beginWidgetEdit();
+					if (ImGui::IsItemActive())
 					{
-						ImVec2 cameraPreviewPosition = ImVec2(window_pos.x - ImGui::GetStyle().ItemSpacing.x - 1 + m_ViewportSize.x - m_CameraPreview->GetSpecification().width,
-							window_pos.y - ImGui::GetStyle().ItemSpacing.y + m_ViewportSize.y - m_CameraPreview->GetSpecification().height - 24.0f);
-
-						ImU32 color = ((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].x * 255.0f)) |
-							((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].y * 255.0f) << 8) |
-							((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_TitleBg].z * 255.0f) << 16) |
-							255 << 24;
-
-						ImGui::GetWindowDrawList()->AddRectFilled(cameraPreviewPosition,
-							ImVec2(cameraPreviewPosition.x + m_CameraPreview->GetSpecification().width + 2,
-								cameraPreviewPosition.y + m_CameraPreview->GetSpecification().height + 24.0f),
-							color, ImGui::GetStyle().WindowRounding);
-
-						float cameraCursorPosition = topLeft.x - ImGui::GetStyle().ItemSpacing.x + m_ViewportSize.x - m_CameraPreview->GetSpecification().width;
-						ImGui::SetCursorPos(ImVec2(cameraCursorPosition, topLeft.y - ImGui::GetStyle().ItemSpacing.y + m_ViewportSize.y - m_CameraPreview->GetSpecification().height - 21.0f));
-						ImGui::Text(" %s", selectedEntity.GetName().c_str());
-						ImGui::SetCursorPos(ImVec2(cameraCursorPosition, ImGui::GetCursorPosY()));
-						ImGui::Image(m_CameraPreview->GetColourAttachment(), ImVec2((float)m_CameraPreview->GetSpecification().width, (float)m_CameraPreview->GetSpecification().height));
-					}
-
-					// Gizmos
-
-					// The entity's own transform, not the per-view one a billboard is drawn with
-					Matrix4x4 transformMat = transformComp->GetParentMatrix() * transformComp->GetLocalMatrix();
-
-					transformMat.Transpose();
-
-					const bool snap = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
-					// Universal snaps in degrees on its rings, which are only used when no arrow or scale handle is under the mouse
-					if (!ImGuizmo::IsUsing())
-						m_SnapInDegrees = m_Operation == OperationMode::Rotate || (m_Operation == OperationMode::Universal
-							&& ImGuizmo::IsOver(ImGuizmo::ROTATE) && !ImGuizmo::IsOver(ImGuizmo::TRANSLATE) && !ImGuizmo::IsOver(ImGuizmo::SCALEU));
-					const float snapValue = m_SnapInDegrees ? 10.0f : 0.5f;
-
-					BoundingBox localBounds = GetLocalBounds(selectedEntity);
-					float bounds[6] = {
-						localBounds.Min().x, localBounds.Min().y, localBounds.Min().z,
-						localBounds.Max().x, localBounds.Max().y, localBounds.Max().z
-					};
-
-					float snapValues[3] = { snapValue, snapValue, snapValue };
-
-					ImGuizmo::OPERATION gizmoOperation = ImGuizmo::BOUNDS;
-					switch (m_Operation)
-					{
-					case ViewportPanel::OperationMode::Select:
-						gizmoOperation = ImGuizmo::BOUNDS;
-						break;
-					case ViewportPanel::OperationMode::Move:
-						gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-						break;
-					case ViewportPanel::OperationMode::Rotate:
-						gizmoOperation = ImGuizmo::OPERATION::ROTATE;
-						break;
-					case ViewportPanel::OperationMode::Scale:
-						gizmoOperation = ImGuizmo::OPERATION::SCALE;
-						break;
-					case ViewportPanel::OperationMode::Universal:
-						gizmoOperation = ImGuizmo::OPERATION::UNIVERSAL;
-						break;
-					default:
-						break;
-					}
-
-					ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
-					switch (m_Translation)
-					{
-					case ViewportPanel::TranslationMode::Local:
-						gizmoMode = ImGuizmo::LOCAL;
-						break;
-					case ViewportPanel::TranslationMode::World:
-						gizmoMode = ImGuizmo::WORLD;
-						break;
-					default:
-						break;
-					}
-
-					ImGuizmo::Manipulate(cameraViewMat.m16, cameraProjectionMat.m16,
-						gizmoOperation, gizmoMode,
-						transformMat.m16,
-						NULL, snap ? &snapValues[0] : NULL,
-						gizmoOperation == ImGuizmo::BOUNDS ? bounds : NULL,
-						snap ? snapValues : NULL);
-
-					// One step per drag; the rotation is recorded as its quaternion
-					if (!ImGuizmo::IsUsing())
-						m_GizmoInteraction = 0;
-					else if (m_GizmoInteraction == 0)
-						m_GizmoInteraction = PropertyEdits::NewInteraction();
-
-					if (ImGuizmo::IsUsing())
-					{
-						const Reflection::ComponentType& transformType = Reflection::TypeOf<TransformComponent>();
-						for (const char* field : { "Position", "Orientation", "Scale" })
-						{
-							HistoryCommands::RecordProperty(*m_History, m_GizmoInteraction, { selectedEntity },
-								Reflection::PropertyPath{ &transformType, transformType.FindField(field) });
-						}
-						transformMat.Transpose();
-						Matrix4x4 localMatrix = Matrix4x4::Inverse(transformComp->GetParentMatrix()) * transformMat;
-
-						// Keeps the stored scale's signs, so a mirrored entity's rotation doesn't flip
-						Vector3f translation, scale;
-						Quaternion rotation;
-						const bool hasRotation = localMatrix.Decompose(translation, rotation, scale, transformComp->GetScale());
-						// Less than this, in radians, is float noise from the matrix round trip and would make the Euler angles drift
-						const bool rotated = hasRotation && Quaternion::AngleBetween(transformComp->GetRotation(), rotation) >= 1e-5f;
-
-						CORE_ASSERT(!std::isnan(translation.x), "Translation is not a number!");
-
-						RigidBody2DComponent* rigidBody2DComp = selectedEntity.TryGetComponent<RigidBody2DComponent>();
-
-						if (SceneManager::GetSceneState() != SceneState::Edit && rigidBody2DComp)
-						{
-							if (rotated)
-								transformComp->SetRotation(rotation);
-							rigidBody2DComp->SetTransform(Vector2f(translation.x, translation.y), transformComp->GetAngle2D());
-							const Vector3f currentPosition = transformComp->GetPosition();
-							transformComp->SetPosition(Vector3f(currentPosition.x, currentPosition.y, translation.z));
-
-							if (SceneManager::GetSceneState() == SceneState::SimulatePause)
-							{
-								Vector2f bodyPosition;
-								float angle;
-
-								rigidBody2DComp->GetTransform(bodyPosition, angle);
-								transformComp->SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, translation.z));
-								transformComp->SetAngle2D(angle);
-							}
-						}
+						ImVec2 mousePos = ImGui::GetMousePos();
+						float fractionX = std::clamp((mousePos.x - window_pos.x) / m_ViewportSize.x, 0.0f, 1.0f);
+						float fractionY = std::clamp((mousePos.y - window_pos.y) / m_ViewportSize.y, 0.0f, 1.0f);
+						if (corner.left)
+							widgetComp->SetAnchorLeft(fractionX);
 						else
-						{
-							if (gizmoOperation == ImGuizmo::OPERATION::TRANSLATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
-							{
-								if ((translation - transformComp->GetPosition()).SqrMagnitude() >= 0.000001f)
-									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetPosition(translation);
-							}
-							if ((gizmoOperation == ImGuizmo::OPERATION::ROTATE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL) && rotated)
-							{
-								SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetRotation(rotation);
-							}
-							if (gizmoOperation == ImGuizmo::OPERATION::SCALE || gizmoOperation == ImGuizmo::OPERATION::UNIVERSAL || m_Operation == OperationMode::Select)
-							{
-								if ((scale - transformComp->GetScale()).SqrMagnitude() >= 0.000001f)
-									SceneManager::CurrentScene()->MakeDirty();
-								transformComp->SetScale(scale);
-							}
-						}
+							widgetComp->SetAnchorRight(fractionX);
+						if (corner.top)
+							widgetComp->SetAnchorTop(fractionY);
+						else
+							widgetComp->SetAnchorBottom(fractionY);
 					}
+					trackHandle();
+					ImGui::PopID();
 				}
 
-				m_WidgetHandleActive = false;
-				if (WidgetComponent* widgetComp = selectedEntity.TryGetComponent<WidgetComponent>())
+				// Edge handles: the near edge (left/top) always drags margin; the far edge (right/bottom)
+				// resizes directly when fixedWidth/fixedHeight, otherwise drags the opposite margin -
+				// matches which fields SceneGraph::UpdateUIWidgetTransform actually reads for each mode.
+				// All margin/size values passed to the Set* setters are reference-resolution pixels,
+				// matching WidgetComponent's own formulas - screen-space mouse deltas are converted to
+				// reference space (divide by viewportScale) before being handed to a setter.
+				ImGui::PushID("margin_left");
+				ImGui::SetCursorScreenPos(ImVec2(leftMid.x - handleRadius, leftMid.y - handleRadius));
+				ImGui::InvisibleButton("margin_left", handleSize);
+				if (ImGui::IsItemActivated())
+					beginWidgetEdit();
+				if (ImGui::IsItemActive())
 				{
-					// widgetComp->position/size are reference-resolution pixels (see SceneGraph::TraverseUI) -
-					// this scale converts them to the screen pixels window_pos/m_ViewportSize are already in.
-					// Anchor corners need no such conversion (they're 0-1 fractions of the parent already).
-					// Assumes the selected widget is a direct Canvas child (parent size == the reference
-					// canvas) - a widget nested under another widget's rect isn't precisely represented here.
-					float viewportScaleX = m_ViewportSize.x / (float)WidgetComponent::s_referenceWidth;
-					float viewportScaleY = m_ViewportSize.y / (float)WidgetComponent::s_referenceHeight;
-
-					ImVec2 topLeft(m_ViewportSize.x * widgetComp->anchorLeft + window_pos.x, m_ViewportSize.y * widgetComp->anchorTop + window_pos.y);
-					ImVec2 bottomLeft(m_ViewportSize.x * widgetComp->anchorLeft + window_pos.x, m_ViewportSize.y * widgetComp->anchorBottom + window_pos.y);
-					ImVec2 bottomRight(m_ViewportSize.x * widgetComp->anchorRight + window_pos.x, m_ViewportSize.y * widgetComp->anchorBottom + window_pos.y);
-					ImVec2 topRight(m_ViewportSize.x * widgetComp->anchorRight + window_pos.x, m_ViewportSize.y * widgetComp->anchorTop + window_pos.y);
-
-					// Fixed width/height means the rendered size is literal screen pixels, not scaled like
-					// everything else (see SceneGraph::UpdateUIWidgetTransform) - match that here too, or
-					// these handles land wherever the un-fixed case would have put them.
-					float renderWidth = widgetComp->fixedWidth ? widgetComp->size.x : widgetComp->size.x * viewportScaleX;
-					float renderHeight = widgetComp->fixedHeight ? widgetComp->size.y : widgetComp->size.y * viewportScaleY;
-
-					float rectLeft = window_pos.x + widgetComp->position.x * viewportScaleX;
-					float rectTop = window_pos.y + widgetComp->position.y * viewportScaleY;
-					float rectRight = rectLeft + renderWidth;
-					float rectBottom = rectTop + renderHeight;
-
-					ImVec2 leftMid(rectLeft, (rectTop + rectBottom) * 0.5f);
-					ImVec2 topMid((rectLeft + rectRight) * 0.5f, rectTop);
-					ImVec2 rightMid(rectRight, (rectTop + rectBottom) * 0.5f);
-					ImVec2 bottomMid((rectLeft + rectRight) * 0.5f, rectBottom);
-
-					ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-					auto drawHandle = [drawList](ImVec2 pos)
-					{
-						drawList->AddCircleFilled(pos, 4, IM_COL32(44, 44, 44, 255));
-						drawList->AddCircleFilled(pos, 3, IM_COL32(255, 255, 255, 255));
-					};
-
-					// The step closes when the handle is let go
-					auto beginWidgetEdit = [&]()
-					{
-						HistoryCommands::RecordComponent(*m_History, PropertyEdits::NewInteraction(), { selectedEntity },
-							Reflection::TypeOf<WidgetComponent>());
-					};
-
-					auto trackHandle = [&]()
-					{
-						m_WidgetHandleActive |= ImGui::IsItemHovered() || ImGui::IsItemActive();
-					};
-
-					const float handleRadius = 6.0f;
-					const ImVec2 handleSize(handleRadius * 2.0f, handleRadius * 2.0f);
-
-					// Corner handles drag the anchor point they sit on (both axes at once).
-					struct CornerHandle { const char* id; ImVec2 pos; bool left, top; };
-					CornerHandle corners[] = {
-						{ "anchor_tl", topLeft, true, true },
-						{ "anchor_bl", bottomLeft, true, false },
-						{ "anchor_br", bottomRight, false, false },
-						{ "anchor_tr", topRight, false, true },
-					};
-					for (CornerHandle& corner : corners)
-					{
-						ImGui::PushID(corner.id);
-						ImGui::SetCursorScreenPos(ImVec2(corner.pos.x - handleRadius, corner.pos.y - handleRadius));
-						ImGui::InvisibleButton(corner.id, handleSize);
-						if (ImGui::IsItemActivated())
-							beginWidgetEdit();
-						if (ImGui::IsItemActive())
-						{
-							ImVec2 mousePos = ImGui::GetMousePos();
-							float fractionX = std::clamp((mousePos.x - window_pos.x) / m_ViewportSize.x, 0.0f, 1.0f);
-							float fractionY = std::clamp((mousePos.y - window_pos.y) / m_ViewportSize.y, 0.0f, 1.0f);
-							if (corner.left)
-								widgetComp->SetAnchorLeft(fractionX);
-							else
-								widgetComp->SetAnchorRight(fractionX);
-							if (corner.top)
-								widgetComp->SetAnchorTop(fractionY);
-							else
-								widgetComp->SetAnchorBottom(fractionY);
-						}
-						trackHandle();
-						ImGui::PopID();
-					}
-
-					// Edge handles: the near edge (left/top) always drags margin; the far edge (right/bottom)
-					// resizes directly when fixedWidth/fixedHeight, otherwise drags the opposite margin -
-					// matches which fields SceneGraph::UpdateUIWidgetTransform actually reads for each mode.
-					// All margin/size values passed to the Set* setters are reference-resolution pixels,
-					// matching WidgetComponent's own formulas - screen-space mouse deltas are converted to
-					// reference space (divide by viewportScale) before being handed to a setter.
-					ImGui::PushID("margin_left");
-					ImGui::SetCursorScreenPos(ImVec2(leftMid.x - handleRadius, leftMid.y - handleRadius));
-					ImGui::InvisibleButton("margin_left", handleSize);
-					if (ImGui::IsItemActivated())
-						beginWidgetEdit();
-					if (ImGui::IsItemActive())
-					{
-						float desiredLeftRef = (ImGui::GetMousePos().x - window_pos.x) / viewportScaleX;
-						widgetComp->SetMarginLeft(desiredLeftRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorLeft);
-					}
-					trackHandle();
-					ImGui::PopID();
-
-					ImGui::PushID("margin_top");
-					ImGui::SetCursorScreenPos(ImVec2(topMid.x - handleRadius, topMid.y - handleRadius));
-					ImGui::InvisibleButton("margin_top", handleSize);
-					if (ImGui::IsItemActivated())
-						beginWidgetEdit();
-					if (ImGui::IsItemActive())
-					{
-						float desiredTopRef = (ImGui::GetMousePos().y - window_pos.y) / viewportScaleY;
-						widgetComp->SetMarginTop(desiredTopRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorTop);
-					}
-					trackHandle();
-					ImGui::PopID();
-
-					ImGui::PushID("margin_right");
-					ImGui::SetCursorScreenPos(ImVec2(rightMid.x - handleRadius, rightMid.y - handleRadius));
-					ImGui::InvisibleButton("margin_right", handleSize);
-					if (ImGui::IsItemActivated())
-						beginWidgetEdit();
-					if (ImGui::IsItemActive())
-					{
-						if (widgetComp->fixedWidth)
-							// Fixed size is literal screen pixels - no reference-space conversion here.
-							widgetComp->SetSizeX(std::max(1.0f, ImGui::GetMousePos().x - rectLeft));
-						else
-						{
-							float desiredRightRef = (ImGui::GetMousePos().x - window_pos.x) / viewportScaleX;
-							widgetComp->SetMarginRight(desiredRightRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorRight);
-						}
-					}
-					trackHandle();
-					ImGui::PopID();
-
-					ImGui::PushID("margin_bottom");
-					ImGui::SetCursorScreenPos(ImVec2(bottomMid.x - handleRadius, bottomMid.y - handleRadius));
-					ImGui::InvisibleButton("margin_bottom", handleSize);
-					if (ImGui::IsItemActivated())
-						beginWidgetEdit();
-					if (ImGui::IsItemActive())
-					{
-						if (widgetComp->fixedHeight)
-							// Fixed size is literal screen pixels - no reference-space conversion here.
-							widgetComp->SetSizeY(std::max(1.0f, ImGui::GetMousePos().y - rectTop));
-						else
-						{
-							float desiredBottomRef = (ImGui::GetMousePos().y - window_pos.y) / viewportScaleY;
-							widgetComp->SetMarginBottom(desiredBottomRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorBottom);
-						}
-					}
-					trackHandle();
-					ImGui::PopID();
-
-					drawHandle(topLeft);
-					drawHandle(bottomLeft);
-					drawHandle(bottomRight);
-					drawHandle(topRight);
-					drawHandle(leftMid);
-					drawHandle(topMid);
-					drawHandle(rightMid);
-					drawHandle(bottomMid);
+					float desiredLeftRef = (ImGui::GetMousePos().x - window_pos.x) / viewportScaleX;
+					widgetComp->SetMarginLeft(desiredLeftRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorLeft);
 				}
+				trackHandle();
+				ImGui::PopID();
+
+				ImGui::PushID("margin_top");
+				ImGui::SetCursorScreenPos(ImVec2(topMid.x - handleRadius, topMid.y - handleRadius));
+				ImGui::InvisibleButton("margin_top", handleSize);
+				if (ImGui::IsItemActivated())
+					beginWidgetEdit();
+				if (ImGui::IsItemActive())
+				{
+					float desiredTopRef = (ImGui::GetMousePos().y - window_pos.y) / viewportScaleY;
+					widgetComp->SetMarginTop(desiredTopRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorTop);
+				}
+				trackHandle();
+				ImGui::PopID();
+
+				ImGui::PushID("margin_right");
+				ImGui::SetCursorScreenPos(ImVec2(rightMid.x - handleRadius, rightMid.y - handleRadius));
+				ImGui::InvisibleButton("margin_right", handleSize);
+				if (ImGui::IsItemActivated())
+					beginWidgetEdit();
+				if (ImGui::IsItemActive())
+				{
+					if (widgetComp->fixedWidth)
+						// Fixed size is literal screen pixels - no reference-space conversion here.
+						widgetComp->SetSizeX(std::max(1.0f, ImGui::GetMousePos().x - rectLeft));
+					else
+					{
+						float desiredRightRef = (ImGui::GetMousePos().x - window_pos.x) / viewportScaleX;
+						widgetComp->SetMarginRight(desiredRightRef - (float)WidgetComponent::s_referenceWidth * widgetComp->anchorRight);
+					}
+				}
+				trackHandle();
+				ImGui::PopID();
+
+				ImGui::PushID("margin_bottom");
+				ImGui::SetCursorScreenPos(ImVec2(bottomMid.x - handleRadius, bottomMid.y - handleRadius));
+				ImGui::InvisibleButton("margin_bottom", handleSize);
+				if (ImGui::IsItemActivated())
+					beginWidgetEdit();
+				if (ImGui::IsItemActive())
+				{
+					if (widgetComp->fixedHeight)
+						// Fixed size is literal screen pixels - no reference-space conversion here.
+						widgetComp->SetSizeY(std::max(1.0f, ImGui::GetMousePos().y - rectTop));
+					else
+					{
+						float desiredBottomRef = (ImGui::GetMousePos().y - window_pos.y) / viewportScaleY;
+						widgetComp->SetMarginBottom(desiredBottomRef - (float)WidgetComponent::s_referenceHeight * widgetComp->anchorBottom);
+					}
+				}
+				trackHandle();
+				ImGui::PopID();
+
+				drawHandle(topLeft);
+				drawHandle(bottomLeft);
+				drawHandle(bottomRight);
+				drawHandle(topRight);
+				drawHandle(leftMid);
+				drawHandle(topMid);
+				drawHandle(rightMid);
+				drawHandle(bottomMid);
 			}
 			ImGuizmo::PopID();
 		}
@@ -1268,21 +1018,7 @@ void ViewportPanel::OnImGuiRender()
 			ImGui::Text("%.1f", io.Framerate);
 		}
 
-		SceneState sceneState = SceneManager::GetSceneState();
-		bool canBoxSelect = sceneState == SceneState::Edit || sceneState == SceneState::Simulate || sceneState == SceneState::SimulatePause;
-
-		if (canBoxSelect && ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGuizmo::IsUsing() && (m_MousePositionBeginClick - m_RelativeMousePosition).SqrMagnitude() > 0.01f
-			&& m_MousePositionBeginClick.x < m_ViewportSize.x && m_MousePositionBeginClick.y < m_ViewportSize.y
-			&& m_MousePositionBeginClick.x > 0.0f && m_MousePositionBeginClick.y > 0.0f
-			&& !m_TilemapEditor->IsHovered())
-		{
-			ImU32 color = ((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered].x * 255.0f)) |
-				((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered].y * 255.0f) << 8) |
-				((ImU32)(ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered].z * 255.0f) << 16) |
-				100 << 24;
-			ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(window_pos.x + m_MousePositionBeginClick.x, window_pos.y + m_MousePositionBeginClick.y),
-				ImVec2(window_pos.x + m_RelativeMousePosition.x, window_pos.y + m_RelativeMousePosition.y), color);
-		}
+		HandleSelectionMouse(*SceneManager::CurrentScene(), window_pos);
 
 		if (m_ShowStats)
 		{
@@ -1390,7 +1126,8 @@ void ViewportPanel::HandleKeyboardInputs()
 	auto ctrl = io.KeyCtrl;
 	auto alt = io.KeyAlt;
 
-	if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+	// While box selecting, Escape cancels the box instead
+	if (ImGui::IsKeyPressed(ImGuiKey_Escape) && !m_BoxSelecting)
 	{
 		SceneManager::ChangeSceneState(SceneState::Edit);
 	}
@@ -1438,6 +1175,107 @@ void ViewportPanel::HandleKeyboardInputs()
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
+
+void ViewportPanel::DrawColliderOutlines(Entity entity)
+{
+	TransformComponent& transformComp = entity.GetComponent<TransformComponent>();
+
+	if (entity.HasComponent<CircleCollider2DComponent>())
+	{
+		CircleCollider2DComponent& circleComp = entity.GetComponent<CircleCollider2DComponent>();
+
+		float scale = circleComp.radius * std::max(transformComp.GetScale().x, transformComp.GetScale().y);
+
+		Matrix4x4 transform = transformComp.GetParentMatrix()
+			* Matrix4x4::Translate(transformComp.GetPosition())
+			* Matrix4x4::RotateZ(transformComp.GetAngle2D())
+			* Matrix4x4::Translate(Vector3f(circleComp.offset.x, circleComp.offset.y, 0.001f))
+			* Matrix4x4::Scale(Vector3f(scale, scale, 1.0f));
+
+		Renderer2D::DrawHairLineCircle(transform, 60, Colours::LIME_GREEN, entity);
+	}
+
+	if (entity.HasComponent<BoxCollider2DComponent>())
+	{
+		BoxCollider2DComponent& boxComp = entity.GetComponent<BoxCollider2DComponent>();
+
+		Matrix4x4 transform = transformComp.GetParentMatrix()
+			* Matrix4x4::Translate(transformComp.GetPosition())
+			* Matrix4x4::RotateZ(transformComp.GetAngle2D())
+			* Matrix4x4::Translate(Vector3f(boxComp.offset.x, boxComp.offset.y, 0.001f))
+			* Matrix4x4::Scale(Vector3f(boxComp.size.x * transformComp.GetScale().x * 2, boxComp.size.y * transformComp.GetScale().y * 2, 1.0f));
+
+		Renderer2D::DrawHairLineRect(transform, Colours::LIME_GREEN, entity);
+	}
+
+	if (entity.HasComponent<PolygonCollider2DComponent>())
+	{
+		PolygonCollider2DComponent& polygonComp = entity.GetComponent<PolygonCollider2DComponent>();
+
+		std::vector<Vector3f> vertices;
+		vertices.reserve(polygonComp.vertices.size());
+
+		for (Vector2f& vertex : polygonComp.vertices)
+		{
+			Matrix4x4 transform = transformComp.GetParentMatrix()
+				* Matrix4x4::Translate(transformComp.GetPosition())
+				* Matrix4x4::RotateZ(transformComp.GetAngle2D())
+				* Matrix4x4::Translate(Vector3f(polygonComp.offset.x + vertex.x * transformComp.GetScale().x,
+					polygonComp.offset.y + vertex.y * transformComp.GetScale().y, 0.001f));
+			vertices.push_back(transform * Vector3f());
+		}
+
+		Renderer2D::DrawHairLinePolygon(vertices, Colours::LIME_GREEN, entity);
+	}
+
+	if (entity.HasComponent<CapsuleCollider2DComponent>())
+	{
+		CapsuleCollider2DComponent& capsuleComp = entity.GetComponent<CapsuleCollider2DComponent>();
+		Matrix4x4 transform = transformComp.GetParentMatrix()
+			* Matrix4x4::Translate(transformComp.GetPosition())
+			* Matrix4x4::RotateZ(transformComp.GetAngle2D())
+			* Matrix4x4::Translate(Vector3f(capsuleComp.offset.x, capsuleComp.offset.y, 0.001f));
+		float scaledradius;
+		float halfHeight;
+		if (capsuleComp.direction == CapsuleCollider2DComponent::Direction::Horizontal)
+		{
+			scaledradius = abs(capsuleComp.radius * transformComp.GetScale().y);
+			halfHeight = abs((capsuleComp.height * transformComp.GetScale().x) / 2.0f);
+			transform = transform * Matrix4x4::RotateZ((float)PIDIV2);
+		}
+		else
+		{
+			scaledradius = abs(capsuleComp.radius * transformComp.GetScale().x);
+			halfHeight = abs((capsuleComp.height * transformComp.GetScale().y) / 2.0f);
+		}
+
+		if (halfHeight > scaledradius)
+		{
+			Matrix4x4 topArcTransform = transform
+				* Matrix4x4::Translate(Vector3f(0.0f, halfHeight - scaledradius, 0.0f))
+				* Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
+			Renderer2D::DrawHairLineArc(topArcTransform, (float)DegToRad(270), (float)DegToRad(90), 30U, Colours::LIME_GREEN, entity);
+
+			Matrix4x4 bottomArcTransform = transform
+				* Matrix4x4::Translate(Vector3f(0.0f, -(halfHeight - scaledradius), 0.0f))
+				* Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
+			Renderer2D::DrawHairLineArc(bottomArcTransform, (float)DegToRad(90), (float)DegToRad(270), 30U, Colours::LIME_GREEN, entity);
+
+			Vector3f leftStart = transform * Vector3f(-scaledradius, -(halfHeight - scaledradius), 0.0f);
+			Vector3f leftEnd = transform * Vector3f(-scaledradius, halfHeight - scaledradius, 0.0f);
+			Renderer2D::DrawHairLine(leftStart, leftEnd, Colours::LIME_GREEN, entity);
+
+			Vector3f rightStart = transform * Vector3f(scaledradius, -(halfHeight - scaledradius), 0.0f);
+			Vector3f rightEnd = transform * Vector3f(scaledradius, halfHeight - scaledradius, 0.0f);
+			Renderer2D::DrawHairLine(rightStart, rightEnd, Colours::LIME_GREEN, entity);
+		}
+		else
+		{
+			Matrix4x4 circleTransform = transform * Matrix4x4::Scale(Vector3f(scaledradius, scaledradius, 1.0f));
+			Renderer2D::DrawHairLineCircle(circleTransform, 60U, Colours::LIME_GREEN, entity);
+		}
+	}
+}
 
 BoundingBox ViewportPanel::GetLocalBounds(Entity entity) const
 {
@@ -1509,6 +1347,387 @@ void ViewportPanel::DrawBoundingBoxes()
 				DrawBox(GetLocalBounds(entity), transform, boxColour, (int)entityHandle);
 			}
 		});
+}
+
+Entity ViewportPanel::GetSingleSelected(Scene& scene) const
+{
+	return m_Selection->Count() == 1 ? m_Selection->GetActiveEntity(scene) : Entity();
+}
+
+// Grows each side of a box that has size by one screen pixel, so the outline sits just outside the edges
+static BoundingBox GrowByPixel(const BoundingBox& box, const Matrix4x4& transform, const Matrix4x4& viewProjection, float pixelAtUnitDepth)
+{
+	const Vector3f min = box.Min();
+	const Vector3f max = box.Max();
+	const Vector4f clip = viewProjection * Vector4f(transform * ((min + max) * 0.5f), 1.0f);
+	if (clip.w <= 1e-6f)
+		return box;
+
+	const float pixel = clip.w * pixelAtUnitDepth;
+	Vector3f grow;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		const float axisScale = Vector3f(transform.m[0][axis], transform.m[1][axis], transform.m[2][axis]).Magnitude();
+		if (max[axis] > min[axis] && axisScale > 1e-6f)
+			grow[axis] = pixel / axisScale;
+	}
+	return BoundingBox(min - grow, max + grow);
+}
+
+void ViewportPanel::DrawSelectionOutlines(Scene& scene)
+{
+	const Colour selectedColour(1.0f, 0.55f, 0.1f, 0.6f);
+	const Colour activeColour(1.0f, 0.75f, 0.3f, 1.0f);
+	const Uuid active = m_Selection->GetActive();
+
+	const Matrix4x4 projection = m_CameraController.GetCamera()->GetProjectionMatrix();
+	const Matrix4x4 viewProjection = projection * Matrix4x4::Inverse(m_CameraController.GetTransformMatrix());
+	// World size of one pixel at a clip w of one
+	const float pixelAtUnitDepth = (m_ViewportSize.y > 0.0f && projection.m[1][1] != 0.0f) ? 2.0f / (std::abs(projection.m[1][1]) * m_ViewportSize.y) : 0.0f;
+
+	for (Entity entity : m_Selection->Resolve(scene))
+	{
+		const TransformComponent* transformComp = entity.TryGetComponent<TransformComponent>();
+		if (!transformComp)
+			continue;
+
+		const Colour& colour = entity.GetID() == active ? activeColour : selectedColour;
+		const Matrix4x4& transform = transformComp->GetWorldMatrix();
+		const int entityId = (int)entity.GetHandle();
+		if (auto staticMeshComp = entity.TryGetComponent<StaticMeshComponent>(); staticMeshComp && staticMeshComp->mesh && staticMeshComp->mesh->GetMesh())
+		{
+			for (const Submesh& submesh : staticMeshComp->mesh->GetMesh()->GetSubmeshes())
+			{
+				const Matrix4x4 submeshTransform = transform * submesh.transform;
+				DrawBox(GrowByPixel(submesh.boundingBox, submeshTransform, viewProjection, pixelAtUnitDepth), submeshTransform, colour, entityId);
+			}
+		}
+		else
+		{
+			// Entities with no bounds have nothing to outline
+			const BoundingBox bounds = GetLocalBounds(entity);
+			if (!(bounds.Min() == bounds.Max()))
+				DrawBox(GrowByPixel(bounds, transform, viewProjection, pixelAtUnitDepth), transform, colour, entityId);
+		}
+
+		DrawColliderOutlines(entity);
+	}
+}
+
+std::vector<Uuid> ViewportPanel::BoxSelectHits(Scene& scene, const Vector2f& corner, const Vector2f& otherCorner)
+{
+	const BoxSelect::Rect rect = BoxSelect::FromPixels(corner, otherCorner, Vector2f(m_ViewportSize.x, m_ViewportSize.y));
+	const BoxSelect::Tester tester(m_CameraController.GetCamera()->GetProjectionMatrix(), Matrix4x4::Inverse(m_CameraController.GetTransformMatrix()), rect);
+
+	// Hierarchy order, so the last hit is the lowest in the Hierarchy
+	std::vector<Uuid> hits;
+	entt::registry& registry = scene.GetRegistry();
+	for (Entity entity : HistoryCommands::AllInHierarchyOrder(scene))
+	{
+		const TransformComponent* transformComp = entity.TryGetComponent<TransformComponent>();
+		if (!transformComp || registry.all_of<HiddenInHierarchyMarker>(entity.GetHandle()))
+			continue;
+
+		const Matrix4x4& transform = transformComp->GetWorldMatrix();
+		bool touches = false;
+		if (auto staticMeshComp = entity.TryGetComponent<StaticMeshComponent>(); staticMeshComp && staticMeshComp->mesh && staticMeshComp->mesh->GetMesh())
+		{
+			for (const Submesh& submesh : staticMeshComp->mesh->GetMesh()->GetSubmeshes())
+				touches = touches || tester.Touches(submesh.boundingBox, transform * submesh.transform);
+		}
+		else
+		{
+			// No bounds is a box of no size at the entity's position
+			touches = tester.Touches(GetLocalBounds(entity), transform);
+		}
+
+		if (touches)
+			hits.push_back(entity.GetID());
+	}
+	return hits;
+}
+
+void ViewportPanel::HandleSelectionMouse(Scene& scene, const ImVec2& windowPos)
+{
+	const SceneState sceneState = SceneManager::GetSceneState();
+	if (sceneState != SceneState::Edit && sceneState != SceneState::Simulate && sceneState != SceneState::SimulatePause)
+	{
+		m_SelectPressed = m_BoxSelecting = false;
+		return;
+	}
+
+	// A press on the gizmo, a widget handle, the tilemap being painted or a menu is theirs
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+	{
+		const bool overGizmo = m_GizmoDrawn && (ImGuizmo::IsUsing() || ImGuizmo::IsOver());
+		m_SelectPressed = m_ViewportHovered && !overGizmo && !m_WidgetHandleActive && !m_RightClickMenuOpen
+			&& !m_TilemapEditor->IsHovered() && !m_CursorDisabled;
+		m_SelectPressPosition = m_RelativeMousePosition;
+		m_SelectPressShift = ImGui::GetIO().KeyShift;
+		m_SelectPressCtrl = ImGui::GetIO().KeyCtrl;
+		m_BoxSelecting = false;
+	}
+
+	// A right-click on an unselected entity selects it for the context menu; on a selected one it keeps the selection
+	if (ImGui::IsMouseReleased(ImGuiMouseButton_Right) && m_ViewportHovered && m_RelativeMousePosition == m_MousePositionBeginClick
+		&& m_HoveredEntity.BelongsToScene(&scene) && !m_Selection->Contains(m_HoveredEntity.GetID()))
+	{
+		m_Selection->Select(m_HoveredEntity.GetID());
+	}
+
+	if (!m_SelectPressed)
+		return;
+
+	// Moving further than this turns the press into a box select
+	const float dragThreshold = 4.0f;
+	if (!m_BoxSelecting && ImGui::IsMouseDown(ImGuiMouseButton_Left)
+		&& (m_RelativeMousePosition - m_SelectPressPosition).SqrMagnitude() > dragThreshold * dragThreshold)
+	{
+		m_BoxSelecting = true;
+		m_SelectionBeforeBox = m_Selection->Capture();
+	}
+
+	if (m_BoxSelecting)
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+		{
+			m_Selection->SetAll(m_SelectionBeforeBox.ids, m_SelectionBeforeBox.active);
+			m_SelectPressed = m_BoxSelecting = false;
+			return;
+		}
+
+		// Live, so the outlines show what will be selected
+		const std::vector<Uuid> hits = BoxSelectHits(scene, m_SelectPressPosition, m_RelativeMousePosition);
+		std::vector<Uuid> ids;
+		Uuid active = m_SelectionBeforeBox.active;
+		if (m_SelectPressCtrl)
+		{
+			for (const Uuid& id : m_SelectionBeforeBox.ids)
+			{
+				if (std::find(hits.begin(), hits.end(), id) == hits.end())
+					ids.push_back(id);
+			}
+		}
+		else if (m_SelectPressShift)
+		{
+			ids = m_SelectionBeforeBox.ids;
+			for (const Uuid& id : hits)
+			{
+				if (std::find(ids.begin(), ids.end(), id) == ids.end())
+					ids.push_back(id);
+			}
+		}
+		else
+		{
+			ids = hits;
+			active = Uuid::Nil();
+		}
+		if (ids != m_Selection->GetAll())
+			m_Selection->SetAll(ids, active);
+
+		const ImVec4 fill = ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered];
+		const ImVec2 from(windowPos.x + m_SelectPressPosition.x, windowPos.y + m_SelectPressPosition.y);
+		const ImVec2 to(windowPos.x + m_RelativeMousePosition.x, windowPos.y + m_RelativeMousePosition.y);
+		ImGui::GetWindowDrawList()->AddRectFilled(from, to, ImGui::GetColorU32(ImVec4(fill.x, fill.y, fill.z, 0.4f)));
+		ImGui::GetWindowDrawList()->AddRect(from, to, ImGui::GetColorU32(ImVec4(fill.x, fill.y, fill.z, 0.9f)));
+
+		if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+			m_SelectPressed = m_BoxSelecting = false;
+		return;
+	}
+
+	// A click selects on release, with the entity the ID buffer has under the mouse
+	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+	{
+		m_SelectPressed = false;
+		Entity hovered = m_HoveredEntity.BelongsToScene(&scene) ? m_HoveredEntity : Entity();
+		if (m_SelectPressCtrl)
+		{
+			if (hovered)
+				m_Selection->Toggle(hovered.GetID());
+		}
+		else if (m_SelectPressShift)
+		{
+			if (hovered)
+				m_Selection->Add(hovered.GetID());
+		}
+		else if (hovered)
+			m_Selection->Select(hovered.GetID());
+		else
+			m_Selection->Clear();
+	}
+}
+
+void ViewportPanel::BuildGizmoPivot(Scene& scene, const std::vector<GizmoTransform::Item>& targets)
+{
+	// Local uses the active entity's axes
+	Entity activeEntity = m_Selection->GetActiveEntity(scene);
+	std::optional<GizmoTransform::Item> active;
+	if (activeEntity && activeEntity.HasComponent<TransformComponent>())
+		active = GizmoTransform::ItemOf(activeEntity);
+
+	Quaternion orientation;
+	if (m_Translation == TranslationMode::Local && active)
+	{
+		Vector3f position, scale;
+		if (!active->world.Decompose(position, orientation, scale, active->local.scale))
+			orientation = Quaternion();
+	}
+
+	if (m_Operation != OperationMode::Select)
+	{
+		const Vector3f position = GizmoTransform::PivotPosition(targets, active ? &*active : nullptr, m_Pivot);
+		m_GizmoPivot = GizmoTransform::PivotMatrix(position, orientation);
+		return;
+	}
+
+	// Select mode: the merged bounds of the selection on the pivot's axes, with the pivot at their centre
+	const Matrix4x4 toAxes = Matrix4x4::Rotate(orientation.Conjugate());
+	BoundingBox merged;
+	merged.Invalidate();
+	auto addBox = [&merged, &toAxes](const BoundingBox& box, const Matrix4x4& transform)
+	{
+		const Vector3f min = box.Min();
+		const Vector3f max = box.Max();
+		for (int i = 0; i < 8; ++i)
+			merged.Merge(toAxes * (transform * Vector3f((i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z)));
+	};
+	for (Entity entity : m_Selection->Resolve(scene))
+	{
+		const TransformComponent* transformComp = entity.TryGetComponent<TransformComponent>();
+		if (!transformComp)
+			continue;
+		const Matrix4x4 transform = transformComp->GetParentMatrix() * transformComp->GetLocalMatrix();
+		if (auto staticMeshComp = entity.TryGetComponent<StaticMeshComponent>(); staticMeshComp && staticMeshComp->mesh && staticMeshComp->mesh->GetMesh())
+		{
+			for (const Submesh& submesh : staticMeshComp->mesh->GetMesh()->GetSubmeshes())
+				addBox(submesh.boundingBox, transform * submesh.transform);
+		}
+		else
+			addBox(GetLocalBounds(entity), transform);
+	}
+
+	const Vector3f centre = merged.IsValid() ? merged.Center() : toAxes * GizmoTransform::PivotPosition(targets, nullptr, GizmoTransform::Pivot::Centre);
+	m_GizmoPivot = GizmoTransform::PivotMatrix(orientation * centre, orientation);
+	const Vector3f min = merged.IsValid() ? merged.Min() - centre : Vector3f();
+	const Vector3f max = merged.IsValid() ? merged.Max() - centre : Vector3f();
+	const float bounds[6] = { min.x, min.y, min.z, max.x, max.y, max.z };
+	std::copy(std::begin(bounds), std::end(bounds), m_GizmoBounds);
+}
+
+void ViewportPanel::DrawGizmo(Scene& scene, const Matrix4x4& view, const Matrix4x4& projection)
+{
+	const std::vector<Entity> targets = GizmoTransform::GetTargets(scene, *m_Selection);
+	if (targets.empty())
+	{
+		m_GizmoInteraction = 0;
+		return;
+	}
+	m_GizmoDrawn = true;
+
+	std::vector<GizmoTransform::Item> items;
+	items.reserve(targets.size());
+	for (Entity target : targets)
+		items.push_back(GizmoTransform::ItemOf(target));
+
+	// The pivot is kept through a drag, as ImGuizmo scales from where the drag started
+	if (!ImGuizmo::IsUsing())
+		BuildGizmoPivot(scene, items);
+
+	const bool snap = ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper;
+	// Universal snaps in degrees on its rings, which are only used when no arrow or scale handle is under the mouse
+	if (!ImGuizmo::IsUsing())
+		m_SnapInDegrees = m_Operation == OperationMode::Rotate || (m_Operation == OperationMode::Universal
+			&& ImGuizmo::IsOver(ImGuizmo::ROTATE) && !ImGuizmo::IsOver(ImGuizmo::TRANSLATE) && !ImGuizmo::IsOver(ImGuizmo::SCALEU));
+	const float snapValue = m_SnapInDegrees ? 10.0f : 0.5f;
+	float snapValues[3] = { snapValue, snapValue, snapValue };
+
+	ImGuizmo::OPERATION gizmoOperation = ImGuizmo::BOUNDS;
+	switch (m_Operation)
+	{
+	case OperationMode::Select: gizmoOperation = ImGuizmo::BOUNDS; break;
+	case OperationMode::Move: gizmoOperation = ImGuizmo::TRANSLATE; break;
+	case OperationMode::Rotate: gizmoOperation = ImGuizmo::ROTATE; break;
+	case OperationMode::Scale: gizmoOperation = ImGuizmo::SCALE; break;
+	case OperationMode::Universal: gizmoOperation = ImGuizmo::UNIVERSAL; break;
+	}
+	// The pivot already has the chosen axes
+	const ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
+
+	Matrix4x4 pivot = m_GizmoPivot;
+	pivot.Transpose();
+	ImGuizmo::Manipulate(view.m16, projection.m16, gizmoOperation, gizmoMode, pivot.m16,
+		NULL, snap ? &snapValues[0] : NULL,
+		gizmoOperation == ImGuizmo::BOUNDS ? m_GizmoBounds : NULL,
+		snap ? snapValues : NULL);
+	pivot.Transpose();
+
+	// One step per drag, with each entity's own values; the rotation is recorded as its quaternion
+	if (!ImGuizmo::IsUsing())
+	{
+		m_GizmoInteraction = 0;
+		return;
+	}
+	if (m_GizmoInteraction == 0)
+		m_GizmoInteraction = PropertyEdits::NewInteraction();
+	if (std::equal(std::begin(pivot.m16), std::end(pivot.m16), std::begin(m_GizmoPivot.m16)))
+		return;
+
+	const Reflection::ComponentType& transformType = Reflection::TypeOf<TransformComponent>();
+	for (const char* field : { "Position", "Orientation", "Scale" })
+		HistoryCommands::RecordProperty(*m_History, m_GizmoInteraction, targets, Reflection::PropertyPath{ &transformType, transformType.FindField(field) });
+
+	// World axes and Select mode's bounds also scale the offsets from the pivot
+	const bool scalePositions = m_Translation == TranslationMode::World || m_Operation == OperationMode::Select;
+	const SceneState sceneState = SceneManager::GetSceneState();
+	bool changed = false;
+	for (size_t i = 0; i < targets.size(); ++i)
+	{
+		Entity target = targets[i];
+		TransformComponent& transformComp = target.GetComponent<TransformComponent>();
+		const GizmoTransform::Transform moved = GizmoTransform::Apply(m_GizmoPivot, pivot, items[i], scalePositions);
+		CORE_ASSERT(!std::isnan(moved.position.x), "Translation is not a number!");
+
+		// In Simulate, bodies are moved through physics, one by one
+		RigidBody2DComponent* rigidBody2DComp = target.TryGetComponent<RigidBody2DComponent>();
+		if (sceneState != SceneState::Edit && rigidBody2DComp)
+		{
+			transformComp.SetRotation(moved.rotation);
+			rigidBody2DComp->SetTransform(Vector2f(moved.position.x, moved.position.y), transformComp.GetAngle2D());
+			const Vector3f currentPosition = transformComp.GetPosition();
+			transformComp.SetPosition(Vector3f(currentPosition.x, currentPosition.y, moved.position.z));
+
+			if (sceneState == SceneState::SimulatePause)
+			{
+				Vector2f bodyPosition;
+				float angle;
+				rigidBody2DComp->GetTransform(bodyPosition, angle);
+				transformComp.SetPosition(Vector3f(bodyPosition.x, bodyPosition.y, moved.position.z));
+				transformComp.SetAngle2D(angle);
+			}
+			continue;
+		}
+
+		// Less than this is float noise from the matrix round trip
+		if ((moved.position - transformComp.GetPosition()).SqrMagnitude() >= 1e-10f)
+		{
+			transformComp.SetPosition(moved.position);
+			changed = true;
+		}
+		if (!(moved.rotation == transformComp.GetRotation()))
+		{
+			transformComp.SetRotation(moved.rotation);
+			changed = true;
+		}
+		if (!(moved.scale == transformComp.GetScale()))
+		{
+			transformComp.SetScale(moved.scale);
+			changed = true;
+		}
+	}
+	if (changed)
+		scene.MakeDirty();
+	m_GizmoPivot = pivot;
 }
 
 void ViewportPanel::FrameSelectedEntities()
