@@ -30,8 +30,9 @@ inline bool BeginAssetCombo(const char* id, const std::string& preview, const As
 	return open;
 }
 
+// True when the asset is picked, dropped or cleared; mixed shows a dash for values that differ across entities
 template<typename T>
-bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType type)
+bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType type, bool mixed = false)
 {
 	bool edited = false;
 	ImGui::TextUnformatted(label);
@@ -42,10 +43,13 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 
 	if (assetName.empty())
 		assetName = "Default";
+	const bool isDefault = assetName == "Default";
+	if (mixed)
+		assetName = "--";
 
 	std::string comboId = std::string("##Combo") + label;
 
-	if (BeginAssetCombo(comboId.c_str(), assetName, asset.get()))
+	if (BeginAssetCombo(comboId.c_str(), assetName, mixed ? nullptr : asset.get()))
 	{
 		for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(type)))
 		{
@@ -78,6 +82,7 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 					{
 						auto relativePath = FileUtils::RelativePath(*file, Application::GetOpenDocumentDirectory());
 						asset = AssetManager::GetAsset<T>(relativePath);
+						edited = true;
 					}
 				}
 			}
@@ -85,7 +90,7 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 		ImGui::EndDragDropTarget();
 	}
 
-	if (assetName != "Default")
+	if (!isDefault && !mixed)
 	{
 		ImGui::SameLine();
 		std::string editId = std::string(ICON_FA_PEN_TO_SQUARE "##EditAsset") + label;
@@ -94,12 +99,15 @@ bool AssetEdit(const char* label, Ref<T>& asset, Ref<T> defaultAsset, FileType t
 			ViewerManager::OpenViewer(asset->GetFilepath());
 		}
 		ImGui::Tooltip("Open Asset Viewer");
-
+	}
+	if (!isDefault || mixed)
+	{
 		ImGui::SameLine();
 		std::string clearId = std::string(ICON_FA_XMARK "##ClearAsset") + label;
 		if (ImGui::Button(clearId.c_str()))
 		{
 			asset = defaultAsset;
+			edited = true;
 		}
 	}
 	return edited;

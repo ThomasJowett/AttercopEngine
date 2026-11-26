@@ -131,8 +131,9 @@ void SceneHistory::Clear()
 	m_Steps.clear();
 	m_Position = 0;
 	m_Size = 0;
-	m_BaseId = 0;
-	m_SavedId = 0;
+	// A fresh id, so the cleared state never matches an earlier one
+	m_BaseId = m_NextId++;
+	m_SavedId = m_BaseId;
 	m_UnrecordedChange = false;
 	m_OpenCommand.reset();
 	m_OpenKey = EditKey();
