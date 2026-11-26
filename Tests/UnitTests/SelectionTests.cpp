@@ -2,6 +2,7 @@
 
 #include "History/HistoryCommands.h"
 #include "History/SceneHistory.h"
+#include "Inspector/MultiEdit.h"
 #include "Scene/Components.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
@@ -12,6 +13,7 @@
 #include "Selection/GizmoTransform.h"
 #include "Selection/SelectionOperations.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -562,6 +564,56 @@ TEST_CASE("Scaling on world axes also scales positions from the pivot")
 	CHECK(Near(TransformOf(a).GetPosition(), Vector3f(-4.0f, 1.0f, 0.0f)));
 	CHECK(Near(TransformOf(b).GetPosition(), Vector3f(8.0f, 1.0f, 0.0f)));
 	CHECK(Near(TransformOf(a).GetScale(), Vector3f(3.0f, 1.0f, 1.0f)));
+}
+
+TEST_CASE("Dragging a bounds handle past the opposite edge flips the scale and mirrors positions, frame after frame")
+{
+	using namespace SelectionTests;
+	Scene scene("");
+	Entity a = scene.CreateEntity("A");
+	a.AddComponent<TransformComponent>(Vector3f(1.0f, 1.0f, 0.0f));
+	Entity b = scene.CreateEntity("B");
+	b.AddComponent<TransformComponent>(Vector3f(3.0f, 2.0f, 0.0f)).SetScale(Vector3f(2.0f, 1.0f, 1.0f));
+	SceneGraph::UpdateWorldTransforms(scene.GetRegistry());
+	const Quaternion rotationB = TransformOf(b).GetRotation();
+
+	// The bounds pivot is kept through the drag, so each frame starts from the last, already flipped, one
+	const Matrix4x4 pivot = GizmoTransform::PivotMatrix(Vector3f(2.0f, 0.0f, 0.0f), Quaternion());
+	const Matrix4x4 flipped = pivot * Matrix4x4::Scale(Vector3f(-1.0f, 1.0f, 1.0f));
+	MoveTargets(scene, { a, b }, pivot, flipped, true);
+
+	CHECK(Near(TransformOf(a).GetPosition(), Vector3f(3.0f, 1.0f, 0.0f)));
+	CHECK(Near(TransformOf(b).GetPosition(), Vector3f(1.0f, 2.0f, 0.0f)));
+	CHECK(Near(TransformOf(a).GetScale(), Vector3f(-1.0f, 1.0f, 1.0f)));
+	CHECK(Near(TransformOf(b).GetScale(), Vector3f(-2.0f, 1.0f, 1.0f)));
+	CHECK(TransformOf(b).GetRotation() == rotationB);
+
+	MoveTargets(scene, { a, b }, flipped, pivot * Matrix4x4::Scale(Vector3f(-2.0f, 1.0f, 1.0f)), true);
+	CHECK(Near(TransformOf(a).GetPosition(), Vector3f(4.0f, 1.0f, 0.0f)));
+	CHECK(Near(TransformOf(b).GetPosition(), Vector3f(0.0f, 2.0f, 0.0f)));
+	CHECK(Near(TransformOf(a).GetScale(), Vector3f(-2.0f, 1.0f, 1.0f)));
+	CHECK(Near(TransformOf(b).GetScale(), Vector3f(-4.0f, 1.0f, 1.0f)));
+	CHECK(TransformOf(b).GetRotation() == rotationB);
+}
+
+TEST_CASE("Stretching a rotated entity on its own axes keeps its rotation exactly")
+{
+	using namespace SelectionTests;
+	Scene scene("");
+	Entity sprite = scene.CreateEntity("Sprite");
+	TransformComponent& transform = sprite.AddComponent<TransformComponent>(Vector3f(5.0f, 2.0f, 0.0f));
+	transform.SetRotation(Quaternion(Vector3f(0.0f, 0.0f, 1.0f), 0.6f));
+	transform.SetScale(Vector3f(3.0f, 1.0f, 1.0f));
+	SceneGraph::UpdateWorldTransforms(scene.GetRegistry());
+	const Quaternion rotation = transform.GetRotation();
+
+	// Select mode: the pivot has the entity's axes, at the centre of its bounds
+	const Matrix4x4 pivot = GizmoTransform::PivotMatrix(Vector3f(5.0f, 2.0f, 0.0f), rotation);
+	MoveTargets(scene, { sprite }, pivot, pivot * Matrix4x4::Scale(Vector3f(1.5f, 0.5f, 1.0f)), true);
+
+	CHECK(TransformOf(sprite).GetRotation() == rotation);
+	CHECK(Near(TransformOf(sprite).GetScale(), Vector3f(4.5f, 0.5f, 1.0f)));
+	CHECK(Near(TransformOf(sprite).GetPosition(), Vector3f(5.0f, 2.0f, 0.0f)));
 }
 
 TEST_CASE("The gizmo moves a child of an unselected, rotated and scaled parent in world space")

@@ -1560,14 +1560,14 @@ void ViewportPanel::HandleSelectionMouse(Scene& scene, const ImVec2& windowPos)
 
 void ViewportPanel::BuildGizmoPivot(Scene& scene, const std::vector<GizmoTransform::Item>& targets)
 {
-	// Local uses the active entity's axes
+	// Local uses the active entity's axes, and so does Select, as each entity scales on its own axes
 	Entity activeEntity = m_Selection->GetActiveEntity(scene);
 	std::optional<GizmoTransform::Item> active;
 	if (activeEntity && activeEntity.HasComponent<TransformComponent>())
 		active = GizmoTransform::ItemOf(activeEntity);
 
 	Quaternion orientation;
-	if (m_Translation == TranslationMode::Local && active)
+	if ((m_Translation == TranslationMode::Local || m_Operation == OperationMode::Select) && active)
 	{
 		Vector3f position, scale;
 		if (!active->world.Decompose(position, orientation, scale, active->local.scale))
