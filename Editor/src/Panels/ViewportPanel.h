@@ -14,7 +14,9 @@
 #include "ImGui/ImGuiTilemapEditor.h"
 #include "History/HistoryCommands.h"
 #include "History/SceneHistory.h"
+#include "Selection/BoxSelect.h"
 #include "Selection/EntitySelection.h"
+#include "Selection/GizmoTransform.h"
 #include "Scene/Components/UIWidgets/WidgetComponent.h"
 
 class ViewportPanel
@@ -63,6 +65,20 @@ private:
 	BoundingBox GetLocalBounds(Entity entity) const;
 	// Frames the union of the selected entities' bounds
 	void FrameSelectedEntities();
+	// The selected entity when exactly one is selected, for what only works on one
+	Entity GetSingleSelected(Scene& scene) const;
+
+	// Clicks select on release; a drag from empty space is a box select
+	void HandleSelectionMouse(Scene& scene, const ImVec2& windowPos);
+	// Every visible entity with a transform whose bounds touch the rectangle, in viewport pixels
+	std::vector<Uuid> BoxSelectHits(Scene& scene, const Vector2f& corner, const Vector2f& otherCorner);
+	// The bounds of each selected entity, the active one brighter, and their colliders
+	void DrawSelectionOutlines(Scene& scene);
+	void DrawColliderOutlines(Entity entity);
+	// The gizmo moves a pivot, and each frame's change moves every top-level selected entity; view and projection are transposed
+	void DrawGizmo(Scene& scene, const Matrix4x4& view, const Matrix4x4& projection);
+	// The pivot matrix and, in Select mode, the selection's bounds around it
+	void BuildGizmoPivot(Scene& scene, const std::vector<GizmoTransform::Item>& targets);
 	// What frustum culling tests: one box per submesh for static meshes, otherwise one per entity
 	void DrawBoundingBoxes();
 
@@ -82,6 +98,7 @@ private:
 
 	OperationMode m_Operation;
 	TranslationMode m_Translation;
+	GizmoTransform::Pivot m_Pivot = GizmoTransform::Pivot::Centre;
 	// Whether the gizmo drag in progress snaps rotation, in degrees, rather than units
 	bool m_SnapInDegrees = false;
 	bool m_Is2DMode = true;
@@ -110,6 +127,20 @@ private:
 	bool m_WidgetHandleActive = false;
 	// The gizmo drag's undo interaction, 0 when it isn't in use
 	uint32_t m_GizmoInteraction = 0;
+	// Drawn this frame, so ImGuizmo's hover state is current
+	bool m_GizmoDrawn = false;
+	Matrix4x4 m_GizmoPivot;
+	// Select mode's bounds, relative to the pivot
+	float m_GizmoBounds[6] = {};
+
+	// A left press in the viewport that may become a click or a box select
+	bool m_SelectPressed = false;
+	bool m_BoxSelecting = false;
+	Vector2f m_SelectPressPosition;
+	bool m_SelectPressShift = false;
+	bool m_SelectPressCtrl = false;
+	// Escape puts this back
+	SelectionState m_SelectionBeforeBox;
 
 	Ref<Mesh> m_GridMesh;
 
