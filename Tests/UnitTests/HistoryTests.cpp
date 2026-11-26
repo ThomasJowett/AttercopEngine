@@ -3,6 +3,7 @@
 #include "History/HistoryCommands.h"
 #include "History/PropertyCommands.h"
 #include "History/SceneHistory.h"
+#include "Inspector/MultiEdit.h"
 #include "Inspector/PropertyEdits.h"
 #include "ComponentFixture.h"
 #include "Reflection/Reflection.h"
@@ -1479,4 +1480,185 @@ TEST_CASE("One gizmo drag of several entities is one step that undoes and redoes
 	history.Redo(scene);
 	CHECK(state(a) == afterA);
 	CHECK(state(b) == afterB);
+}
+
+TEST_CASE("Setting a value on a mixed selection is one step, undo gives each entity its own value back, and redo sets them all")
+{
+	using namespace HistoryTests;
+	RegisterComponents();
+	Scene scene("");
+	const std::vector<Entity> entities = { CreateMovable(scene, "A"), CreateMovable(scene, "B"), CreateMovable(scene, "C") };
+	for (size_t i = 0; i < entities.size(); ++i)
+		SetX(entities[i], (float)i + 1.0f);
+	SceneHistory history;
+	PropertyEdits edits(&history);
+	const Reflection::PropertyPath position = PropertyAt("Transform.Position");
+	const Reflection::PropertyPath x = PropertyAt("Transform.Position.X");
+
+	// A drag on the mixed X, starting from the active entity's value
+	edits.Begin(entities, position);
+	for (float value : { 1.5f, 3.0f, 5.0f })
+		REQUIRE(edits.Set(entities, x, value));
+	edits.End();
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+	for (Entity entity : entities)
+		CHECK(X(entity) == 5.0f);
+
+	history.Undo(scene);
+	CHECK(X(entities[0]) == 1.0f);
+	CHECK(X(entities[1]) == 2.0f);
+	CHECK(X(entities[2]) == 3.0f);
+	history.Redo(scene);
+	for (Entity entity : entities)
+		CHECK(X(entity) == 5.0f);
+
+	// A right-click reset is one set of the default, as its own step
+	edits.Set(entities, x, 0.0f);
+	history.End(scene);
+	CHECK(history.GetStepCount() == 2);
+	for (Entity entity : entities)
+		CHECK(X(entity) == 0.0f);
+	history.Undo(scene);
+	for (Entity entity : entities)
+		CHECK(X(entity) == 5.0f);
+}
+
+TEST_CASE("Setting one part of a vector on many entities leaves each one's other parts")
+{
+	using namespace HistoryTests;
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	a.GetComponent<TransformComponent>().SetPosition(Vector3f(1.0f, 2.0f, 3.0f));
+	b.GetComponent<TransformComponent>().SetPosition(Vector3f(4.0f, 5.0f, 6.0f));
+	SceneHistory history;
+	PropertyEdits edits(&history);
+
+	const Reflection::PropertyPath y = PropertyAt("Transform.Position.Y");
+	edits.Begin({ a, b }, y);
+	REQUIRE(edits.Set({ a, b }, y, 9.0f));
+	edits.End();
+	history.End(scene);
+
+	CHECK(a.GetComponent<TransformComponent>().GetPosition() == Vector3f(1.0f, 9.0f, 3.0f));
+	CHECK(b.GetComponent<TransformComponent>().GetPosition() == Vector3f(4.0f, 9.0f, 6.0f));
+	REQUIRE(history.GetStepCount() == 1);
+	history.Undo(scene);
+	CHECK(a.GetComponent<TransformComponent>().GetPosition() == Vector3f(1.0f, 2.0f, 3.0f));
+	CHECK(b.GetComponent<TransformComponent>().GetPosition() == Vector3f(4.0f, 5.0f, 6.0f));
+	history.Redo(scene);
+	CHECK(a.GetComponent<TransformComponent>().GetPosition() == Vector3f(1.0f, 9.0f, 3.0f));
+	CHECK(b.GetComponent<TransformComponent>().GetPosition() == Vector3f(4.0f, 9.0f, 6.0f));
+}
+
+TEST_CASE("Adding and removing a component on many entities is one step each, undone to each one's values")
+{
+	using namespace HistoryTests;
+	RegisterComponents();
+	Scene scene("");
+	Entity root = ComponentFixture::Create(scene);
+	Entity child = root.GetChild();
+	Entity bareA = scene.CreateEntity("Bare A");
+	Entity bareB = scene.CreateEntity("Bare B");
+	SceneHistory history;
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		INFO(type->name);
+		const std::vector<Entity> fixtures = { root, child };
+		std::vector<Entity> having;
+		std::vector<Reflection::ComponentValues> values;
+		for (Entity entity : fixtures)
+		{
+			if (!type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+				continue;
+			having.push_back(entity);
+			values.push_back(Reflection::Capture(entity, *type));
+		}
+		if (having.empty())
+			continue;
+
+		const size_t position = history.GetPosition();
+		MultiEdit::RemoveComponent(&history, fixtures, *type);
+		REQUIRE(history.GetPosition() == position + 1);
+		for (Entity entity : having)
+			CHECK_FALSE(type->tryGet(scene.GetRegistry(), entity.GetHandle()));
+
+		history.Undo(scene);
+		for (size_t i = 0; i < having.size(); ++i)
+		{
+			REQUIRE(type->tryGet(scene.GetRegistry(), having[i].GetHandle()));
+			CHECK(SameValues(Reflection::Capture(having[i], *type), values[i]));
+		}
+		history.Redo(scene);
+		for (Entity entity : having)
+			CHECK_FALSE(type->tryGet(scene.GetRegistry(), entity.GetHandle()));
+		history.Undo(scene);
+	}
+	ComponentFixture::Check(root);
+
+	for (const Reflection::ComponentType* type : Reflection::Components())
+	{
+		if (type->IsInternal())
+			continue;
+		INFO(type->name);
+		const bool rootHad = type->tryGet(scene.GetRegistry(), root.GetHandle()) != nullptr;
+		const size_t position = history.GetPosition();
+		MultiEdit::AddComponent(&history, { bareA, root, bareB }, *type,
+			[&](Entity entity) { type->emplace(scene.GetRegistry(), entity.GetHandle()); });
+		REQUIRE(history.GetPosition() == position + 1);
+		REQUIRE(type->tryGet(scene.GetRegistry(), bareA.GetHandle()));
+		REQUIRE(type->tryGet(scene.GetRegistry(), bareB.GetHandle()));
+		const Reflection::ComponentValues added = Reflection::Capture(bareA, *type);
+
+		history.Undo(scene);
+		CHECK_FALSE(type->tryGet(scene.GetRegistry(), bareA.GetHandle()));
+		CHECK_FALSE(type->tryGet(scene.GetRegistry(), bareB.GetHandle()));
+		CHECK((type->tryGet(scene.GetRegistry(), root.GetHandle()) != nullptr) == rootHad);
+		history.Redo(scene);
+		REQUIRE(type->tryGet(scene.GetRegistry(), bareA.GetHandle()));
+		REQUIRE(type->tryGet(scene.GetRegistry(), bareB.GetHandle()));
+		CHECK(SameValues(Reflection::Capture(bareA, *type), added));
+		history.Undo(scene);
+	}
+	ComponentFixture::Check(root);
+
+	// Nothing to add is no step
+	const size_t position = history.GetPosition();
+	MultiEdit::AddComponent(&history, { root }, Reflection::TypeOf<TransformComponent>(),
+		[](Entity entity) { entity.AddComponent<TransformComponent>(); });
+	CHECK(history.GetPosition() == position);
+}
+
+TEST_CASE("Renaming many entities is one step that undoes to each one's own name")
+{
+	using namespace HistoryTests;
+	RegisterComponents();
+	Scene scene("");
+	std::vector<Entity> entities = { scene.CreateEntity("Goblin"), scene.CreateEntity("Orc"), scene.CreateEntity("Troll") };
+	SceneHistory history;
+	PropertyEdits edits(&history);
+	const Reflection::PropertyPath name = PropertyAt("Name.Name");
+
+	// Typed a letter at a time
+	edits.Begin(entities, name);
+	for (const char* text : { "E", "En", "Enemy" })
+		REQUIRE(edits.Set(entities, name, text));
+	edits.End();
+	history.End(scene);
+
+	REQUIRE(history.GetStepCount() == 1);
+	for (Entity entity : entities)
+		CHECK(entity.GetName() == "Enemy");
+	history.Undo(scene);
+	CHECK(entities[0].GetName() == "Goblin");
+	CHECK(entities[1].GetName() == "Orc");
+	CHECK(entities[2].GetName() == "Troll");
+	history.Redo(scene);
+	for (Entity entity : entities)
+		CHECK(entity.GetName() == "Enemy");
 }

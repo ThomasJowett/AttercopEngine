@@ -32,7 +32,7 @@ static void TexturePathTooltip(const std::filesystem::path& file, const std::fil
 
 // The filter and wrap drop-downs are left out when they're nullptr
 static bool TextureEdit(const char* label, Ref<Texture2D>& texture, Texture::FilterMethod* filterMethod, Texture::WrapMethod* wrapMethod,
-	const ImVec2& size)
+	const ImVec2& size, bool mixed = false)
 {
 	bool edited = false;
 	ImGui::PushID(label);
@@ -93,10 +93,10 @@ static bool TextureEdit(const char* label, Ref<Texture2D>& texture, Texture::Fil
 		}
 	}
 	else
-		ImGui::Button("##nullTexture", size);
+		ImGui::Button(mixed ? "--##nullTexture" : "##nullTexture", size);
 	ImGui::SameLine();
 
-	std::string textureName;
+	std::string textureName = mixed ? "--" : "";
 	if (texture)
 		textureName = texture->GetFilepath().string();
 
@@ -126,7 +126,7 @@ static bool TextureEdit(const char* label, Ref<Texture2D>& texture, Texture::Fil
 		ImGui::EndCombo();
 	}
 
-	if (texture)
+	if (texture || mixed)
 	{
 		ImGui::SameLine();
 		if (ImGui::Button(std::string(std::string(ICON_FA_ARROW_ROTATE_LEFT"##reset") + std::string(label)).c_str()))
@@ -201,7 +201,7 @@ bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, Texture::F
 	return TextureEdit(label, texture, &filterMethod, &wrapMethod, size);
 }
 
-bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, const ImVec2& size)
+bool ImGui::Texture2DEdit(const char* label, Ref<Texture2D>& texture, const ImVec2& size, bool mixed)
 {
-	return TextureEdit(label, texture, nullptr, nullptr, size);
+	return TextureEdit(label, texture, nullptr, nullptr, size, mixed && !texture);
 }

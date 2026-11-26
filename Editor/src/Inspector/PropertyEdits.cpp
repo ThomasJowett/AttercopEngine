@@ -4,51 +4,74 @@
 #include "History/SceneHistory.h"
 #include "Scene/Scene.h"
 
-void PropertyEdits::Begin(Entity entity, const Reflection::PropertyPath& path)
+namespace
 {
-	End();
-	m_Interaction = NewInteraction();
-	m_Entity = entity.GetID();
-	m_Path = path;
-	if (path.Field().Has(Reflection::FieldFlags::EditFromStart))
+	Reflection::PropertyPath WholeField(Reflection::PropertyPath path)
 	{
-		m_Start = Reflection::Capture(entity, *path.component);
-		m_StartValue = Reflection::Get(entity, path);
+		path.part = -1;
+		return path;
 	}
 }
 
-bool PropertyEdits::Set(Entity entity, const Reflection::PropertyPath& path, const Reflection::Value& value)
+void PropertyEdits::Begin(const std::vector<Entity>& entities, const Reflection::PropertyPath& path)
 {
-	const bool inInteraction = IsOn(entity, path);
-	const uint32_t interaction = InteractionFor(entity, path);
+	End();
+	m_Interaction = NewInteraction();
+	m_Path = WholeField(path);
+	for (Entity entity : entities)
+		m_Entities.push_back(entity.GetID());
+
+	if (path.Field().Has(Reflection::FieldFlags::EditFromStart))
+	{
+		for (Entity entity : entities)
+		{
+			m_Start.push_back(Reflection::Capture(entity, *path.component));
+			m_StartValues.push_back(Reflection::Get(entity, m_Path));
+		}
+	}
+}
+
+bool PropertyEdits::Set(const std::vector<Entity>& entities, const Reflection::PropertyPath& path, const Reflection::Value& value)
+{
+	if (entities.empty())
+		return false;
+
+	const bool inInteraction = IsOn(entities, path);
+	const uint32_t interaction = InteractionFor(entities, path);
 
 	if (m_History)
-		HistoryCommands::RecordProperty(*m_History, interaction, { entity }, path);
+		HistoryCommands::RecordProperty(*m_History, interaction, entities, WholeField(path));
 
-	if (inInteraction && m_Start && Reflection::Get(entity, path) != m_StartValue)
-		Reflection::Restore(entity, *m_Start, Reflection::ChangeSource::Editor, interaction);
-	return Reflection::Set(entity, path, value, Reflection::ChangeSource::Editor, interaction);
+	bool changed = false;
+	for (size_t i = 0; i < entities.size(); ++i)
+	{
+		Entity entity = entities[i];
+		if (inInteraction && i < m_Start.size() && Reflection::Get(entity, m_Path) != m_StartValues[i])
+			Reflection::Restore(entity, m_Start[i], Reflection::ChangeSource::Editor, interaction);
+		changed = Reflection::Set(entity, path, value, Reflection::ChangeSource::Editor, interaction) || changed;
+	}
+	return changed;
 }
 
 void PropertyEdits::End()
 {
 	m_Interaction = 0;
-	m_Entity.reset();
+	m_Entities.clear();
 	m_Path = {};
-	m_Start.reset();
-	m_StartValue.reset();
+	m_Start.clear();
+	m_StartValues.clear();
 }
 
-void PropertyEdits::Record(Entity entity, const Reflection::PropertyPath& path)
+void PropertyEdits::Record(const std::vector<Entity>& entities, const Reflection::PropertyPath& path)
 {
 	if (m_History)
-		HistoryCommands::RecordProperty(*m_History, InteractionFor(entity, path), { entity }, path);
+		HistoryCommands::RecordProperty(*m_History, InteractionFor(entities, path), entities, WholeField(path));
 }
 
-void PropertyEdits::RecordComponent(Entity entity, const Reflection::ComponentType& type)
+void PropertyEdits::RecordComponent(const std::vector<Entity>& entities, const Reflection::ComponentType& type)
 {
 	if (m_History)
-		HistoryCommands::RecordComponent(*m_History, NewInteraction(), { entity }, type);
+		HistoryCommands::RecordComponent(*m_History, NewInteraction(), entities, type);
 }
 
 uint32_t PropertyEdits::NewInteraction()
@@ -57,12 +80,20 @@ uint32_t PropertyEdits::NewInteraction()
 	return s_NextInteraction++;
 }
 
-bool PropertyEdits::IsOn(Entity entity, const Reflection::PropertyPath& path) const
+bool PropertyEdits::IsOn(const std::vector<Entity>& entities, const Reflection::PropertyPath& path) const
 {
-	return m_Interaction != 0 && m_Entity && *m_Entity == entity.GetID() && m_Path == path;
+	if (m_Interaction == 0 || m_Path != WholeField(path) || m_Entities.size() != entities.size())
+		return false;
+	for (size_t i = 0; i < entities.size(); ++i)
+	{
+		Entity entity = entities[i];
+		if (m_Entities[i] != entity.GetID())
+			return false;
+	}
+	return true;
 }
 
-uint32_t PropertyEdits::InteractionFor(Entity entity, const Reflection::PropertyPath& path)
+uint32_t PropertyEdits::InteractionFor(const std::vector<Entity>& entities, const Reflection::PropertyPath& path)
 {
-	return IsOn(entity, path) ? m_Interaction : NewInteraction();
+	return IsOn(entities, path) ? m_Interaction : NewInteraction();
 }

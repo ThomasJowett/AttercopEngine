@@ -637,3 +637,114 @@ TEST_CASE("The gizmo moves a child of an unselected, rotated and scaled parent i
 	CHECK(Near(TransformOf(child).GetPosition(), Vector3f(3.0f, 0.0f, 0.0f)));
 	CHECK(TransformOf(child).GetRotation() == Quaternion());
 }
+
+namespace SelectionTests
+{
+	bool Lists(const std::vector<const Reflection::ComponentType*>& types, const Reflection::ComponentType& type)
+	{
+		return std::find(types.begin(), types.end(), &type) != types.end();
+	}
+
+	MultiEdit::FieldState ReadField(const std::vector<Entity>& entities, const Reflection::ComponentType& type, const char* field)
+	{
+		std::optional<MultiEdit::FieldState> state = MultiEdit::ReadField(entities, type, type.FindField(field));
+		REQUIRE(state);
+		return *state;
+	}
+}
+
+TEST_CASE("The common components of a selection leave out those only some of the entities have")
+{
+	using namespace SelectionTests;
+	RegisterComponents();
+	Scene scene("");
+	Entity a = scene.CreateEntity("A");
+	a.AddComponent<TransformComponent>();
+	a.AddComponent<SpriteComponent>();
+	a.AddComponent<CameraComponent>();
+	Entity b = scene.CreateEntity("B");
+	b.AddComponent<TransformComponent>();
+	b.AddComponent<SpriteComponent>();
+	Entity c = scene.CreateEntity("C");
+	c.AddComponent<TransformComponent>();
+	c.AddComponent<CameraComponent>();
+
+	const MultiEdit::ComponentSplit split = MultiEdit::SplitComponents({ a, b, c });
+	CHECK(Lists(split.common, Reflection::TypeOf<TransformComponent>()));
+	CHECK(Lists(split.common, Reflection::TypeOf<NameComponent>()));
+	CHECK_FALSE(Lists(split.common, Reflection::TypeOf<SpriteComponent>()));
+	CHECK_FALSE(Lists(split.common, Reflection::TypeOf<CameraComponent>()));
+	CHECK(Lists(split.partial, Reflection::TypeOf<SpriteComponent>()));
+	CHECK(Lists(split.partial, Reflection::TypeOf<CameraComponent>()));
+	CHECK_FALSE(Lists(split.partial, Reflection::TypeOf<TransformComponent>()));
+	CHECK_FALSE(Lists(split.partial, Reflection::TypeOf<CircleRendererComponent>()));
+
+	// Registration order, as the inspector draws them
+	const std::vector<const Reflection::ComponentType*>& all = Reflection::Components();
+	ptrdiff_t previous = -1;
+	for (const Reflection::ComponentType* type : split.common)
+	{
+		const ptrdiff_t index = std::find(all.begin(), all.end(), type) - all.begin();
+		CHECK(index > previous);
+		previous = index;
+	}
+
+	const MultiEdit::ComponentSplit one = MultiEdit::SplitComponents({ a });
+	CHECK(Lists(one.common, Reflection::TypeOf<SpriteComponent>()));
+	CHECK(Lists(one.common, Reflection::TypeOf<CameraComponent>()));
+	CHECK(one.partial.empty());
+
+	CHECK(MultiEdit::SplitComponents({}).common.empty());
+}
+
+TEST_CASE("Mixed flags mark fields whose values differ, and each part of a vector on its own")
+{
+	using namespace SelectionTests;
+	RegisterComponents();
+	Scene scene("");
+	Entity a = scene.CreateEntity("Same");
+	a.AddComponent<TransformComponent>(Vector3f(1.0f, 2.0f, 3.0f), Vector3f(), Vector3f(2.0f, 2.0f, 2.0f));
+	a.AddComponent<SpriteComponent>().tint = Colour(1.0f, 0.5f, 0.25f, 1.0f);
+	Entity b = scene.CreateEntity("Same");
+	b.AddComponent<TransformComponent>(Vector3f(1.0f, 7.0f, 3.0f), Vector3f(), Vector3f(2.0f, 2.0f, 2.0f));
+	b.AddComponent<SpriteComponent>().tint = Colour(1.0f, 0.5f, 0.75f, 0.5f);
+	const std::vector<Entity> both = { a, b };
+
+	const MultiEdit::FieldState position = ReadField(both, Reflection::TypeOf<TransformComponent>(), "Position");
+	CHECK(position.mixed);
+	CHECK_FALSE(position.partMixed[0]);
+	CHECK(position.partMixed[1]);
+	CHECK_FALSE(position.partMixed[2]);
+	// The first entity's value, which a drag starts from
+	CHECK(position.value.As<Vector3f>() == Vector3f(1.0f, 2.0f, 3.0f));
+
+	const MultiEdit::FieldState scale = ReadField(both, Reflection::TypeOf<TransformComponent>(), "Scale");
+	CHECK_FALSE(scale.mixed);
+	CHECK_FALSE(scale.partMixed[0]);
+	CHECK_FALSE(scale.partMixed[1]);
+	CHECK_FALSE(scale.partMixed[2]);
+
+	const MultiEdit::FieldState tint = ReadField(both, Reflection::TypeOf<SpriteComponent>(), "Tint");
+	CHECK(tint.mixed);
+	CHECK_FALSE(tint.partMixed[0]);
+	CHECK_FALSE(tint.partMixed[1]);
+	CHECK(tint.partMixed[2]);
+	CHECK(tint.partMixed[3]);
+
+	CHECK_FALSE(ReadField(both, Reflection::TypeOf<NameComponent>(), "Name").mixed);
+	b.GetComponent<NameComponent>().name = "Other";
+	CHECK(ReadField(both, Reflection::TypeOf<NameComponent>(), "Name").mixed);
+
+	const MultiEdit::FieldState tiling = ReadField(both, Reflection::TypeOf<SpriteComponent>(), "TilingFactor");
+	CHECK_FALSE(tiling.mixed);
+	b.GetComponent<SpriteComponent>().tilingFactor = 3.0f;
+	CHECK(ReadField(both, Reflection::TypeOf<SpriteComponent>(), "TilingFactor").mixed);
+
+	// One entity is never mixed
+	CHECK_FALSE(ReadField({ a }, Reflection::TypeOf<TransformComponent>(), "Position").mixed);
+
+	// An entity without the component has nothing to read
+	Entity bare = scene.CreateEntity("Bare");
+	const Reflection::ComponentType& sprite = Reflection::TypeOf<SpriteComponent>();
+	CHECK_FALSE(MultiEdit::ReadField({ a, bare }, sprite, sprite.FindField("Tint")));
+}

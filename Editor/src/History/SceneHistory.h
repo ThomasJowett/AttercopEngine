@@ -61,6 +61,8 @@ public:
 	size_t GetPosition() const { return m_Position; }
 	// Bytes held by all steps
 	size_t GetSize() const { return m_Size; }
+	// The same id means the same recorded state of the scene, after undo and redo too
+	uint64_t GetStateId() const { return CurrentId(); }
 	void SetBudget(size_t budget) { m_Budget = budget; }
 
 private:

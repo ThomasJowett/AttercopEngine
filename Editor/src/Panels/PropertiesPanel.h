@@ -7,6 +7,7 @@
 #include "History/SceneHistory.h"
 
 #include <filesystem>
+#include <vector>
 
 class PropertiesPanel :
 	public Layer
@@ -19,8 +20,10 @@ public:
 private:
 	// The editor's own drawing for a few components and fields
 	void RegisterOverrides();
-	// A dropped file into the component's asset field, adding the component if it's missing, as one undo step
-	void SetOrAdd(Entity entity, const Reflection::ComponentType& type, const char* field, const std::filesystem::path& file);
+	// The selected entities that are in the scene, the active one first
+	std::vector<Entity> SelectedEntities(Scene& scene) const;
+	// A dropped file into the component's asset field on every entity, adding the component where it's missing, as one undo step
+	void SetOrAdd(const std::vector<Entity>& entities, const Reflection::ComponentType& type, const char* field, const std::filesystem::path& file);
 	void SetSceneSetting(Scene& scene, SetSceneSettingCommand::Setting setting, const Reflection::Value& value);
 
 	bool* m_Show;

@@ -26,6 +26,7 @@
 #include "Fonts/IconsMaterialDesignIcons.h"
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -111,13 +112,22 @@ namespace
 		return 0;
 	}
 
-	bool InputString(const char* label, std::string& text, bool multiline)
+	// hint shows while the text is empty
+	bool InputString(const char* label, std::string& text, bool multiline, const char* hint = nullptr)
 	{
 		ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackResize;
 		if (multiline)
 			return ImGui::InputTextMultiline(label, text.data(), text.capacity() + 1, ImVec2(0, 0),
 				flags | ImGuiInputTextFlags_AllowTabInput, &ResizeString, &text);
+		if (hint)
+			return ImGui::InputTextWithHint(label, hint, text.data(), text.capacity() + 1, flags, &ResizeString, &text);
 		return ImGui::InputText(label, text.data(), text.capacity() + 1, flags, &ResizeString, &text);
+	}
+
+	// A number's format, or a dash while it's mixed and not being edited
+	const char* NumberFormat(const char* label, bool mixed, const char* format)
+	{
+		return mixed && ImGui::GetActiveID() != ImGui::GetID(label) ? ComponentInspector::MixedText : format;
 	}
 
 	// After a pause, so passing over fields doesn't flash them
@@ -132,10 +142,10 @@ namespace
 		return ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right);
 	}
 
-	bool LayerEdit(const char* label, uint16_t& layer)
+	bool LayerEdit(const char* label, uint16_t& layer, bool mixed)
 	{
 		bool changed = false;
-		if (ImGui::BeginCombo(label, CollisionLayers::GetLayerName(layer).c_str()))
+		if (ImGui::BeginCombo(label, mixed ? ComponentInspector::MixedText : CollisionLayers::GetLayerName(layer).c_str()))
 		{
 			for (int i = 0; i < CollisionLayers::MaxLayers; ++i)
 			{
@@ -153,7 +163,7 @@ namespace
 		return changed;
 	}
 
-	bool MaskEdit(const char* label, uint16_t& mask)
+	bool MaskEdit(const char* label, uint16_t& mask, bool mixed)
 	{
 		uint16_t namedBits = 0;
 		for (int i = 0; i < CollisionLayers::MaxLayers; ++i)
@@ -163,7 +173,9 @@ namespace
 		}
 
 		std::string preview;
-		if ((mask & namedBits) == namedBits)
+		if (mixed)
+			preview = ComponentInspector::MixedText;
+		else if ((mask & namedBits) == namedBits)
 			preview = "Everything";
 		else if ((mask & namedBits) == 0)
 			preview = "Nothing";
@@ -204,15 +216,16 @@ namespace
 	}
 
 	// A picker for any asset kind, from the project's files of its type
-	std::optional<AssetValue> AssetPicker(const char* label, const AssetValue& asset, const Inspector::AssetKind& kind)
+	std::optional<AssetValue> AssetPicker(const char* label, const AssetValue& asset, const Inspector::AssetKind& kind, bool mixed)
 	{
 		std::optional<AssetValue> picked;
 		const Ref<Asset> defaultAsset = DefaultAsset(kind.type);
 		const bool isDefault = !asset.IsSet() || (defaultAsset && asset.path == defaultAsset->GetFilepath());
 
 		ImGui::TextUnformatted(label);
-		std::string preview = isDefault ? (defaultAsset ? "Default" : "None") : asset.path.filename().string();
-		if (ImGui::BeginAssetCombo("##Asset", preview, asset.asset.get()))
+		std::string preview = mixed ? ComponentInspector::MixedText
+			: isDefault ? (defaultAsset ? "Default" : "None") : asset.path.filename().string();
+		if (ImGui::BeginAssetCombo("##Asset", preview, mixed ? nullptr : asset.asset.get()))
 		{
 			for (std::filesystem::path& file : Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(kind.fileType)))
 			{
@@ -241,13 +254,15 @@ namespace
 			ImGui::EndDragDropTarget();
 		}
 
-		if (!isDefault)
+		if (!isDefault && !mixed)
 		{
 			ImGui::SameLine();
 			if (ImGui::Button(ICON_FA_PEN_TO_SQUARE "##EditAsset"))
 				ViewerManager::OpenViewer(asset.path);
 			ImGui::Tooltip("Open Asset Viewer");
-
+		}
+		if (!isDefault || mixed)
+		{
 			ImGui::SameLine();
 			if (ImGui::Button(ICON_FA_XMARK "##ClearAsset"))
 				picked = AssetValue{};
@@ -257,24 +272,42 @@ namespace
 	}
 }
 
+
+namespace
+{
+	// Whether a description's condition holds for every entity's component; one with no condition always does
+	bool HoldsForAll(const ComponentInspector::Entities& entities, const ComponentType& type, const Predicate& predicate)
+	{
+		if (!predicate)
+			return true;
+		for (Entity entity : entities)
+		{
+			const void* component = type.tryGet(entity.GetScene()->GetRegistry(), entity.GetHandle());
+			if (!component || !predicate(component))
+				return false;
+		}
+		return true;
+	}
+}
+
 ComponentInspector::ComponentInspector(SceneHistory* history)
 	: m_Edits(history), m_History(history)
 {
 }
 
-void ComponentInspector::ReplaceComponent(std::string_view component, ComponentDrawer draw)
+void ComponentInspector::ReplaceComponent(std::string_view component, Support support, ComponentDrawer draw)
 {
-	m_ReplacedComponents[std::string(component)] = std::move(draw);
+	m_ReplacedComponents[std::string(component)] = { support, std::move(draw) };
 }
 
-void ComponentInspector::AppendToComponent(std::string_view component, ComponentDrawer draw)
+void ComponentInspector::AppendToComponent(std::string_view component, Support support, ComponentDrawer draw)
 {
-	m_Appended[std::string(component)] = std::move(draw);
+	m_Appended[std::string(component)] = { support, std::move(draw) };
 }
 
-void ComponentInspector::ReplaceField(std::string_view path, FieldDrawer draw)
+void ComponentInspector::ReplaceField(std::string_view path, Support support, FieldDrawer draw)
 {
-	m_ReplacedFields[std::string(path)] = std::move(draw);
+	m_ReplacedFields[std::string(path)] = { support, std::move(draw) };
 }
 
 bool ComponentInspector::IsShown(const ComponentType& type)
@@ -289,12 +322,39 @@ std::string ComponentInspector::Title(const ComponentType& type)
 	return look && look->title ? look->title : SplitWords(type.name);
 }
 
-void ComponentInspector::Draw(Entity entity)
+void ComponentInspector::DrawSummary(const Entities& entities)
 {
-	for (const ComponentType* type : Components())
+	if (entities.size() < 2)
+		return;
+
+	std::vector<const ComponentType*> hidden;
+	for (const ComponentType* type : Split(entities).partial)
 	{
-		if (IsShown(*type) && type->tryGet(entity.GetScene()->GetRegistry(), entity.GetHandle()))
-			DrawComponent(entity, *type);
+		if (IsShown(*type))
+			hidden.push_back(type);
+	}
+
+	ImGui::Text("%zu entities", entities.size());
+	if (hidden.empty())
+		return;
+	ImGui::SameLine();
+	ImGui::TextDisabled("%zu component%s hidden", hidden.size(), hidden.size() == 1 ? "" : "s");
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+	{
+		ImGui::BeginTooltip();
+		ImGui::TextUnformatted("Not on every selected entity:");
+		for (const ComponentType* type : hidden)
+			ImGui::BulletText("%s", SplitWords(type->name).c_str());
+		ImGui::EndTooltip();
+	}
+}
+
+void ComponentInspector::Draw(const Entities& entities)
+{
+	for (const ComponentType* type : Split(entities).common)
+	{
+		if (IsShown(*type))
+			DrawComponent(entities, *type);
 	}
 
 	// An interaction whose widget went away, as when a ShowIf stopped holding
@@ -302,7 +362,39 @@ void ComponentInspector::Draw(Entity entity)
 		m_Edits.End();
 }
 
-void ComponentInspector::DrawComponent(Entity entity, const ComponentType& type)
+const MultiEdit::ComponentSplit& ComponentInspector::Split(const Entities& entities)
+{
+	// Components change outside the history only while the scene runs
+	Entity active = entities.empty() ? Entity() : entities.front();
+	const bool cacheable = m_History && m_History->IsEnabled() && active && !active.GetScene()->IsRunning();
+	const uint64_t stateId = m_History ? m_History->GetStateId() : 0;
+	if (!cacheable || !m_SplitCache.valid || m_SplitCache.stateId != stateId || m_SplitCache.entities != entities)
+	{
+		m_SplitCache.split = MultiEdit::SplitComponents(entities);
+		m_SplitCache.entities = entities;
+		m_SplitCache.stateId = stateId;
+		m_SplitCache.valid = cacheable;
+	}
+	return m_SplitCache.split;
+}
+
+void ComponentInspector::DrawOverride(Support support, const Entities& entities, const std::function<void(const Entities&)>& draw)
+{
+	if (support == Support::ManyEntities || entities.size() == 1)
+	{
+		draw(entities);
+		return;
+	}
+
+	const float top = ImGui::GetCursorPosY();
+	ImGui::BeginDisabled();
+	draw(Entities{ entities.front() });
+	ImGui::EndDisabled();
+	if (ImGui::GetCursorPosY() != top)
+		ImGui::TextDisabled(ICON_FA_CIRCLE_INFO " Edits one entity at a time; showing the active one");
+}
+
+void ComponentInspector::DrawComponent(const Entities& entities, const ComponentType& type)
 {
 	const ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_FramePadding;
 	const bool open = ImGui::TreeNodeEx((const void*)&type, flags, "%s", Title(type).c_str());
@@ -321,87 +413,91 @@ void ComponentInspector::DrawComponent(Entity entity, const ComponentType& type)
 		ImGui::PushID(&type);
 		auto replaced = m_ReplacedComponents.find(type.name);
 		if (replaced != m_ReplacedComponents.end())
-			replaced->second(*this, entity);
+			DrawOverride(replaced->second.support, entities, [&](const Entities& shown) { replaced->second.draw(*this, shown); });
 		else
-			DrawFields(entity, type);
+			DrawFields(entities, type);
 
 		auto appended = m_Appended.find(type.name);
 		if (appended != m_Appended.end())
-			appended->second(*this, entity);
+			DrawOverride(appended->second.support, entities, [&](const Entities& shown) { appended->second.draw(*this, shown); });
 		ImGui::PopID();
 		ImGui::TreePop();
 	}
 
 	if (remove)
 	{
-		Scene& scene = *entity.GetScene();
 		// An open edit of the component closes while it's still there
 		m_Edits.End();
-		if (m_History)
-			m_History->End(scene);
-		Scope<AddRemoveComponentCommand> command = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, type,
-			AddRemoveComponentCommand::Action::Remove);
-		type.remove(scene.GetRegistry(), entity.GetHandle());
-		scene.MakeDirty();
-		if (m_History)
-			m_History->Push(scene, std::move(command));
+		MultiEdit::RemoveComponent(m_History, entities, type);
 	}
 }
 
-void ComponentInspector::DrawFields(Entity entity, const ComponentType& type)
+void ComponentInspector::DrawFields(const Entities& entities, const ComponentType& type)
 {
+	if (entities.empty())
+		return;
+	Entity active = entities.front();
 	int heading = -1;
 	for (int i = 0; i < (int)type.fields.size(); ++i)
 	{
 		const FieldInfo& field = type.fields[i];
-		const void* component = type.tryGet(entity.GetScene()->GetRegistry(), entity.GetHandle());
-		if (!component)
+		if (!type.tryGet(active.GetScene()->GetRegistry(), active.GetHandle()))
 			return;
-		if (field.group >= 0 && field.group != heading && type.groups[field.group].when(component))
+		if (field.group >= 0 && field.group != heading && HoldsForAll(entities, type, type.groups[field.group].when))
 		{
 			heading = field.group;
 			ImGui::SeparatorText(type.groups[field.group].name.c_str());
 		}
-		DrawField(entity, type, i);
+		DrawField(entities, type, i);
 	}
 }
 
-bool ComponentInspector::DrawField(Entity entity, const ComponentType& type, int index)
+bool ComponentInspector::DrawField(const Entities& entities, const ComponentType& type, int index)
 {
-	const FieldInfo& field = type.fields[index];
-	const void* component = type.tryGet(entity.GetScene()->GetRegistry(), entity.GetHandle());
-	if (!component || field.Has(FieldFlags::HideInInspector) || !field.showIf(component))
+	if (entities.empty())
 		return false;
-	if (field.group >= 0 && !type.groups[field.group].when(component))
+	Entity active = entities.front();
+	const FieldInfo& field = type.fields[index];
+	const void* component = type.tryGet(active.GetScene()->GetRegistry(), active.GetHandle());
+	if (!component || field.Has(FieldFlags::HideInInspector) || !HoldsForAll(entities, type, field.showIf))
+		return false;
+	if (field.group >= 0 && !HoldsForAll(entities, type, type.groups[field.group].when))
 		return false;
 
 	ImGui::PushID(index);
 	auto replaced = m_ReplacedFields.find(type.name + "." + field.name);
 	if (replaced != m_ReplacedFields.end())
 	{
-		replaced->second(*this, entity, field);
+		DrawOverride(replaced->second.support, entities, [&](const Entities& shown) { replaced->second.draw(*this, shown, field); });
 		ImGui::PopID();
 		return true;
 	}
-	if (Inspector::WidgetFor(field) == Inspector::Widget::None)
+	std::optional<MultiEdit::FieldState> state;
+	if (Inspector::WidgetFor(field) != Inspector::Widget::None)
+		state = MultiEdit::ReadField(entities, type, index);
+	if (!state)
 	{
 		ImGui::PopID();
 		return false;
 	}
 
 	const PropertyPath path{ &type, index };
-	const bool disabled = field.Has(FieldFlags::ReadOnly) || (field.enableIf && !field.enableIf(component));
+	const bool disabled = field.Has(FieldFlags::ReadOnly) || (field.enableIf && !HoldsForAll(entities, type, field.enableIf));
 	ImGui::BeginDisabled(disabled);
 	ImGui::BeginGroup();
-	std::optional<Value> edited = DrawWidget(field, field.get(component), DefaultOf(type, index), component);
+	std::optional<Edit> edit = DrawWidget(field, *state, DefaultOf(type, index), component, entities.size() > 1);
 	ImGui::EndGroup();
 	ImGui::EndDisabled();
 	DescriptionTooltip(field.Has(FieldFlags::Degrees) ? field.description + ", in degrees" : field.description);
 
 	if (ImGui::IsItemActivated())
-		m_Edits.Begin(entity, path);
-	if (edited)
-		m_Edits.Set(entity, path, *edited);
+		m_Edits.Begin(entities, path);
+	if (edit)
+	{
+		PropertyPath target = path;
+		target.part = edit->part;
+		m_Edits.Set(entities, target, edit->value);
+	}
 	if (ImGui::IsItemDeactivated() && m_Edits.IsOpen())
 		m_Edits.End();
 
@@ -409,9 +505,9 @@ bool ComponentInspector::DrawField(Entity entity, const ComponentType& type, int
 	return true;
 }
 
-bool ComponentInspector::Set(Entity entity, const PropertyPath& path, const Value& value)
+bool ComponentInspector::Set(const Entities& entities, const PropertyPath& path, const Value& value)
 {
-	return m_Edits.Set(entity, path, value);
+	return m_Edits.Set(entities, path, value);
 }
 
 Value ComponentInspector::DefaultOf(const ComponentType& type, int field)
@@ -422,10 +518,12 @@ Value ComponentInspector::DefaultOf(const ComponentType& type, int field)
 	return type.fields[field].get(defaults.get());
 }
 
-std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, const Value& value, const Value& defaultValue,
-	const void* component)
+std::optional<ComponentInspector::Edit> ComponentInspector::DrawWidget(const FieldInfo& field, const MultiEdit::FieldState& state,
+	const Value& defaultValue, const void* component, bool many)
 {
 	const char* label = field.label.c_str();
+	const Value& value = state.value;
+	const bool mixed = state.mixed;
 	const bool degrees = field.Has(FieldFlags::Degrees);
 	const float scale = degrees ? s_DegreesPerRadian : 1.0f;
 
@@ -433,22 +531,25 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 	{
 	case ValueType::Bool:
 	{
-		bool checked = value.As<bool>();
-		if (ImGui::Checkbox(label, &checked))
-			return Value(checked);
-		return std::nullopt;
+		// A mixed box shows a dash, and a click checks every entity
+		bool checked = mixed ? false : value.As<bool>();
+		ImGui::PushItemFlag(ImGuiItemFlags_MixedValue, mixed);
+		const bool clicked = ImGui::Checkbox(label, &checked);
+		ImGui::PopItemFlag();
+		return clicked ? std::optional<Edit>(Edit{ checked }) : std::nullopt;
 	}
 	case ValueType::Int:
 	{
 		int32_t number = value.As<int32_t>();
 		const float speed = field.speed > 0.0f ? field.speed : 1.0f;
-		bool changed = ImGui::DragInt(label, &number, speed, field.hasRange ? (int)field.min : 0, field.hasRange ? (int)field.max : 0);
+		bool changed = ImGui::DragInt(label, &number, speed, field.hasRange ? (int)field.min : 0, field.hasRange ? (int)field.max : 0,
+			NumberFormat(label, mixed, "%d"));
 		if (ResetClicked())
 		{
 			number = defaultValue.As<int32_t>();
 			changed = true;
 		}
-		return changed ? std::optional<Value>(number) : std::nullopt;
+		return changed ? std::optional<Edit>(Edit{ number }) : std::nullopt;
 	}
 	case ValueType::UInt:
 	{
@@ -456,62 +557,67 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 		const uint32_t min = field.hasRange ? (uint32_t)field.min : 0;
 		const uint32_t max = field.hasRange ? (uint32_t)field.max : UINT_MAX;
 		const float speed = field.speed > 0.0f ? field.speed : 1.0f;
-		bool changed = ImGui::DragScalar(label, ImGuiDataType_U32, &number, speed, &min, &max);
+		bool changed = ImGui::DragScalar(label, ImGuiDataType_U32, &number, speed, &min, &max, NumberFormat(label, mixed, "%u"));
 		if (ResetClicked())
 		{
 			number = defaultValue.As<uint32_t>();
 			changed = true;
 		}
-		return changed ? std::optional<Value>(number) : std::nullopt;
+		return changed ? std::optional<Edit>(Edit{ number }) : std::nullopt;
 	}
 	case ValueType::Float:
 	{
 		float number = value.As<float>() * scale;
 		const float speed = field.speed > 0.0f ? field.speed : 0.1f;
-		bool changed = ImGui::DragFloat(label, &number, speed, field.hasRange ? field.min : 0.0f, field.hasRange ? field.max : 0.0f);
+		bool changed = ImGui::DragFloat(label, &number, speed, field.hasRange ? field.min : 0.0f, field.hasRange ? field.max : 0.0f,
+			NumberFormat(label, mixed, "%.3f"));
 		if (ResetClicked())
 		{
 			number = defaultValue.As<float>() * scale;
 			changed = true;
 		}
-		return changed ? std::optional<Value>(number / scale) : std::nullopt;
+		return changed ? std::optional<Edit>(Edit{ number / scale }) : std::nullopt;
 	}
 	case ValueType::String:
 	{
-		std::string text = value.As<std::string>();
+		std::string text = mixed ? std::string() : value.As<std::string>();
 		if (field.choices)
 		{
-			std::optional<Value> chosen;
-			if (ImGui::BeginCombo(label, text.c_str()))
+			std::optional<Edit> chosen;
+			if (ImGui::BeginCombo(label, mixed ? MixedText : text.c_str()))
 			{
 				for (const std::string& choice : field.choices(component))
 				{
-					if (ImGui::Selectable(choice.c_str(), choice == text))
-						chosen = Value(choice);
+					if (ImGui::Selectable(choice.c_str(), !mixed && choice == text))
+						chosen = Edit{ choice };
 				}
 				ImGui::EndCombo();
 			}
 			return chosen;
 		}
-		if (InputString(label, text, field.Has(FieldFlags::AsText)))
-			return Value(text);
+		if (InputString(label, text, field.Has(FieldFlags::AsText), mixed ? MixedText : nullptr))
+			return Edit{ text };
 		return std::nullopt;
 	}
 	case ValueType::Vec2:
 	{
 		Vector2f vector = value.As<Vector2f>();
-		if (ImGui::Vector(label, vector, defaultValue.As<Vector2f>()))
-			return Value(vector);
-		return std::nullopt;
+		const bool mixedParts[2] = { state.partMixed[0], state.partMixed[1] };
+		int part = -1;
+		if (!ImGui::Vector(label, vector, defaultValue.As<Vector2f>(), mixedParts, part) || part < 0)
+			return std::nullopt;
+		return Edit{ part == 0 ? vector.x : vector.y, part };
 	}
 	case ValueType::Vec3:
 	{
 		const Vector3f before = value.As<Vector3f>() * scale;
 		Vector3f vector = before;
+		const bool mixedParts[3] = { state.partMixed[0], state.partMixed[1], state.partMixed[2] };
 
 		const bool lockable = field.Has(FieldFlags::LockParts);
 		const bool locked = lockable && m_Unlocked.find(&field) == m_Unlocked.end();
-		const bool edited = ImGui::Vector(label, vector, defaultValue.As<Vector3f>() * scale);
+		int part = -1;
+		const bool edited = ImGui::Vector(label, vector, defaultValue.As<Vector3f>() * scale, mixedParts, part);
 
 		// After the label, so the parts line up with the fields above
 		if (lockable)
@@ -528,22 +634,16 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 			ImGui::Tooltip("Lock the parts together");
 		}
 
-		if (!edited)
+		if (!edited || part < 0)
 			return std::nullopt;
 
 		if (locked)
 		{
-			// Every part moves by the change made to one
-			const float changes[3] = { vector.x - before.x, vector.y - before.y, vector.z - before.z };
-			float change = changes[0];
-			for (float part : changes)
-			{
-				if (std::fabs(part) > std::fabs(change))
-					change = part;
-			}
-			vector = before + Vector3f(change, change, change);
+			// Every part moves by the change made to one, from the active entity's value, and is set on all of them
+			const float change = vector[part] - before[part];
+			return Edit{ (before + Vector3f(change, change, change)) / scale };
 		}
-		return Value(vector / scale);
+		return Edit{ vector[part] / scale, part };
 	}
 	case ValueType::Quaternion:
 		// No widget: a quaternion field is edited through its Euler form
@@ -551,21 +651,50 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 	case ValueType::Colour:
 	{
 		Colour colour = value.As<Colour>();
-		if (ImGui::ColorEdit4(label, &colour.r))
-			return Value(colour);
-		return std::nullopt;
+		// Several entities keep the same widgets whether or not they differ, so a drag isn't cut off when they match
+		if (!many)
+		{
+			if (ImGui::ColorEdit4(label, &colour.r))
+				return Edit{ colour };
+			return std::nullopt;
+		}
+		// A drag per channel, laid out as the colour edit's own, each showing "--" while it differs; the swatch sets the whole colour
+		const ImGuiStyle& style = ImGui::GetStyle();
+		const float spacing = style.ItemInnerSpacing.x;
+		const float channelWidth = std::max(1.0f, (ImGui::CalcItemWidth() - ImGui::GetFrameHeight() - spacing * 4.0f) / 4.0f);
+		const char* formats[] = { "R:%3d", "G:%3d", "B:%3d", "A:%3d" };
+		float* channels = &colour.r;
+		std::optional<Edit> edit;
+		for (int part = 0; part < 4; ++part)
+		{
+			if (part > 0)
+				ImGui::SameLine(0.0f, spacing);
+			ImGui::PushID(part);
+			ImGui::SetNextItemWidth(channelWidth);
+			int channel = (int)(channels[part] * 255.0f + 0.5f);
+			if (ImGui::DragInt("##Channel", &channel, 1.0f, 0, 255, NumberFormat("##Channel", state.partMixed[part], formats[part])))
+				edit = Edit{ (float)channel / 255.0f, part };
+			ImGui::PopID();
+		}
+		ImGui::SameLine(0.0f, spacing);
+		if (ImGui::ColorEdit4("##Swatch", &colour.r, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel))
+			edit = Edit{ colour };
+		ImGui::SameLine(0.0f, spacing);
+		ImGui::TextUnformatted(label, ImGui::FindRenderedTextEnd(label));
+		return edit;
 	}
 	case ValueType::Enum:
 	{
 		const EnumValue current = value.As<EnumValue>();
 		const char* currentName = current.type->NameOf(current.value);
-		std::optional<Value> chosen;
-		if (ImGui::BeginCombo(label, currentName ? SplitWords(currentName).c_str() : ""))
+		const std::string preview = mixed ? MixedText : currentName ? SplitWords(currentName) : "";
+		std::optional<Edit> chosen;
+		if (ImGui::BeginCombo(label, preview.c_str()))
 		{
 			for (const EnumType::Entry& entry : current.type->entries)
 			{
-				if (ImGui::Selectable(SplitWords(entry.name).c_str(), entry.value == current.value))
-					chosen = Value(EnumValue{ current.type, entry.value });
+				if (ImGui::Selectable(SplitWords(entry.name).c_str(), !mixed && entry.value == current.value))
+					chosen = Edit{ EnumValue{ current.type, entry.value } };
 			}
 			ImGui::EndCombo();
 		}
@@ -579,36 +708,47 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 			return std::nullopt;
 		if (kind->fileType == FileType::IMAGE)
 		{
-			Ref<Texture2D> texture = std::dynamic_pointer_cast<Texture2D>(asset.asset);
-			if (!texture && !asset.path.empty())
-				texture = AssetManager::GetTexture(asset.path);
-			if (ImGui::Texture2DEdit(label, texture))
-				return Value(AssetValue{ texture ? texture->GetFilepath() : std::filesystem::path(), texture });
+			Ref<Texture2D> texture;
+			if (!mixed)
+			{
+				texture = std::dynamic_pointer_cast<Texture2D>(asset.asset);
+				if (!texture && !asset.path.empty())
+					texture = AssetManager::GetTexture(asset.path);
+			}
+			if (ImGui::Texture2DEdit(label, texture, ImVec2(64.0f, 64.0f), mixed))
+				return Edit{ AssetValue{ texture ? texture->GetFilepath() : std::filesystem::path(), texture } };
 			return std::nullopt;
 		}
-		if (std::optional<AssetValue> picked = AssetPicker(label, asset, *kind))
-			return Value(*picked);
+		if (std::optional<AssetValue> picked = AssetPicker(label, asset, *kind, mixed))
+			return Edit{ *picked };
 		return std::nullopt;
 	}
 	case ValueType::Layer:
 	{
 		uint16_t layer = value.As<LayerValue>().bits;
-		if (LayerEdit(label, layer))
-			return Value(LayerValue{ layer });
+		if (LayerEdit(label, layer, mixed))
+			return Edit{ LayerValue{ layer } };
 		return std::nullopt;
 	}
 	case ValueType::Mask:
 	{
 		uint16_t mask = value.As<MaskValue>().bits;
-		if (MaskEdit(label, mask))
-			return Value(MaskValue{ mask });
+		if (MaskEdit(label, mask, mixed))
+			return Edit{ MaskValue{ mask } };
 		return std::nullopt;
 	}
 	case ValueType::List:
 	{
 		ValueList items = value.As<ValueList>();
 		bool changed = false;
-		if (ImGui::TreeNode(label))
+		const bool open = ImGui::TreeNode(label);
+		if (mixed)
+		{
+			ImGui::SameLine();
+			ImGui::TextDisabled("%s", MixedText);
+			ImGui::Tooltip("Differs between the entities; editing it sets this list, the active entity's, on all of them");
+		}
+		if (open)
 		{
 			FieldInfo itemField = field;
 			itemField.type = field.itemType;
@@ -631,9 +771,15 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 				}
 				ImGui::SameLine();
 				itemField.label = std::to_string(i);
-				if (std::optional<Value> item = DrawWidget(itemField, items[i], items[i], component))
+				MultiEdit::FieldState itemState;
+				itemState.value = items[i];
+				if (std::optional<Edit> item = DrawWidget(itemField, itemState, items[i], component, many))
 				{
-					items[i] = *item;
+					// A part edit of an item changes only that part
+					if (item->part >= 0)
+						items[i].SetPart(item->part, item->value.As<float>());
+					else
+						items[i] = item->value;
 					changed = true;
 				}
 				ImGui::PopID();
@@ -641,14 +787,17 @@ std::optional<Value> ComponentInspector::DrawWidget(const FieldInfo& field, cons
 			}
 			ImGui::TreePop();
 		}
-		return changed ? std::optional<Value>(std::move(items)) : std::nullopt;
+		return changed ? std::optional<Edit>(Edit{ std::move(items) }) : std::nullopt;
 	}
 	}
 	return std::nullopt;
 }
 
-void ComponentInspector::DrawAddComponentMenu(Entity entity)
+void ComponentInspector::DrawAddComponentMenu(const Entities& entities)
 {
+	if (entities.empty())
+		return;
+
 	ImGui::Dummy({ 0, 0 });
 	const float width = ImGui::GetContentRegionAvail().x;
 	const char* addLabel = ICON_FA_CIRCLE_PLUS " Add Component";
@@ -659,7 +808,8 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 	if (!ImGui::BeginPopup("Components"))
 		return;
 
-	Scene& scene = *entity.GetScene();
+	Entity active = entities.front();
+	Scene& scene = *active.GetScene();
 	std::vector<std::string> categories;
 	for (const ComponentType* type : Components())
 	{
@@ -675,23 +825,33 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 		{
 			if (!IsShown(*type) || type->category != category)
 				continue;
-			const bool has = type->tryGet(scene.GetRegistry(), entity.GetHandle()) != nullptr;
-			const ComponentType* excluded = ExcludedBy(scene.GetRegistry(), entity.GetHandle(), *type);
+
+			size_t lacking = 0;
+			size_t addable = 0;
+			const ComponentType* excluded = nullptr;
+			for (Entity entity : entities)
+			{
+				if (type->tryGet(scene.GetRegistry(), entity.GetHandle()))
+					continue;
+				++lacking;
+				if (const ComponentType* by = ExcludedBy(scene.GetRegistry(), entity.GetHandle(), *type))
+					excluded = excluded ? excluded : by;
+				else
+					++addable;
+			}
 
 			// A script is chosen as it's added
 			if (type == &TypeOf<LuaScriptComponent>())
 			{
 				std::vector<std::filesystem::path> scripts = Directory::GetFilesRecursive(Application::GetOpenDocumentDirectory(), ViewerManager::GetExtensions(FileType::SCRIPT));
-				if (ImGui::BeginMenu(Title(*type).c_str(), !has && !scripts.empty()))
+				if (ImGui::BeginMenu(Title(*type).c_str(), addable > 0 && !scripts.empty()))
 				{
 					for (std::filesystem::path& file : scripts)
 					{
 						if (ImGui::MenuItem(file.filename().string().c_str()))
 						{
-							AddComponent(entity, *type, [&]
-								{
-									entity.AddComponent<LuaScriptComponent>(FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory()));
-								});
+							const std::filesystem::path script = FileUtils::RelativePath(file, Application::GetOpenDocumentDirectory());
+							AddComponent(entities, *type, [&](Entity entity) { entity.AddComponent<LuaScriptComponent>(script); });
 							break;
 						}
 					}
@@ -700,24 +860,23 @@ void ComponentInspector::DrawAddComponentMenu(Entity entity)
 				continue;
 			}
 
-			const bool added = ImGui::MenuItem(Title(*type).c_str(), nullptr, false, !has && !excluded);
-			if (excluded && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-				ImGui::SetTooltip("Can't be on the same entity as a %s", SplitWords(excluded->name).c_str());
+			const bool added = ImGui::MenuItem(Title(*type).c_str(), nullptr, false, addable > 0);
+			if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+			{
+				if (addable == 0 && excluded)
+					ImGui::SetTooltip("Can't be on the same entity as a %s", SplitWords(excluded->name).c_str());
+				else if (addable > 0 && addable < entities.size())
+					ImGui::SetTooltip("Adds it to %zu of the %zu entities", addable, entities.size());
+			}
 			if (added)
-				AddComponent(entity, *type, [&] { type->emplace(scene.GetRegistry(), entity.GetHandle()); });
+				AddComponent(entities, *type, [&](Entity entity) { type->emplace(scene.GetRegistry(), entity.GetHandle()); });
 		}
 		ImGui::EndMenu();
 	}
 	ImGui::EndPopup();
 }
 
-void ComponentInspector::AddComponent(Entity entity, const ComponentType& type, const std::function<void()>& add)
+void ComponentInspector::AddComponent(const Entities& entities, const ComponentType& type, const std::function<void(Entity)>& add)
 {
-	Scene& scene = *entity.GetScene();
-	Scope<AddRemoveComponentCommand> command = CreateScope<AddRemoveComponentCommand>(std::vector<Entity>{ entity }, type,
-		AddRemoveComponentCommand::Action::Add);
-	add();
-	scene.MakeDirty();
-	if (m_History)
-		m_History->Push(scene, std::move(command));
+	MultiEdit::AddComponent(m_History, entities, type, add);
 }
