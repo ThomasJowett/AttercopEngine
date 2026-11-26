@@ -12,6 +12,11 @@ namespace GizmoTransform
 			return Vector3f(a.x * b.x, a.y * b.y, a.z * b.z);
 		}
 
+		Vector3f Column(const Matrix4x4& matrix, int column)
+		{
+			return Vector3f(matrix.m[0][column], matrix.m[1][column], matrix.m[2][column]);
+		}
+
 		float Ratio(float after, float before)
 		{
 			return before != 0.0f ? after / before : 1.0f;
@@ -62,16 +67,30 @@ namespace GizmoTransform
 		oldPivot.Decompose(oldPosition, oldRotation, oldScale);
 		newPivot.Decompose(newPosition, newRotation, newScale);
 
-		const Vector3f factor(Ratio(newScale.x, oldScale.x), Ratio(newScale.y, oldScale.y), Ratio(newScale.z, oldScale.z));
+		// Axes that only grew, shrank or flipped are a scale, with its sign; any axis that turned is a rotation
+		Vector3f factor(1.0f, 1.0f, 1.0f);
+		bool rotated = false;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			const Vector3f before = Column(oldPivot, axis);
+			const Vector3f after = Column(newPivot, axis);
+			const float length = Vector3f::Dot(before, before);
+			if (length <= 0.0f)
+				continue;
+			factor[axis] = Vector3f::Dot(after, before) / length;
+			// Less than this, in radians, is float noise and would make the Euler angles drift
+			if (Vector3f::Cross(after.GetNormalized(), before.GetNormalized()).Magnitude() >= 1e-5f)
+				rotated = true;
+		}
+		if (rotated)
+			factor = Vector3f(Ratio(newScale.x, oldScale.x), Ratio(newScale.y, oldScale.y), Ratio(newScale.z, oldScale.z));
 		const Quaternion rotationChange = newRotation * oldRotation.Conjugate();
-		// Less than this, in radians, is float noise and would make the Euler angles drift
-		const bool rotated = Quaternion::AngleBetween(oldRotation, newRotation) >= 1e-5f;
 
-		// The offset from the pivot, on the pivot's axes, follows the pivot
-		Vector3f offset = oldRotation.Conjugate() * (item.world.ExtractTranslation() - oldPosition);
-		if (scalePositions)
-			offset = Multiply(offset, factor);
-		const Vector3f worldPosition = newPosition + newRotation * offset;
+		// Scaled positions follow the pivot's whole change, flips included; otherwise the offset only turns with it
+		const Vector3f oldWorldPosition = item.world.ExtractTranslation();
+		const Vector3f worldPosition = scalePositions
+			? (newPivot * Matrix4x4::Inverse(oldPivot)) * oldWorldPosition
+			: newPosition + (rotated ? rotationChange : Quaternion()) * (oldWorldPosition - oldPosition);
 
 		// Rotated with the pivot, and scaled on the entity's own axes
 		Matrix4x4 linear = item.world;

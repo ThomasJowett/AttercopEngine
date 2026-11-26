@@ -1875,9 +1875,9 @@ namespace IMGUIZMO_NAMESPACE
             const float len = IntersectRayPlane(gContext.mRayOrigin, gContext.mRayVector, gContext.mBoundsPlan);
             vec_t newPos = gContext.mRayOrigin + gContext.mRayVector * len;
 
-            // compute a reference and delta vectors base on mouse move
-            vec_t deltaVector = (newPos - gContext.mBoundsPivot).Abs();
-            vec_t referenceVector = (gContext.mBoundsAnchor - gContext.mBoundsPivot).Abs();
+            // compute a reference and delta vectors base on mouse move; signed, so dragging past the pivot flips the scale
+            vec_t deltaVector = newPos - gContext.mBoundsPivot;
+            vec_t referenceVector = gContext.mBoundsAnchor - gContext.mBoundsPivot;
 
             // for 1 or 2 axes, compute a ratio that's used for scale and snap it based on resulting length
             for (int i = 0; i < 2; i++)
@@ -1889,11 +1889,11 @@ namespace IMGUIZMO_NAMESPACE
                }
 
                float ratioAxis = 1.f;
-               vec_t axisDir = gContext.mBoundsMatrix.component[axisIndex1].Abs();
+               vec_t axisDir = gContext.mBoundsMatrix.component[axisIndex1];
 
                float dtAxis = axisDir.Dot(referenceVector);
                float boundSize = bounds[axisIndex1 + 3] - bounds[axisIndex1];
-               if (dtAxis > FLT_EPSILON)
+               if (fabsf(dtAxis) > FLT_EPSILON)
                {
                   ratioAxis = axisDir.Dot(deltaVector) / dtAxis;
                }
@@ -1906,6 +1906,11 @@ namespace IMGUIZMO_NAMESPACE
                   {
                      ratioAxis = length / boundSize;
                   }
+               }
+               // Never zero, which would lose the axis
+               if (fabsf(ratioAxis) < 0.001f)
+               {
+                  ratioAxis = ratioAxis < 0.f ? -0.001f : 0.001f;
                }
                scale.component[axisIndex1] *= ratioAxis;
             }
