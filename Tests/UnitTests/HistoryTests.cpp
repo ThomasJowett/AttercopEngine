@@ -12,6 +12,7 @@
 #include "Scene/SceneGraph.h"
 #include "Scene/SceneSerializer.h"
 #include "Selection/EntitySelection.h"
+#include "Selection/GizmoTransform.h"
 
 #include "TinyXml2/tinyxml2.h"
 
@@ -19,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace HistoryTests
@@ -1415,4 +1417,66 @@ TEST_CASE("A group stores the selection from when it opened and when it closed")
 	CHECK(selection.GetAll() == std::vector<Uuid>{ a.GetID() });
 	history.Redo(scene);
 	CHECK(selection.GetAll() == std::vector<Uuid>{ b.GetID() });
+}
+
+TEST_CASE("One gizmo drag of several entities is one step that undoes and redoes each entity's values exactly")
+{
+	RegisterComponents();
+	Scene scene("");
+	Entity a = CreateMovable(scene, "A");
+	Entity b = CreateMovable(scene, "B");
+	b.GetComponent<TransformComponent>().SetPosition(Vector3f(4.0f, 0.0f, 0.0f));
+	b.GetComponent<TransformComponent>().SetRotation(Quaternion(Vector3f(0.0f, 0.0f, 1.0f), 0.3f));
+	SceneGraph::UpdateWorldTransforms(scene.GetRegistry());
+	SceneHistory history;
+	EntitySelection selection;
+	history.SetSelection(&selection);
+	selection.SetAll({ a.GetID(), b.GetID() });
+
+	auto state = [](Entity entity)
+	{
+		const TransformComponent& transformComp = entity.GetComponent<TransformComponent>();
+		return std::make_tuple(transformComp.GetPosition(), transformComp.GetRotation(), transformComp.GetScale());
+	};
+	const auto beforeA = state(a);
+	const auto beforeB = state(b);
+
+	// As the viewport does: record each transform property before the first change, then move every frame of the drag
+	const uint32_t interaction = PropertyEdits::NewInteraction();
+	const std::vector<Entity> targets = GizmoTransform::GetTargets(scene, selection);
+	REQUIRE(targets.size() == 2);
+	std::vector<GizmoTransform::Item> items;
+	for (Entity target : targets)
+		items.push_back(GizmoTransform::ItemOf(target));
+	Matrix4x4 pivot = GizmoTransform::PivotMatrix(GizmoTransform::PivotPosition(items, nullptr, GizmoTransform::Pivot::Centre), Quaternion());
+	for (int frame = 1; frame <= 3; ++frame)
+	{
+		const Matrix4x4 next = Matrix4x4::Translate(Vector3f(0.0f, 1.0f, 0.0f)) * pivot
+			* Matrix4x4::RotateZ(0.2f) * Matrix4x4::Scale(Vector3f(1.1f, 1.0f, 1.0f));
+		for (const char* field : { "Transform.Position", "Transform.Orientation", "Transform.Scale" })
+			HistoryCommands::RecordProperty(history, interaction, targets, PropertyAt(field));
+		for (Entity target : targets)
+		{
+			const GizmoTransform::Transform moved = GizmoTransform::Apply(pivot, next, GizmoTransform::ItemOf(target), false);
+			TransformComponent& transformComp = target.GetComponent<TransformComponent>();
+			transformComp.SetPosition(moved.position);
+			transformComp.SetRotation(moved.rotation);
+			transformComp.SetScale(moved.scale);
+		}
+		SceneGraph::UpdateWorldTransforms(scene.GetRegistry());
+		pivot = next;
+	}
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+	const auto afterA = state(a);
+	const auto afterB = state(b);
+	CHECK(afterA != beforeA);
+	CHECK(afterB != beforeB);
+
+	history.Undo(scene);
+	CHECK(state(a) == beforeA);
+	CHECK(state(b) == beforeB);
+	history.Redo(scene);
+	CHECK(state(a) == afterA);
+	CHECK(state(b) == afterB);
 }
