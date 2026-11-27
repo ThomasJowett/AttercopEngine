@@ -136,6 +136,17 @@ namespace Reflection
 			}
 		};
 
+		template<>
+		struct Convert<EntityReference> : ConvertSame<EntityReference, ValueType::Entity> {};
+
+		// The element name Register gives a component type
+		template<typename C>
+		std::string ComponentName()
+		{
+			std::string name = TypeName<C>();
+			return name.substr(0, name.rfind("Component"));
+		}
+
 		// For properties whose getter and setter handle the asset themselves
 		template<>
 		struct Convert<AssetValue> : ConvertSame<AssetValue, ValueType::Asset> {};
@@ -372,6 +383,13 @@ namespace Reflection
 		FieldBuilder& AsText() { Field().flags |= FieldFlags::AsText; return *this; }
 		// For a list, the element name of each item
 		FieldBuilder& Item(const char* name) { Field().itemName = name; return *this; }
+		// For an entity, the components the target needs one of: filters the inspector's picker
+		template<typename... Components>
+		FieldBuilder& RequiresAny()
+		{
+			(Field().requiresAny.push_back(Detail::ComponentName<Components>()), ...);
+			return *this;
+		}
 		// For a file held by its path, the kind of file
 		FieldBuilder& AssetType(const char* name) { Field().assetType = name; return *this; }
 		FieldBuilder& ReadOnly() { Field().flags |= FieldFlags::ReadOnly; return *this; }
@@ -545,7 +563,7 @@ namespace Reflection
 
 		ComponentType& type = Detail::AddComponent();
 		type.luaName = Detail::TypeName<T>();
-		type.name = type.luaName.substr(0, type.luaName.rfind("Component"));
+		type.name = Detail::ComponentName<T>();
 		type.tryGet = [](entt::registry& registry, entt::entity entity) -> void* { return registry.try_get<T>(entity); };
 		type.emplace = [](entt::registry& registry, entt::entity entity) -> void* { return &registry.emplace<T>(entity); };
 		type.remove = [](entt::registry& registry, entt::entity entity) { registry.remove<T>(entity); };

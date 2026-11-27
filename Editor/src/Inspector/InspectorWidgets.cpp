@@ -1,5 +1,11 @@
 #include "InspectorWidgets.h"
 
+#include "Reflection/Reflection.h"
+#include "Scene/Entity.h"
+#include "Scene/SceneGraph.h"
+
+#include <cctype>
+
 namespace Inspector
 {
 	static const AssetKind s_AssetKinds[] = {
@@ -47,6 +53,7 @@ namespace Inspector
 		case ValueType::Asset: return FindAssetKind(field.assetType) ? Widget::Asset : Widget::None;
 		case ValueType::Layer: return Widget::Layer;
 		case ValueType::Mask: return Widget::Mask;
+		case ValueType::Entity: return Widget::Entity;
 		case ValueType::List: return Widget::List;
 		}
 		return Widget::None;
@@ -62,5 +69,46 @@ namespace Inspector
 			return item == Widget::None || item == Widget::List ? Widget::None : Widget::List;
 		}
 		return WidgetFor(field.type, field);
+	}
+
+	std::string HierarchyPath(Entity entity)
+	{
+		std::string path = entity.GetName();
+		for (Entity parent = entity.GetParent(); parent; parent = parent.GetParent())
+			path = parent.GetName() + "/" + path;
+		return path;
+	}
+
+	static bool ContainsIgnoringCase(std::string_view text, std::string_view search)
+	{
+		if (search.size() > text.size())
+			return false;
+		for (size_t start = 0; start + search.size() <= text.size(); ++start)
+		{
+			size_t i = 0;
+			while (i < search.size() && std::tolower((unsigned char)text[start + i]) == std::tolower((unsigned char)search[i]))
+				++i;
+			if (i == search.size())
+				return true;
+		}
+		return false;
+	}
+
+	static void AddChoices(Entity entity, const std::string& parentPath, const Reflection::FieldInfo& field, std::string_view search,
+		std::vector<EntityChoice>& choices)
+	{
+		const std::string path = parentPath.empty() ? entity.GetName() : parentPath + "/" + entity.GetName();
+		if (Reflection::MeetsRequirements(field, entity) && ContainsIgnoringCase(path, search))
+			choices.push_back({ entity.GetID(), path });
+		for (Entity child : SceneGraph::GetChildren(entity))
+			AddChoices(child, path, field, search, choices);
+	}
+
+	std::vector<EntityChoice> EntityChoices(Scene& scene, const Reflection::FieldInfo& field, std::string_view search)
+	{
+		std::vector<EntityChoice> choices;
+		for (Entity root : SceneGraph::GetRoots(scene))
+			AddChoices(root, std::string(), field, search, choices);
+		return choices;
 	}
 }

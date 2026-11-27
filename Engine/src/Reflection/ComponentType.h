@@ -108,6 +108,8 @@ namespace Reflection
 		std::string assetType;
 		// Element name of each item of a list
 		std::string itemName;
+		// For Entity, or a list of entities: components the target needs one of, by element name; empty for any
+		std::vector<std::string> requiresAny;
 
 		bool hasRange = false;
 		float min = 0.0f;

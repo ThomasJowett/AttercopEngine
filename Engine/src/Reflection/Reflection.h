@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 class Entity;
@@ -135,4 +136,10 @@ namespace Reflection
 	void Restore(Entity entity, const ComponentValues& values, ChangeSource source, uint32_t interaction = 0);
 	// From a default-constructed component
 	ComponentValues Defaults(const ComponentType& type);
+
+	// Whether the target has one of the components an entity field requires; any entity does if it lists none
+	bool MeetsRequirements(const FieldInfo& field, Entity target);
+	// Points the entity fields of the entity's components, lists included, at the new ID of any target in ids,
+	// writing them directly as loading does
+	void RemapEntities(Entity entity, const std::unordered_map<Uuid, Uuid>& ids);
 }

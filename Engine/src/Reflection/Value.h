@@ -2,6 +2,7 @@
 
 #include "Core/core.h"
 #include "Core/Colour.h"
+#include "Scene/EntityReference.h"
 #include "math/Quaternion.h"
 #include "math/Vector2f.h"
 #include "math/Vector3f.h"
@@ -34,6 +35,7 @@ namespace Reflection
 		Asset,
 		Layer,
 		Mask,
+		Entity,
 		List
 	};
 
@@ -112,7 +114,7 @@ namespace Reflection
 	{
 	public:
 		using Data = std::variant<bool, int32_t, uint32_t, float, std::string, Vector2f, Vector3f, Quaternion, Colour,
-			EnumValue, AssetValue, LayerValue, MaskValue, ValueList>;
+			EnumValue, AssetValue, LayerValue, MaskValue, EntityReference, ValueList>;
 
 		Value() = default;
 		Value(bool value) : m_Data(value) {}
@@ -129,6 +131,7 @@ namespace Reflection
 		Value(AssetValue value) : m_Data(std::move(value)) {}
 		Value(const LayerValue& value) : m_Data(value) {}
 		Value(const MaskValue& value) : m_Data(value) {}
+		Value(const EntityReference& value) : m_Data(value) {}
 		Value(ValueList value) : m_Data(std::move(value)) {}
 
 		ValueType Type() const { return (ValueType)m_Data.index(); }
