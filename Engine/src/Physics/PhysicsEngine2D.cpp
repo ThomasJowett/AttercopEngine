@@ -186,8 +186,10 @@ PhysicsEngine2D::PhysicsEngine2D(const Vector2f& gravity, Scene* scene)
 			roots.push_back(entityHandle);
 	}
 
+	std::vector<Entity> rootEntities;
 	for (entt::entity root : roots)
-		InitializeEntity({ root, m_Scene });
+		rootEntities.push_back({ root, m_Scene });
+	InitializeEntities(rootEntities);
 }
 
 PhysicsEngine2D::~PhysicsEngine2D()
@@ -274,6 +276,7 @@ void PhysicsEngine2D::RebuildBody(Entity entity)
 	m_Box2DWorld->DestroyBody(body);
 	ClearBodyPointers(registry, entity.GetHandle());
 	InitializeBody(entity);
+	CreateWeldJoint(entity);
 
 	if (b2Body* rebuilt = FindBody(registry, entity.GetHandle()))
 	{
@@ -297,9 +300,14 @@ void PhysicsEngine2D::RemoveOldContacts()
 
 void PhysicsEngine2D::InitializeEntity(Entity root)
 {
+	InitializeEntities({ root });
+}
+
+void PhysicsEngine2D::InitializeEntities(const std::vector<Entity>& roots)
+{
 	PROFILE_FUNCTION();
 	// Collected first, as initialising unparents rigid bodies
-	std::vector<Entity> entities = { root };
+	std::vector<Entity> entities = roots;
 	for (size_t i = 0; i < entities.size(); ++i)
 	{
 		std::vector<Entity> children = SceneGraph::GetChildren(entities[i]);
@@ -308,6 +316,9 @@ void PhysicsEngine2D::InitializeEntity(Entity root)
 
 	for (Entity& entity : entities)
 		InitializeBody(entity);
+	// After every body, so a joint finds its target's wherever it is
+	for (Entity& entity : entities)
+		CreateWeldJoint(entity);
 }
 
 void PhysicsEngine2D::InitializeBody(Entity entity)
@@ -709,40 +720,86 @@ void PhysicsEngine2D::InitializeBody(Entity entity)
 		tilemapComp->runtimeBody = body;
 	}
 
+	// The parent before a rigid body is unparented; the joint is made once every body exists
 	if (WeldJoint2DComponent* weldJointComp = entity.TryGetComponent<WeldJoint2DComponent>())
-	{
-		b2WeldJointDef jointDef;
-		weldJointComp->bodyA = body;
-		weldJointComp->entityA = entity.GetHandle();
 		weldJointComp->entityB = parent;
+}
 
-		if (weldJointComp->entityB != entt::null) {
-			if (RigidBody2DComponent* rigidBodyComp = m_Scene->GetRegistry().try_get<RigidBody2DComponent>(weldJointComp->entityB)) {
-				weldJointComp->bodyB = rigidBodyComp->runtimeBody;
-			}
-			else if (TilemapComponent* tilemapComp = m_Scene->GetRegistry().try_get<TilemapComponent>(weldJointComp->entityB)) {
-				weldJointComp->bodyB = tilemapComp->runtimeBody;
-			}
-			else {
-				weldJointComp->bodyB = m_WorldBody;
-			}
-		}
-		else {
-			weldJointComp->bodyB = m_WorldBody;
-		}
-		b2Vec2 worldAnchor = weldJointComp->bodyB->GetWorldCenter();
+void PhysicsEngine2D::CreateWeldJoint(Entity entity)
+{
+	WeldJoint2DComponent* weldJointComp = entity.TryGetComponent<WeldJoint2DComponent>();
+	if (!weldJointComp || weldJointComp->joint)
+		return;
+	entt::registry& registry = m_Scene->GetRegistry();
+	b2Body* body = FindBody(registry, entity.GetHandle());
+	if (!body)
+		return;
 
-		jointDef.bodyA = weldJointComp->bodyA;
-		jointDef.bodyB = weldJointComp->bodyB;
-		jointDef.localAnchorA = weldJointComp->bodyA->GetLocalPoint(worldAnchor);
-		jointDef.localAnchorB = weldJointComp->bodyB->GetLocalPoint(worldAnchor);
-		jointDef.referenceAngle = jointDef.bodyB->GetAngle() - jointDef.bodyA->GetAngle();
-		jointDef.collideConnected = weldJointComp->collideConnected;
-		jointDef.damping = weldJointComp->damping;
-		jointDef.stiffness = weldJointComp->stiffness;
-		jointDef.userData.pointer = (uintptr_t)entity.GetHandle();
-		weldJointComp->joint = (b2WeldJoint*)m_Box2DWorld->CreateJoint(&jointDef);
+	weldJointComp->bodyA = body;
+	weldJointComp->entityA = entity.GetHandle();
+	weldJointComp->bodyB = nullptr;
+
+	if (weldJointComp->connectedEntity.IsSet())
+	{
+		Entity target = weldJointComp->connectedEntity.Resolve(m_Scene);
+		if (!target)
+		{
+			ENGINE_WARN("{0}'s Weld Joint 2D is connected to an entity that isn't in the scene, so it has no joint",
+				entity.GetName());
+			return;
+		}
+		if (target == entity)
+		{
+			ENGINE_WARN("{0}'s Weld Joint 2D is connected to {0} itself, so it has no joint", entity.GetName());
+			return;
+		}
+		if (RigidBody2DComponent* rigidBodyComp = target.TryGetComponent<RigidBody2DComponent>())
+			weldJointComp->bodyB = rigidBodyComp->runtimeBody;
+		else if (TilemapComponent* tilemapComp = target.TryGetComponent<TilemapComponent>())
+			weldJointComp->bodyB = tilemapComp->runtimeBody;
+		if (!weldJointComp->bodyB)
+		{
+			ENGINE_WARN("{0}'s Weld Joint 2D is connected to {1}, which has no Rigid Body 2D or tilemap body, so it has no joint",
+				entity.GetName(), target.GetName());
+			return;
+		}
 	}
+	else if (weldJointComp->entityB != entt::null && registry.valid(weldJointComp->entityB))
+	{
+		if (RigidBody2DComponent* rigidBodyComp = registry.try_get<RigidBody2DComponent>(weldJointComp->entityB))
+			weldJointComp->bodyB = rigidBodyComp->runtimeBody;
+		else if (TilemapComponent* tilemapComp = registry.try_get<TilemapComponent>(weldJointComp->entityB))
+			weldJointComp->bodyB = tilemapComp->runtimeBody;
+	}
+	if (!weldJointComp->bodyB)
+		weldJointComp->bodyB = m_WorldBody;
+
+	b2Vec2 worldAnchor = weldJointComp->bodyB->GetWorldCenter();
+
+	b2WeldJointDef jointDef;
+	jointDef.bodyA = weldJointComp->bodyA;
+	jointDef.bodyB = weldJointComp->bodyB;
+	jointDef.localAnchorA = weldJointComp->bodyA->GetLocalPoint(worldAnchor);
+	jointDef.localAnchorB = weldJointComp->bodyB->GetLocalPoint(worldAnchor);
+	jointDef.referenceAngle = jointDef.bodyB->GetAngle() - jointDef.bodyA->GetAngle();
+	jointDef.collideConnected = weldJointComp->collideConnected;
+	jointDef.damping = weldJointComp->damping;
+	jointDef.stiffness = weldJointComp->stiffness;
+	jointDef.userData.pointer = (uintptr_t)entity.GetHandle();
+	weldJointComp->joint = (b2WeldJoint*)m_Box2DWorld->CreateJoint(&jointDef);
+}
+
+void PhysicsEngine2D::RebuildWeldJoint(Entity entity)
+{
+	WeldJoint2DComponent* weldJointComp = entity.TryGetComponent<WeldJoint2DComponent>();
+	if (!weldJointComp)
+		return;
+	if (weldJointComp->joint)
+	{
+		m_Box2DWorld->DestroyJoint(weldJointComp->joint);
+		weldJointComp->joint = nullptr;
+	}
+	CreateWeldJoint(entity);
 }
 
 void PhysicsEngine2D::DestroyEntity(Entity entity)

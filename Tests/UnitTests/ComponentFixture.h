@@ -222,6 +222,7 @@ namespace ComponentFixture
 		Entity child = scene.CreateEntity(*Uuid::Parse(k_ChildId), "Child");
 		child.AddComponent<TransformComponent>(Vector3f(5.0f, 6.0f, 7.0f));
 		WeldJoint2DComponent& weld = child.AddComponent<WeldJoint2DComponent>();
+		weld.connectedEntity = EntityReference{ root.GetID() };
 		weld.collideConnected = true;
 		weld.damping = 0.5f;
 		weld.stiffness = 4.0f;
@@ -230,7 +231,8 @@ namespace ComponentFixture
 		return root;
 	}
 
-	inline void Check(Entity root)
+	// withReferences is false for files from before entity references, where the weld's ConnectedEntity is unset
+	inline void Check(Entity root, bool withReferences = true)
 	{
 		REQUIRE(root);
 		CHECK(root.GetName() == "Root");
@@ -468,6 +470,7 @@ namespace ComponentFixture
 		CHECK(child.GetComponent<TransformComponent>().GetPosition() == Vector3f(5.0f, 6.0f, 7.0f));
 		REQUIRE(child.HasComponent<WeldJoint2DComponent>());
 		const WeldJoint2DComponent& weld = child.GetComponent<WeldJoint2DComponent>();
+		CHECK(weld.connectedEntity.id == (withReferences ? root.GetID() : Uuid::Nil()));
 		CHECK(weld.collideConnected);
 		CHECK(weld.damping == 0.5f);
 		CHECK(weld.stiffness == 4.0f);

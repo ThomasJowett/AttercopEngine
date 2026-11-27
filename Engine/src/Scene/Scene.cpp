@@ -130,9 +130,13 @@ Entity Scene::CreateEntity(Uuid id, const std::string& name, entt::entity hint)
 std::vector<Entity> Scene::InstantiateScene(const Ref<Scene> prefab, const Vector3f& position)
 {
 	PROFILE_FUNCTION();
-	std::vector<Entity> roots;
-	for (Entity root : SceneGraph::GetRoots(*prefab))
-		roots.push_back(InstantiateEntity(root, position));
+	std::vector<Entity> roots = CloneEntities(SceneGraph::GetRoots(*prefab));
+	for (Entity root : roots)
+	{
+		if (TransformComponent* transformComp = root.TryGetComponent<TransformComponent>(); transformComp)
+			transformComp->SetPosition(transformComp->GetPosition() + position);
+	}
+	StartRuntimeState(roots);
 	return roots;
 }
 
@@ -141,38 +145,37 @@ std::vector<Entity> Scene::InstantiateScene(const Ref<Scene> prefab, const Vecto
 Entity Scene::InstantiateEntity(const Entity prefab, const Vector3f& position)
 {
 	PROFILE_FUNCTION();
-	Entity newEntity = CloneEntity(prefab);
+	std::vector<Entity> copies = CloneEntities({ prefab });
+	if (copies.empty())
+		return Entity();
+	Entity newEntity = copies.front();
 
 	if (TransformComponent* transformComp = newEntity.TryGetComponent<TransformComponent>(); transformComp)
 		transformComp->SetPosition(transformComp->GetPosition() + position);
 
-	StartRuntimeState(newEntity);
+	StartRuntimeState(copies);
 	return newEntity;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-Entity Scene::CloneEntity(Entity source)
+std::vector<Entity> Scene::CloneEntities(const std::vector<Entity>& sources)
 {
 	PROFILE_FUNCTION();
-	tinyxml2::XMLDocument doc;
-	tinyxml2::XMLElement* pEntityElement = doc.NewElement("Entity");
-	doc.InsertFirstChild(pEntityElement);
-	SceneSerializer::SerializeEntity(pEntityElement, source);
-	return SceneSerializer::DeserializeEntity(this, pEntityElement, true);
+	return SceneSerializer::CopyEntities(this, sources);
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void Scene::StartRuntimeState(Entity root)
+void Scene::StartRuntimeState(const std::vector<Entity>& roots)
 {
 	PROFILE_FUNCTION();
 	if (!m_PhysicsEngine2D)
 		return;
 
-	m_PhysicsEngine2D->InitializeEntity(root);
+	m_PhysicsEngine2D->InitializeEntities(roots);
 
-	std::vector<Entity> entities = { root };
+	std::vector<Entity> entities = roots;
 	for (size_t i = 0; i < entities.size(); ++i)
 	{
 		std::vector<Entity> children = SceneGraph::GetChildren(entities[i]);
@@ -226,34 +229,46 @@ bool Scene::RemoveEntity(Entity& entity)
 Entity Scene::DuplicateEntity(Entity entity, Entity parent)
 {
 	PROFILE_FUNCTION();
+	std::vector<Entity> copies = CloneEntities({ entity });
+	if (copies.empty())
+		return Entity();
+	PlaceCopy(copies.front(), parent ? parent : entity.GetParent());
+	StartRuntimeState(copies);
+	return copies.front();
+}
+
+std::vector<Entity> Scene::DuplicateEntities(const std::vector<Entity>& entities)
+{
+	PROFILE_FUNCTION();
+	std::vector<Entity> copies = CloneEntities(entities);
+	for (size_t i = 0; i < copies.size() && i < entities.size(); ++i)
+		PlaceCopy(copies[i], Entity(entities[i]).GetParent());
+	StartRuntimeState(copies);
+	return copies;
+}
+
+void Scene::PlaceCopy(Entity copy, Entity parent)
+{
 	if (!parent)
-		parent = entity.GetParent();
+		return;
 
-	Entity newEntity = CloneEntity(entity);
+	SceneGraph::Reparent(copy, parent);
+	SceneGraph::UpdateWorldTransform(m_Registry, copy);
+	TransformComponent* transformComp = copy.TryGetComponent<TransformComponent>();
 
-	if (parent)
+	// While running, physics bodies are unparented, as at runtime start: keep the copy where it is in the world
+	if (m_PhysicsEngine2D && transformComp && m_PhysicsEngine2D->HasPhysicsComponents(copy))
 	{
-		SceneGraph::Reparent(newEntity, parent);
-		SceneGraph::UpdateWorldTransform(m_Registry, newEntity);
-		TransformComponent* transformComp = newEntity.TryGetComponent<TransformComponent>();
-
-		// While running, physics bodies are unparented, as at runtime start: keep the copy where it is in the world
-		if (m_PhysicsEngine2D && transformComp && m_PhysicsEngine2D->HasPhysicsComponents(newEntity))
-		{
-			Vector3f position, scale;
-			Quaternion rotation;
-			// Keeping the scale's signs leaves a mirrored copy's values as they were
-			const bool hasRotation = transformComp->GetWorldMatrix().Decompose(position, rotation, scale, transformComp->GetScale());
-			SceneGraph::Unparent(newEntity);
-			transformComp->SetPosition(position);
-			if (hasRotation)
-				transformComp->SetRotation(rotation);
-			transformComp->SetScale(scale);
-		}
+		Vector3f position, scale;
+		Quaternion rotation;
+		// Keeping the scale's signs leaves a mirrored copy's values as they were
+		const bool hasRotation = transformComp->GetWorldMatrix().Decompose(position, rotation, scale, transformComp->GetScale());
+		SceneGraph::Unparent(copy);
+		transformComp->SetPosition(position);
+		if (hasRotation)
+			transformComp->SetRotation(rotation);
+		transformComp->SetScale(scale);
 	}
-
-	StartRuntimeState(newEntity);
-	return newEntity;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */

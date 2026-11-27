@@ -37,17 +37,18 @@ namespace SelectionOperations
 			return {};
 
 		const SelectionState before = selection.Capture();
-		std::vector<Entity> copies;
+		// One copy of them all, so references between them point at the copies
+		std::vector<Entity> copies = scene.DuplicateEntities(roots);
 		std::vector<Uuid> ids;
 		Uuid active = Uuid::Nil();
-		for (Entity root : roots)
+		for (size_t i = 0; i < copies.size(); ++i)
 		{
-			Entity copy = scene.DuplicateEntity(root, Entity());
+			Entity copy = copies[i];
+			Entity root = roots[i];
 			copy.GetName() += "_copy";
 			// Right after its original
 			if (copy.GetParent().GetHandle() == root.GetParent().GetHandle())
 				SceneGraph::MoveAfter(copy, root);
-			copies.push_back(copy);
 			ids.push_back(copy.GetID());
 			if (root.GetID() == before.active)
 				active = copy.GetID();
@@ -67,13 +68,11 @@ namespace SelectionOperations
 
 	std::vector<Entity> Paste(SceneHistory& history, EntitySelection& selection, Scene& scene, const std::string& text)
 	{
-		// New UUIDs now, which redo keeps
+		// New UUIDs now, which redo keeps; references between the pasted entities point at them
 		const SelectionState before = selection.Capture();
 		std::vector<Entity> pasted = SceneSerializer::DeserializeEntities(&scene, text, true);
 		if (pasted.empty())
 			return pasted;
-
-		// Pointing references between the pasted entities at the copies goes here once EntityReference exists
 
 		std::vector<Uuid> ids;
 		for (Entity root : pasted)

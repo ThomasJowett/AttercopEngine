@@ -270,6 +270,7 @@ namespace ReflectionTests
 			{ "Transform.Rotation", Vector3f(0.0f, 0.0f, 0.0f) },
 			{ "Transform.Orientation", Quaternion() },
 			{ "Transform.Scale", Vector3f(1.0f, 1.0f, 1.0f) },
+			{ "WeldJoint2D.ConnectedEntity", EntityReference{ *Uuid::Parse(ComponentFixture::k_RootId) } },
 			{ "WeldJoint2D.CollideConnected", true },
 			{ "WeldJoint2D.Damping", 0.5f },
 			{ "WeldJoint2D.Stiffness", 4.0f },
