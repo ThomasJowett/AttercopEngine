@@ -32,6 +32,7 @@ namespace Reflection
 		case ValueType::Asset: return "Asset";
 		case ValueType::Layer: return "Layer";
 		case ValueType::Mask: return "Mask";
+		case ValueType::Entity: return "Entity";
 		case ValueType::List: return "List";
 		}
 		return "Unknown";
@@ -147,6 +148,7 @@ namespace Reflection
 		case ValueType::Asset: text << "Asset(" << As<AssetValue>().path.generic_string() << ')'; break;
 		case ValueType::Layer: text << LayerToText(As<LayerValue>().bits); break;
 		case ValueType::Mask: text << '[' << MaskToText(As<MaskValue>().bits) << ']'; break;
+		case ValueType::Entity: text << "Entity(" << (As<EntityReference>().IsSet() ? As<EntityReference>().id.to_string() : "none") << ')'; break;
 		case ValueType::List:
 		{
 			text << '{';
@@ -731,5 +733,59 @@ namespace Reflection
 	{
 		std::shared_ptr<void> component = type.create();
 		return CaptureFrom(type, component.get());
+	}
+
+	bool MeetsRequirements(const FieldInfo& field, Entity target)
+	{
+		if (field.requiresAny.empty())
+			return true;
+		if (!target.IsSceneValid())
+			return false;
+		entt::registry& registry = target.GetScene()->GetRegistry();
+		for (const std::string& name : field.requiresAny)
+		{
+			if (const ComponentType* type = FindComponent(name); type && type->tryGet(registry, target.GetHandle()))
+				return true;
+		}
+		return false;
+	}
+
+	static bool Remap(Value& value, const std::unordered_map<Uuid, Uuid>& ids)
+	{
+		if (value.Is<EntityReference>())
+		{
+			EntityReference& reference = value.As<EntityReference>();
+			auto found = ids.find(reference.id);
+			if (found == ids.end())
+				return false;
+			reference.id = found->second;
+			return true;
+		}
+		bool changed = false;
+		if (value.Is<ValueList>())
+		{
+			for (Value& item : value.As<ValueList>())
+				changed = Remap(item, ids) || changed;
+		}
+		return changed;
+	}
+
+	void RemapEntities(Entity entity, const std::unordered_map<Uuid, Uuid>& ids)
+	{
+		for (const ComponentType* type : Components())
+		{
+			void* component = TryGetComponent(entity, *type);
+			if (!component)
+				continue;
+			for (const FieldInfo& field : type->fields)
+			{
+				const bool holdsEntities = field.type == ValueType::Entity || (field.type == ValueType::List && field.itemType == ValueType::Entity);
+				if (!holdsEntities || !field.get || !field.set)
+					continue;
+				Value value = field.get(component);
+				if (Remap(value, ids))
+					field.set(component, value);
+			}
+		}
 	}
 }

@@ -52,6 +52,9 @@ public:
 	// Adds the component with add to each entity that lacks it, as one undo step that keeps the values add gave it
 	void AddComponent(const Entities& entities, const Reflection::ComponentType& type, const std::function<void(Entity)>& add);
 
+	// Called with an entity field's target when its select button is clicked
+	void SetSelectEntity(std::function<void(const Uuid&)> select) { m_SelectEntity = std::move(select); }
+
 	// Sets a property on every entity as an inspector edit, recorded for undo
 	bool Set(const Entities& entities, const Reflection::PropertyPath& path, const Reflection::Value& value);
 	PropertyEdits& GetEdits() { return m_Edits; }
@@ -83,7 +86,9 @@ private:
 	void DrawOverride(Support support, const Entities& entities, const std::function<void(const Entities&)>& draw);
 	// The edited value, if the widget changed it; many is set when several entities are shown
 	std::optional<Edit> DrawWidget(const Reflection::FieldInfo& field, const MultiEdit::FieldState& state,
-		const Reflection::Value& defaultValue, const void* component, bool many);
+		const Reflection::Value& defaultValue, const void* component, bool many, Scene* scene);
+	// A button naming the target that opens a searchable list, takes a drop from the Hierarchy, and select and clear buttons
+	std::optional<Edit> DrawEntityPicker(const Reflection::FieldInfo& field, const EntityReference& reference, bool mixed, Scene* scene);
 	Reflection::Value DefaultOf(const Reflection::ComponentType& type, int field);
 
 	PropertyEdits m_Edits;
@@ -104,6 +109,9 @@ private:
 
 	// A default-constructed component per type, for right-click resets
 	std::unordered_map<const Reflection::ComponentType*, std::shared_ptr<void>> m_Defaults;
+	std::function<void(const Uuid&)> m_SelectEntity;
+	// The entity picker's search text, cleared each time it opens
+	std::string m_EntitySearch;
 	// Fields whose parts are locked together, unlocked when present
 	std::unordered_map<const Reflection::FieldInfo*, bool> m_Unlocked;
 };

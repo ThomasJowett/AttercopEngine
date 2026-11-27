@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cmath>
 #include <climits>
+#include <cstring>
 
 using namespace Reflection;
 
@@ -485,7 +486,7 @@ bool ComponentInspector::DrawField(const Entities& entities, const ComponentType
 	const bool disabled = field.Has(FieldFlags::ReadOnly) || (field.enableIf && !HoldsForAll(entities, type, field.enableIf));
 	ImGui::BeginDisabled(disabled);
 	ImGui::BeginGroup();
-	std::optional<Edit> edit = DrawWidget(field, *state, DefaultOf(type, index), component, entities.size() > 1);
+	std::optional<Edit> edit = DrawWidget(field, *state, DefaultOf(type, index), component, entities.size() > 1, active.GetScene());
 	ImGui::EndGroup();
 	ImGui::EndDisabled();
 	DescriptionTooltip(field.Has(FieldFlags::Degrees) ? field.description + ", in degrees" : field.description);
@@ -519,7 +520,7 @@ Value ComponentInspector::DefaultOf(const ComponentType& type, int field)
 }
 
 std::optional<ComponentInspector::Edit> ComponentInspector::DrawWidget(const FieldInfo& field, const MultiEdit::FieldState& state,
-	const Value& defaultValue, const void* component, bool many)
+	const Value& defaultValue, const void* component, bool many, Scene* scene)
 {
 	const char* label = field.label.c_str();
 	const Value& value = state.value;
@@ -737,6 +738,8 @@ std::optional<ComponentInspector::Edit> ComponentInspector::DrawWidget(const Fie
 			return Edit{ MaskValue{ mask } };
 		return std::nullopt;
 	}
+	case ValueType::Entity:
+		return DrawEntityPicker(field, value.As<EntityReference>(), mixed, scene);
 	case ValueType::List:
 	{
 		ValueList items = value.As<ValueList>();
@@ -773,7 +776,7 @@ std::optional<ComponentInspector::Edit> ComponentInspector::DrawWidget(const Fie
 				itemField.label = std::to_string(i);
 				MultiEdit::FieldState itemState;
 				itemState.value = items[i];
-				if (std::optional<Edit> item = DrawWidget(itemField, itemState, items[i], component, many))
+				if (std::optional<Edit> item = DrawWidget(itemField, itemState, items[i], component, many, scene))
 				{
 					// A part edit of an item changes only that part
 					if (item->part >= 0)
@@ -791,6 +794,86 @@ std::optional<ComponentInspector::Edit> ComponentInspector::DrawWidget(const Fie
 	}
 	}
 	return std::nullopt;
+}
+
+std::optional<ComponentInspector::Edit> ComponentInspector::DrawEntityPicker(const FieldInfo& field, const EntityReference& reference,
+	bool mixed, Scene* scene)
+{
+	std::optional<Edit> edit;
+	Entity target = reference.Resolve(scene);
+	const bool missing = !mixed && reference.IsSet() && !target;
+	const std::string preview = mixed ? MixedText : !reference.IsSet() ? "None" : target ? target.GetName() : "Missing";
+
+	ImGui::TextUnformatted(field.label.c_str());
+	const ImGuiStyle& style = ImGui::GetStyle();
+	const float buttons = (ImGui::GetFrameHeight() + style.ItemSpacing.x) * 2.0f;
+	if (missing)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.35f, 0.35f, 1.0f));
+	if (ImGui::Button((preview + "##Entity").c_str(), ImVec2(std::max(ImGui::GetContentRegionAvail().x - buttons, 1.0f), 0.0f)))
+	{
+		m_EntitySearch.clear();
+		ImGui::OpenPopup("EntityPicker");
+	}
+	if (missing)
+		ImGui::PopStyleColor();
+
+	// The first of the dragged entities, if it has what the field requires
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("Entities", ImGuiDragDropFlags_AcceptPeekOnly);
+			payload && payload->DataSize >= (int)sizeof(Uuid))
+		{
+			Uuid id = Uuid::Nil();
+			std::memcpy(&id, payload->Data, sizeof(Uuid));
+			Entity dropped = scene->GetEntityByID(id);
+			if (dropped && MeetsRequirements(field, dropped) && ImGui::AcceptDragDropPayload("Entities"))
+				edit = Edit{ EntityReference{ id } };
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	if (ImGui::BeginPopup("EntityPicker"))
+	{
+		if (ImGui::IsWindowAppearing())
+			ImGui::SetKeyboardFocusHere();
+		InputString("##Search", m_EntitySearch, false, "Search");
+		if (ImGui::Selectable("None", !mixed && !reference.IsSet()))
+			edit = Edit{ EntityReference{} };
+		const std::vector<Inspector::EntityChoice> choices = Inspector::EntityChoices(*scene, field, m_EntitySearch);
+		const float height = std::min((float)choices.size(), 12.0f) * ImGui::GetTextLineHeightWithSpacing();
+		if (ImGui::BeginChild("##Entities", ImVec2(320.0f, std::max(height, ImGui::GetTextLineHeightWithSpacing()))))
+		{
+			for (size_t i = 0; i < choices.size(); ++i)
+			{
+				const Inspector::EntityChoice& choice = choices[i];
+				ImGui::PushID((int)i);
+				if (ImGui::Selectable(choice.path.c_str(), !mixed && choice.id == reference.id))
+					edit = Edit{ EntityReference{ choice.id } };
+				ImGui::PopID();
+			}
+			if (choices.empty())
+				ImGui::TextDisabled(field.requiresAny.empty() ? "No entities match" : "No entities with the components it needs match");
+		}
+		ImGui::EndChild();
+		if (edit)
+			ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+	}
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!target || mixed);
+	if (ImGui::Button(ICON_FA_CROSSHAIRS "##SelectTarget") && m_SelectEntity)
+		m_SelectEntity(target.GetID());
+	ImGui::EndDisabled();
+	ImGui::Tooltip("Select the target");
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!reference.IsSet() && !mixed);
+	if (ImGui::Button(ICON_FA_XMARK "##ClearEntity"))
+		edit = Edit{ EntityReference{} };
+	ImGui::EndDisabled();
+	ImGui::Tooltip("Clear");
+	return edit;
 }
 
 void ComponentInspector::DrawAddComponentMenu(const Entities& entities)

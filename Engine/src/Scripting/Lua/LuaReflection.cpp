@@ -115,9 +115,17 @@ namespace Lua
 			case ValueType::Asset: return FindAssetKind(field.assetType) ? field.assetType : "string";
 			case ValueType::Layer: return "string";
 			case ValueType::Mask: return "table of string";
+			case ValueType::Entity: return "Entity";
 			case ValueType::List: return "table of " + LuaTypeOf(field, field.itemType);
 			}
 			return "unknown";
+		}
+
+		// "a number", "an Entity"
+		std::string WithArticle(const std::string& type)
+		{
+			const bool vowel = !type.empty() && std::string("AEIOUaeiou").find(type.front()) != std::string::npos;
+			return (vowel ? "an " : "a ") + type;
 		}
 
 		[[noreturn]] void RaiseError(lua_State* state, const std::string& message)
@@ -125,7 +133,8 @@ namespace Lua
 			throw std::runtime_error(ScriptLocation(state) + message);
 		}
 
-		sol::object ToLua(lua_State* state, const FieldInfo& field, const Value& value)
+		// An entity field resolves in the component's scene
+		sol::object ToLua(lua_State* state, const FieldInfo& field, const Value& value, Scene* scene)
 		{
 			switch (value.Type())
 			{
@@ -162,13 +171,19 @@ namespace Lua
 				}
 				return sol::make_object(state, sol::as_table(names));
 			}
+			case ValueType::Entity:
+			{
+				// Nil when unset or the target isn't in the scene
+				Entity target = value.As<EntityReference>().Resolve(scene);
+				return target ? sol::make_object(state, target) : sol::make_object(state, sol::lua_nil);
+			}
 			case ValueType::List:
 			{
 				sol::state_view view(state);
 				sol::table items = view.create_table();
 				int index = 1;
 				for (const Value& item : value.As<Reflection::ValueList>())
-					items[index++] = ToLua(state, field, item);
+					items[index++] = ToLua(state, field, item, scene);
 				return items;
 			}
 			}
@@ -176,7 +191,8 @@ namespace Lua
 		}
 
 		// nullopt if the Lua value doesn't fit the field
-		std::optional<Value> FromLua(lua_State* state, const FieldInfo& field, ValueType type, const sol::object& object)
+		// An entity must be live and in the component's scene
+		std::optional<Value> FromLua(lua_State* state, const FieldInfo& field, ValueType type, const sol::object& object, Scene* scene)
 		{
 			const sol::type luaType = object.get_type();
 			switch (type)
@@ -274,6 +290,19 @@ namespace Lua
 					RaiseError(state, "There's no collision layer called \"" + unknown.front() + "\"");
 				return Value(Reflection::MaskValue{ bits });
 			}
+			case ValueType::Entity:
+			{
+				if (luaType == sol::type::lua_nil)
+					return Value(EntityReference{});
+				if (!object.is<Entity>())
+					break;
+				Entity target = object.as<Entity>();
+				if (!target.IsSceneValid())
+					RaiseError(state, "Can't point at a destroyed entity");
+				if (target.GetScene() != scene)
+					RaiseError(state, "Can't point at " + target.GetName() + ", an entity in another scene");
+				return Value(EntityReference{ target.GetID() });
+			}
 			case ValueType::List:
 				if (luaType == sol::type::table)
 				{
@@ -281,7 +310,7 @@ namespace Lua
 					sol::table table = object.as<sol::table>();
 					for (size_t i = 1; i <= table.size(); ++i)
 					{
-						std::optional<Value> item = FromLua(state, field, field.itemType, table[i]);
+						std::optional<Value> item = FromLua(state, field, field.itemType, table[i], scene);
 						if (!item)
 							return std::nullopt;
 						items.push_back(std::move(*item));
@@ -442,7 +471,7 @@ namespace Lua
 				if (auto field = binding.fields.find(key); field != binding.fields.end())
 				{
 					const FieldInfo& info = ref.type->fields[field->second];
-					return ToLua(luaState, info, info.get(ref.Get()));
+					return ToLua(luaState, info, info.get(ref.Get()), ref.scene);
 				}
 				if (sol::optional<sol::table> property = binding.properties.get<sol::optional<sol::table>>(key))
 				{
@@ -463,9 +492,9 @@ namespace Lua
 					const FieldInfo& info = ref.type->fields[field->second];
 					if (info.Has(Reflection::FieldFlags::ReadOnly))
 						RaiseError(luaState, name + " is read-only");
-					std::optional<Value> converted = FromLua(luaState, info, info.type, value);
+					std::optional<Value> converted = FromLua(luaState, info, info.type, value, ref.scene);
 					if (!converted)
-						RaiseError(luaState, name + " can't be set to a " + std::string(sol::type_name(luaState, value.get_type())) + "; it's a " + LuaTypeOf(info, info.type));
+						RaiseError(luaState, name + " can't be set to " + WithArticle(sol::type_name(luaState, value.get_type())) + "; it's " + WithArticle(LuaTypeOf(info, info.type)));
 					ref.Get();
 					if (!Reflection::Set(Entity(ref.entity, ref.scene), Reflection::PropertyPath{ ref.type, field->second }, *converted, Reflection::ChangeSource::Lua))
 						RaiseError(luaState, name + " can't be set to " + converted->ToString());

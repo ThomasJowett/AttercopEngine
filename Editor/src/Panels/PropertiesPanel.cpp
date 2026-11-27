@@ -50,6 +50,7 @@ PropertiesPanel::PropertiesPanel(bool* show, Ref<EntitySelection> selection, Ref
 	:Layer("Properties"), m_Show(show), m_Selection(selection), m_TilemapEditor(tilemapEditor), m_History(history),
 	m_Inspector(history.get())
 {
+	m_Inspector.SetSelectEntity([this](const Uuid& id) { m_Selection->Select(id); });
 	RegisterOverrides();
 }
 

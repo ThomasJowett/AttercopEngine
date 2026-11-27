@@ -170,19 +170,31 @@ namespace Reflection
 				}
 			}
 
-			// A list item, or a vector, colour or asset field, as an element of its own
-			void WriteValueElement(tinyxml2::XMLElement* element, const Value& value, bool degrees = false)
+			// The target's ID, with its name for people reading the file; nothing for an unset reference
+			void WriteEntityReference(tinyxml2::XMLElement* element, const EntityReference& reference, Scene* scene)
+			{
+				if (!reference.IsSet())
+					return;
+				element->SetAttribute("ID", reference.id.to_string().c_str());
+				if (Entity target = reference.Resolve(scene))
+					element->SetAttribute("Name", target.GetName().c_str());
+			}
+
+			// A list item, or a vector, colour, asset or entity field, as an element of its own
+			void WriteValueElement(tinyxml2::XMLElement* element, const Value& value, Scene* scene, bool degrees = false)
 			{
 				if (PartCount(value.Type()) > 0)
 					WriteParts(element, value, degrees);
 				else if (const AssetValue* asset = value.TryAs<AssetValue>())
 					SerializationUtils::Encode(element, asset->path);
+				else if (const EntityReference* reference = value.TryAs<EntityReference>())
+					WriteEntityReference(element, *reference, scene);
 				else
 					element->SetAttribute("Value", ScalarToText(value).c_str());
 			}
 
 			void WriteField(tinyxml2::XMLElement* element, const FieldInfo& field, const void* component,
-				const std::filesystem::path& defaultAsset)
+				const std::filesystem::path& defaultAsset, Scene* scene)
 			{
 				switch (PlacementOf(field))
 				{
@@ -211,14 +223,17 @@ namespace Reflection
 							return;
 						}
 					}
-					WriteValueElement(element->InsertNewChildElement(field.xmlName.c_str()), value, field.Has(FieldFlags::SavedInDegrees));
+					// Unset references are left out
+					if (const EntityReference* reference = value.TryAs<EntityReference>(); reference && !reference->IsSet())
+						return;
+					WriteValueElement(element->InsertNewChildElement(field.xmlName.c_str()), value, scene, field.Has(FieldFlags::SavedInDegrees));
 					return;
 				}
 				case Placement::Items:
 				{
 					Value value = field.get(component);
 					for (const Value& item : value.As<ValueList>())
-						WriteValueElement(element->InsertNewChildElement(field.itemName.c_str()), item, field.Has(FieldFlags::SavedInDegrees));
+						WriteValueElement(element->InsertNewChildElement(field.itemName.c_str()), item, scene, field.Has(FieldFlags::SavedInDegrees));
 					return;
 				}
 				}
@@ -348,10 +363,31 @@ namespace Reflection
 					}
 				}
 
-				// A list item, or a vector, colour or asset field, from its own element
+				// ID is read with Uuid::Parse; Name is only for people reading the file
+				Value ReadEntityReference(const tinyxml2::XMLElement* element) const
+				{
+					EntityReference reference;
+					if (const char* text = element->Attribute("ID"))
+					{
+						if (std::optional<Uuid> id = Uuid::Parse(text))
+							reference.id = *id;
+						else
+							Warn(element, std::string("Can't read ID=\"") + text + "\" as an entity's ID, left unset");
+					}
+					for (const tinyxml2::XMLAttribute* attribute = element->FirstAttribute(); attribute; attribute = attribute->Next())
+					{
+						if (std::strcmp(attribute->Name(), "ID") != 0 && std::strcmp(attribute->Name(), "Name") != 0)
+							Warn(element, std::string("Unknown attribute ") + attribute->Name() + " on <" + element->Name() + ">, ignored");
+					}
+					return Value(reference);
+				}
+
+				// A list item, or a vector, colour, asset or entity field, from its own element
 				std::optional<Value> ReadValueElement(const tinyxml2::XMLElement* element, const FieldInfo& field, ValueType type,
 					Value current) const
 				{
+					if (type == ValueType::Entity)
+						return ReadEntityReference(element);
 					if (PartCount(type) > 0)
 					{
 						ReadParts(element, current, field.Has(FieldFlags::SavedInDegrees));
@@ -378,6 +414,7 @@ namespace Reflection
 					case ValueType::Vec3: return Vector3f();
 					case ValueType::Colour: return Colour();
 					case ValueType::Asset: return AssetValue{};
+					case ValueType::Entity: return EntityReference{};
 					default: return Value();
 					}
 				}
@@ -527,7 +564,7 @@ namespace Reflection
 						groupElements[field.group] = element->InsertNewChildElement(group.name.c_str());
 					target = groupElements[field.group];
 				}
-				WriteField(target, field, component, layout.defaultAssets[i]);
+				WriteField(target, field, component, layout.defaultAssets[i], entity.GetScene());
 			}
 		}
 
