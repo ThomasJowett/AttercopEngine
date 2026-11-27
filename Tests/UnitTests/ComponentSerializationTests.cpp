@@ -106,7 +106,9 @@ namespace
             <Rotation X="0" Y="0" Z="0"/>
             <Scale X="1" Y="1" Z="1"/>
         </Transform>
-        <WeldJoint2D CollideConnected="true" Damping="0.5" Stiffness="4"/>
+        <WeldJoint2D CollideConnected="true" Damping="0.5" Stiffness="4">
+            <ConnectedEntity ID="1001-2002" Name="Root"/>
+        </WeldJoint2D>
     </Entity>
 </Entity>)xml";
 
@@ -362,10 +364,16 @@ TEST_CASE("A duplicated entity gets new IDs and keeps everything else")
 	REQUIRE(copy.GetChild());
 	CHECK_FALSE(copy.GetChild().GetID() == root.GetChild().GetID());
 
+	// The copied weld points at the copied root
+	CHECK(copy.GetChild().GetComponent<WeldJoint2DComponent>().connectedEntity.id == copy.GetID());
+
 	// Load the copy into another scene with the original IDs, then every other value must match
 	std::string xml = SceneSerializer::SerializeEntity(copy);
 	for (auto [from, to] : { std::pair(copy.GetID(), root.GetID()), std::pair(copy.GetChild().GetID(), root.GetChild().GetID()) })
-		xml.replace(xml.find(from.to_string()), from.to_string().size(), to.to_string());
+	{
+		for (size_t at = xml.find(from.to_string()); at != std::string::npos; at = xml.find(from.to_string(), at))
+			xml.replace(at, from.to_string().size(), to.to_string());
+	}
 	Scene restored("");
 	ComponentFixture::Check(SceneSerializer::DeserializeEntity(&restored, xml));
 }

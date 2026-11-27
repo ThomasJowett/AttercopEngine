@@ -4,6 +4,7 @@
 #include "Scene/SceneGraph.h"
 #include "Components.h"
 #include "Migration/Migration.h"
+#include "Reflection/Reflection.h"
 #include "Reflection/SceneXml.h"
 #include "Utilities/SerializationUtils.h"
 
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <cstring>
 #include <optional>
+#include <unordered_map>
 
 namespace
 {
@@ -55,8 +57,17 @@ namespace
 	// An entity read with an ID already in the scene, which was given a new one
 	using Duplicates = std::vector<std::pair<const tinyxml2::XMLElement*, Entity>>;
 
+	// What one load collects for after its last entity
+	struct ReadState
+	{
+		Duplicates duplicates;
+		// With new UUIDs: each entity's ID in the text to its new one, and the entities made
+		std::unordered_map<Uuid, Uuid> newIDs;
+		std::vector<Entity> created;
+	};
+
 	// withHandles reads the Handle attribute the play-mode snapshot writes
-	Entity ReadEntity(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, Duplicates& duplicates,
+	Entity ReadEntity(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, ReadState& state,
 		const std::filesystem::path& file, bool withHandles = false)
 	{
 		PROFILE_FUNCTION();
@@ -97,7 +108,16 @@ namespace
 			handle = entt::entity(pEntityElement->UnsignedAttribute("Handle", entt::to_integral(entt::entity(entt::null))));
 		entity = scene->CreateEntity(id, entityName ? entityName : "", handle);
 		if (duplicate)
-			duplicates.emplace_back(pEntityElement, entity);
+			state.duplicates.emplace_back(pEntityElement, entity);
+		if (resetUuid)
+		{
+			if (const char* text = pEntityElement->Attribute("ID"))
+			{
+				if (std::optional<Uuid> oldID = Uuid::Parse(text))
+					state.newIDs[*oldID] = entity.GetID();
+			}
+			state.created.push_back(entity);
+		}
 
 		if (withHandles)
 			CheckAttributes(pEntityElement, { "Name", "ID", "Handle" }, file);
@@ -110,7 +130,7 @@ namespace
 		for (const tinyxml2::XMLElement* pChildElement = pEntityElement->LastChildElement("Entity"); pChildElement;
 			pChildElement = pChildElement->PreviousSiblingElement("Entity"))
 		{
-			Entity child = ReadEntity(scene, pChildElement, resetUuid, duplicates, file, withHandles);
+			Entity child = ReadEntity(scene, pChildElement, resetUuid, state, file, withHandles);
 			if (nextChild)
 				SceneGraph::MoveBefore(child, nextChild);
 			else
@@ -271,18 +291,18 @@ bool SceneSerializer::LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem:
 
 	// Made last to first, so the registry lists them in file order; each goes before the
 	// one after it, so the roots keep the file's order
-	Duplicates duplicates;
+	ReadState state;
 	Entity nextRoot;
 	for (const tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity"); pEntityElement;
 		pEntityElement = pEntityElement->PreviousSiblingElement("Entity"))
 	{
-		Entity root = ReadEntity(m_Scene, pEntityElement, false, duplicates, filepath);
+		Entity root = ReadEntity(m_Scene, pEntityElement, false, state, filepath);
 		if (nextRoot)
 			SceneGraph::MoveBefore(root, nextRoot);
 		nextRoot = root;
 	}
-	if (!duplicates.empty())
-		ResolveDuplicateIDs(m_Scene, pRoot->FirstChildElement("Entity"), true, duplicates, filepath);
+	if (!state.duplicates.empty())
+		ResolveDuplicateIDs(m_Scene, pRoot->FirstChildElement("Entity"), true, state.duplicates, filepath);
 
 	return true;
 }
@@ -333,12 +353,12 @@ void SceneSerializer::ReadSnapshot(Scene* scene, const tinyxml2::XMLDocument& do
 		return;
 
 	// Made last to first, as a load does, each going before the one after it
-	Duplicates duplicates;
+	ReadState state;
 	Entity nextRoot;
 	for (const tinyxml2::XMLElement* pEntityElement = pRoot->LastChildElement("Entity"); pEntityElement;
 		pEntityElement = pEntityElement->PreviousSiblingElement("Entity"))
 	{
-		Entity root = ReadEntity(scene, pEntityElement, false, duplicates, k_Snapshot, true);
+		Entity root = ReadEntity(scene, pEntityElement, false, state, k_Snapshot, true);
 		if (nextRoot)
 			SceneGraph::MoveBefore(root, nextRoot);
 		nextRoot = root;
@@ -353,11 +373,30 @@ Entity SceneSerializer::DeserializeEntity(Scene* scene, tinyxml2::XMLElement* pE
 Entity SceneSerializer::ReadEntityTree(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid,
 	const std::filesystem::path& file)
 {
-	Duplicates duplicates;
-	Entity entity = ReadEntity(scene, pEntityElement, resetUuid, duplicates, file);
-	if (!duplicates.empty())
-		ResolveDuplicateIDs(scene, pEntityElement, false, duplicates, file);
-	return entity;
+	std::vector<Entity> roots = ReadEntityTrees(scene, pEntityElement, false, resetUuid, file);
+	return roots.empty() ? Entity() : roots.front();
+}
+
+std::vector<Entity> SceneSerializer::ReadEntityTrees(Scene* scene, const tinyxml2::XMLElement* pFirstElement, bool withSiblings,
+	bool resetUuid, const std::filesystem::path& file)
+{
+	ReadState state;
+	std::vector<Entity> roots;
+	for (const tinyxml2::XMLElement* pElement = pFirstElement; pElement; pElement = withSiblings ? pElement->NextSiblingElement("Entity") : nullptr)
+	{
+		if (Entity root = ReadEntity(scene, pElement, resetUuid, state, file))
+			roots.push_back(root);
+	}
+	if (!state.duplicates.empty())
+		ResolveDuplicateIDs(scene, pFirstElement, withSiblings, state.duplicates, file);
+
+	// References between the entities this load made point at the new ones; others are kept
+	if (!state.newIDs.empty())
+	{
+		for (Entity entity : state.created)
+			Reflection::RemapEntities(entity, state.newIDs);
+	}
+	return roots;
 }
 
 std::string SceneSerializer::SerializeEntity(Entity entity)
@@ -418,15 +457,19 @@ std::vector<Entity> SceneSerializer::DeserializeEntities(Scene* scene, const std
 		return roots;
 
 	if (single)
-	{
-		if (Entity root = ReadEntityTree(scene, pRoot, resetUuid, k_PastedEntity))
-			roots.push_back(root);
-		return roots;
-	}
-	for (tinyxml2::XMLElement* pEntity = pRoot->FirstChildElement("Entity"); pEntity; pEntity = pEntity->NextSiblingElement("Entity"))
-	{
-		if (Entity root = ReadEntityTree(scene, pEntity, resetUuid, k_PastedEntity))
-			roots.push_back(root);
-	}
-	return roots;
+		return ReadEntityTrees(scene, pRoot, false, resetUuid, k_PastedEntity);
+	return ReadEntityTrees(scene, pRoot->FirstChildElement("Entity"), true, resetUuid, k_PastedEntity);
+}
+
+std::vector<Entity> SceneSerializer::CopyEntities(Scene* scene, const std::vector<Entity>& sources)
+{
+	PROFILE_FUNCTION();
+
+	EnsureRegistered();
+	tinyxml2::XMLDocument doc;
+	tinyxml2::XMLElement* pEntitiesElement = doc.NewElement("Entities");
+	doc.InsertFirstChild(pEntitiesElement);
+	for (Entity source : sources)
+		WriteEntity(pEntitiesElement->InsertNewChildElement("Entity"), source, false);
+	return ReadEntityTrees(scene, pEntitiesElement->FirstChildElement("Entity"), true, true, k_CopiedEntity);
 }

@@ -31,8 +31,12 @@ public:
 
 	// The subtrees in an <Entities> element, in the order given
 	static std::string SerializeEntities(const std::vector<Entity>& roots);
-	// Reads an <Entities> element, or a single <Entity>; returns the roots, none if the text is neither
+	// Reads an <Entities> element, or a single <Entity>; returns the roots, none if the text is neither. With new
+	// UUIDs, references between the entities read point at the new ones
 	static std::vector<Entity> DeserializeEntities(Scene* scene, const std::string& text, bool resetUuid = false);
+	// Copies each entity and its children, from any scene, into this one with new UUIDs in one load: references between
+	// the copied entities point at the copies, and references to entities outside them are kept
+	static std::vector<Entity> CopyEntities(Scene* scene, const std::vector<Entity>& sources);
 
 	// The play-mode snapshot: every root entity as a save writes it, with each entity's handle
 	static void WriteSnapshot(Scene* scene, tinyxml2::XMLDocument& document);
@@ -44,6 +48,9 @@ private:
 	bool LoadXML(tinyxml2::XMLDocument& doc, const std::filesystem::path& filepath);
 
 	static Entity ReadEntityTree(Scene* scene, const tinyxml2::XMLElement* pEntityElement, bool resetUuid, const std::filesystem::path& file);
+	// The element, and its following siblings when withSiblings, as one load
+	static std::vector<Entity> ReadEntityTrees(Scene* scene, const tinyxml2::XMLElement* pFirstElement, bool withSiblings,
+		bool resetUuid, const std::filesystem::path& file);
 	// Of entities read with the same ID, gives it to the first in the file, or keeps it on the one already in the scene
 	static void ResolveDuplicateIDs(Scene* scene, const tinyxml2::XMLElement* pFirstElement, bool withSiblings,
 		const std::vector<std::pair<const tinyxml2::XMLElement*, Entity>>& duplicates, const std::filesystem::path& file);

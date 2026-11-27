@@ -503,7 +503,7 @@ namespace MigrationTests
 		Scene scene("");
 		tinyxml2::XMLElement* entity = document.RootElement()->FirstChildElement("Entity");
 		REQUIRE(entity);
-		ComponentFixture::Check(SceneSerializer::DeserializeEntity(&scene, entity));
+		ComponentFixture::Check(SceneSerializer::DeserializeEntity(&scene, entity), false);
 	}
 
 	TEST_CASE("The scene step from format 1 rewrites each difference in the table")

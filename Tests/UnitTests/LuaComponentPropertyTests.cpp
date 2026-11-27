@@ -42,7 +42,7 @@ namespace
 		{ "TextComponent", "Colour:Colour Font:Font MaxWidth:number Text:string" },
 		{ "TilemapComponent", "IsTrigger:boolean Layer:string Mask:table of string Orientation:TilemapOrientation TileHeight:integer TileWidth:integer TilesHigh:integer TilesWide:integer Tileset:Tileset Tint:Colour" },
 		{ "TransformComponent", "Orientation:Quaternion Position:Vec3 Rotation:Vec3 Scale:Vec3" },
-		{ "WeldJoint2DComponent", "CollideConnected:boolean Damping:number Stiffness:number" },
+		{ "WeldJoint2DComponent", "CollideConnected:boolean ConnectedEntity:Entity Damping:number Stiffness:number" },
 		{ "WidgetComponent", "AnchorBottom:number AnchorLeft:number AnchorRight:number AnchorTop:number Disabled:boolean FixedHeight:boolean FixedWidth:boolean MarginBottom:number MarginLeft:number MarginRight:number MarginTop:number Position:Vec2 Rotation:number Size:Vec2" },
 	};
 

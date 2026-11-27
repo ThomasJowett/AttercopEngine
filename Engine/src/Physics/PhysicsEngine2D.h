@@ -26,6 +26,8 @@ public:
 
 	// Creates the bodies and joints for an entity and everything below it
 	void InitializeEntity(Entity root);
+	// Creates the bodies for the entities and everything below them, then their joints
+	void InitializeEntities(const std::vector<Entity>& roots);
 	void DestroyEntity(Entity entity);
 	bool HasPhysicsComponents(Entity entity);
 	// Registry on_destroy handler for RigidBody2D, collider and tilemap components
@@ -35,6 +37,8 @@ public:
 	static void ApplyRigidBodySettings(RigidBody2DComponent& rigidBodyComp);
 	// Recreates an entity's body and fixtures from its components, keeping its velocity
 	void RebuildBody(Entity entity);
+	// Replaces an entity's weld joint with one made from its component as it is now
+	void RebuildWeldJoint(Entity entity);
 
 	void SetGravity(Vector2f gravity);
 
@@ -46,6 +50,9 @@ public:
 
 private:
 	void InitializeBody(Entity entity);
+	// Welds to the connected entity's body, or the parent's, or the world; warns and makes none if the connected entity
+	// is missing, is the entity itself or has no body
+	void CreateWeldJoint(Entity entity);
 
 	// Declared before the world so it outlives it
 	Scope<b2DestructionListener> m_DestructionListener = nullptr;

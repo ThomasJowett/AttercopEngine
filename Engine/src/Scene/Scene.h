@@ -36,13 +36,15 @@ public:
 	// hint gives the entity that handle when it's free, as the play-mode snapshot does
 	Entity CreateEntity(Uuid id, const std::string& name = "", entt::entity hint = entt::null);
 
-	// Returns the roots it creates
+	// Copies every root of the prefab in one pass, so references between them point at the copies; returns the copies
 	std::vector<Entity> InstantiateScene(const Ref<Scene> prefab, const Vector3f& position);
 	Entity InstantiateEntity(const Entity prefab, const Vector3f& position);
 
 	bool RemoveEntity(Entity& entity);
 
 	Entity DuplicateEntity(Entity entity, Entity parent);
+	// Copies each entity under its own parent in one pass, so references between them point at the copies
+	std::vector<Entity> DuplicateEntities(const std::vector<Entity>& entities);
 
 	void OnRuntimeStart(bool createSnapshot = true);
 	void OnRuntimePause();
@@ -150,10 +152,12 @@ private:
 	// Lets the loader give a repeated ID to the first entity in the file that has it
 	void SwapIDs(Entity a, Entity b);
 
-	// Copy an entity and its children through the serializer: new UUIDs and no runtime state
-	Entity CloneEntity(Entity source);
-	// While running, set up physics for the root and scripts, behaviour trees and state machines for it and its children
-	void StartRuntimeState(Entity root);
+	// Copy entities and their children through the serializer in one load: new UUIDs and no runtime state
+	std::vector<Entity> CloneEntities(const std::vector<Entity>& sources);
+	// Under parent, keeping a copy with a physics body where it is in the world while running
+	void PlaceCopy(Entity copy, Entity parent);
+	// While running, set up physics for the roots, then scripts, behaviour trees and state machines for them and their children
+	void StartRuntimeState(const std::vector<Entity>& roots);
 
 	std::vector<std::function<void()>> m_DeferredActions;
 
