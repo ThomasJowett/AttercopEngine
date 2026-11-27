@@ -61,9 +61,13 @@ ignored, with a warning in the console giving the file and line, so a misspelt n
 | 3D vector | child element with `X`, `Y` and `Z` | `<Position X="0" Y="0" Z="0"/>` |
 | Colour | child element with `R`, `G`, `B`, `A` from 0 to 1 | `<Tint R="1" G="0.5" B="0" A="1"/>` |
 | Asset | child element named after the setting, with a `Filepath` relative to the project folder and `/` separators; a component's main asset is a `Filepath` on its own element | `<Texture Filepath="Sprites/Player.png"/>`, `<LuaScript Filepath="Scripts/Player.lua"/>` |
+| Entity | child element named after the setting, with the target's `ID`; `Name` is the target's name, written for people reading the file and ignored when loading | `<ConnectedEntity ID="6224437299739697637-3911424271900435661" Name="Floor"/>` |
 | List | one child element per item | `<Vertex X="0" Y="1"/>` |
 
-An asset that isn't set is left out. An unknown enum or layer name is reported in the console and
+An asset or entity that isn't set is left out. An entity points at another entity in the same
+scene by its `ID`, so a reference can be written by hand by copying the target's
+`<Entity ID="...">`. If no entity has that ID the reference is kept and shows as Missing. Copying
+entities (duplicate, paste, prefabs) points references between the copied entities at the copies. An unknown enum or layer name is reported in the console and
 the default is used. Angles are in degrees: a transform's and a widget's `Rotation`, and a camera's
 `Fov`. Lua uses radians for the same values.
 
