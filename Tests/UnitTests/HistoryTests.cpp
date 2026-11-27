@@ -1524,6 +1524,48 @@ TEST_CASE("Setting a value on a mixed selection is one step, undo gives each ent
 		CHECK(X(entity) == 5.0f);
 }
 
+TEST_CASE("Setting an entity reference on several entities is one step, undone to each one's own target and redone to the new one")
+{
+	using namespace HistoryTests;
+	RegisterComponents();
+	Scene scene("");
+	Entity floor = CreateMovable(scene, "Floor");
+	Entity wall = CreateMovable(scene, "Wall");
+	const std::vector<Entity> entities = { CreateMovable(scene, "A"), CreateMovable(scene, "B"), CreateMovable(scene, "C") };
+	for (Entity entity : entities)
+		entity.AddComponent<WeldJoint2DComponent>();
+	Entity(entities[1]).GetComponent<WeldJoint2DComponent>().connectedEntity = EntityReference{ wall.GetID() };
+	auto target = [](Entity entity) { return entity.GetComponent<WeldJoint2DComponent>().connectedEntity.id; };
+
+	SceneHistory history;
+	PropertyEdits edits(&history);
+	const Reflection::PropertyPath path = PropertyAt("WeldJoint2D.ConnectedEntity");
+	REQUIRE(MultiEdit::ReadField(entities, *path.component, path.field)->mixed);
+
+	// As the picker, a drop or the clear button does: one set on every entity
+	REQUIRE(edits.Set(entities, path, EntityReference{ floor.GetID() }));
+	history.End(scene);
+	REQUIRE(history.GetStepCount() == 1);
+	for (Entity entity : entities)
+		CHECK(target(entity) == floor.GetID());
+
+	history.Undo(scene);
+	CHECK(target(entities[0]).IsNil());
+	CHECK(target(entities[1]) == wall.GetID());
+	CHECK(target(entities[2]).IsNil());
+	history.Redo(scene);
+	for (Entity entity : entities)
+		CHECK(target(entity) == floor.GetID());
+
+	REQUIRE(edits.Set(entities, path, EntityReference{}));
+	history.End(scene);
+	for (Entity entity : entities)
+		CHECK(target(entity).IsNil());
+	history.Undo(scene);
+	for (Entity entity : entities)
+		CHECK(target(entity) == floor.GetID());
+}
+
 TEST_CASE("Setting one part of a vector on many entities leaves each one's other parts")
 {
 	using namespace HistoryTests;

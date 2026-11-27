@@ -1,0 +1,67 @@
+<Scene FormatVersion="2">
+    <Gravity X="0" Y="-9.81"/>
+    <Entity Name="Main Camera" ID="1846274005318512339-2269466431853106917">
+        <Transform>
+            <Position X="0" Y="0" Z="20"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Camera Primary="true" FixedAspectRatio="false" Projection="Perspective" OrthoSize="22" OrthoNear="-1" OrthoFar="-28" PerspectiveNear="0.01" PerspectiveFar="1000" Fov="45"/>
+    </Entity>
+    <Entity Name="Controller" ID="6634178214390263751-1178063271405928264">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <LuaScript Filepath="Scripts/EntityReferences/EntityReference.lua"/>
+    </Entity>
+    <Entity Name="Anchor" ID="4419350131781906201-7395306981206372412">
+        <Transform>
+            <Position X="0" Y="5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.3" G="0.3" B="0.35" A="1"/>
+        </Sprite>
+        <RigidBody2D Type="Static" FixedRotation="false" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
+            <Offset X="0" Y="0"/>
+            <Size X="0.5" Y="0.5"/>
+        </BoxCollider2D>
+    </Entity>
+    <Entity Name="Hanging" ID="8012966150227395843-2742330911625416047">
+        <Transform>
+            <Position X="2" Y="5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.9" G="0.6" B="0.2" A="1"/>
+        </Sprite>
+        <RigidBody2D Type="Dynamic" FixedRotation="false" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
+            <Offset X="0" Y="0"/>
+            <Size X="0.5" Y="0.5"/>
+        </BoxCollider2D>
+        <WeldJoint2D CollideConnected="false" Damping="0" Stiffness="0">
+            <ConnectedEntity ID="4419350131781906201-7395306981206372412" Name="Anchor"/>
+        </WeldJoint2D>
+    </Entity>
+    <Entity Name="Spare" ID="3570913716441932962-5523609414905361286">
+        <Transform>
+            <Position X="-5" Y="5" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Sprite TilingFactor="1">
+            <Tint R="0.3" G="0.3" B="0.35" A="1"/>
+        </Sprite>
+        <RigidBody2D Type="Static" FixedRotation="false" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+        <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
+            <Offset X="0" Y="0"/>
+            <Size X="0.5" Y="0.5"/>
+        </BoxCollider2D>
+    </Entity>
+</Scene>

@@ -1,0 +1,43 @@
+<Scene FormatVersion="2">
+    <Gravity X="0" Y="-9.81"/>
+    <Entity Name="Pair" ID="5946233130437931530-1013830815004297434">
+        <Transform>
+            <Position X="0" Y="0" Z="0"/>
+            <Rotation X="0" Y="0" Z="0"/>
+            <Scale X="1" Y="1" Z="1"/>
+        </Transform>
+        <Entity Name="Holder" ID="2290631764358307765-6984140316582640093">
+            <Transform>
+                <Position X="0" Y="0" Z="0"/>
+                <Rotation X="0" Y="0" Z="0"/>
+                <Scale X="1" Y="1" Z="1"/>
+            </Transform>
+            <Sprite TilingFactor="1">
+                <Tint R="0.3" G="0.3" B="0.35" A="1"/>
+            </Sprite>
+            <RigidBody2D Type="Static" FixedRotation="false" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+            <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
+                <Offset X="0" Y="0"/>
+                <Size X="0.5" Y="0.5"/>
+            </BoxCollider2D>
+        </Entity>
+        <Entity Name="Held" ID="7101447961652418720-3367790718873120533">
+            <Transform>
+                <Position X="1.5" Y="0" Z="0"/>
+                <Rotation X="0" Y="0" Z="0"/>
+                <Scale X="1" Y="1" Z="1"/>
+            </Transform>
+            <Sprite TilingFactor="1">
+                <Tint R="0.2" G="0.4" B="0.9" A="1"/>
+            </Sprite>
+            <RigidBody2D Type="Dynamic" FixedRotation="false" GravityScale="1" AngularDamping="0" LinearDamping="0"/>
+            <BoxCollider2D IsTrigger="false" Layer="Default" Mask="Everything">
+                <Offset X="0" Y="0"/>
+                <Size X="0.5" Y="0.5"/>
+            </BoxCollider2D>
+            <WeldJoint2D CollideConnected="false" Damping="0" Stiffness="0">
+                <ConnectedEntity ID="2290631764358307765-6984140316582640093" Name="Holder"/>
+            </WeldJoint2D>
+        </Entity>
+    </Entity>
+</Scene>
